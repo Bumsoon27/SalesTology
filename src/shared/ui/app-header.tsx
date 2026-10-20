@@ -2,16 +2,11 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { signOut } from "@/shared/auth/actions";
 import { requireUser } from "@/shared/auth/current-user";
+import { HeaderTicker } from "@/features/notifications/header-ticker";
 import { LogoMark, LogoWordmark } from "./logo";
 
-// A·B 공용 상단 바. [SalesTology|SOS] 전환 탭 (설계서 §6.1, §11)
-// A 영역 하위 메뉴 (B는 page 를 넘기지 않으면 표시되지 않는다)
-const CORE_PAGES = [
-  ["dashboard", "/dashboard", "우주"],
-  ["partners", "/partners", "파트너사"],
-] as const;
-
-export function AppHeader({ active, page }: { active: "core" | "sos"; page?: (typeof CORE_PAGES)[number][0] }) {
+// A·B 공용 상단 바. [SalesTology|SOS] 전환 탭 + 가운데 주요 알림 티커 (설계서 §6.1, §7.2, §11)
+export function AppHeader({ active }: { active: "core" | "sos" }) {
   const tab = (href: string, label: string, on: boolean) => (
     <Link
       href={href}
@@ -22,25 +17,23 @@ export function AppHeader({ active, page }: { active: "core" | "sos"; page?: (ty
   );
 
   return (
-    <header className="relative z-10 flex h-12 shrink-0 items-center gap-4 border-b border-line bg-bg/80 px-4 backdrop-blur">
-      <Link href="/dashboard" className="flex items-center gap-2">
-        <LogoMark size={24} />
-        <LogoWordmark className="text-sm" />
-      </Link>
-      <nav className="flex gap-0.5 rounded-lg border border-line p-0.5">
-        {tab("/dashboard", "SalesTology", active === "core")}
-        {tab("/sos", "SOS", active === "sos")}
-      </nav>
-      {page && (
-        <nav className="flex gap-3 text-xs">
-          {CORE_PAGES.map(([key, href, label]) => (
-            <Link key={key} href={href} className={page === key ? "text-fg" : "text-muted hover:text-fg"}>
-              {label}
-            </Link>
-          ))}
+    <header className="relative z-30 grid h-12 shrink-0 grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-line bg-bg/80 px-4 backdrop-blur">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <LogoMark size={24} />
+          <LogoWordmark className="text-sm" />
+        </Link>
+        <nav className="flex gap-0.5 rounded-lg border border-line p-0.5">
+          {tab("/dashboard", "SalesTology", active === "core")}
+          {tab("/sos", "SOS", active === "sos")}
         </nav>
-      )}
-      <div className="ml-auto flex items-center gap-3 text-xs">
+      </div>
+      <div className="flex min-w-0 justify-center">
+        <Suspense fallback={<span className="h-7 w-64 animate-pulse rounded-full bg-white/5" />}>
+          <HeaderTicker />
+        </Suspense>
+      </div>
+      <div className="flex items-center gap-2 text-xs">
         <Suspense fallback={<span className="text-muted">…</span>}>
           <UserMenu />
         </Suspense>
@@ -53,7 +46,7 @@ async function UserMenu() {
   const user = await requireUser();
   return (
     <>
-      <span className="text-muted">
+      <span className="mr-1 text-muted">
         <span className="text-fg">{user.name}</span> · {user.loginId}
       </span>
       <Link href="/me" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">

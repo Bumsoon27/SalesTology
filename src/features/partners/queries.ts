@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/shared/supabase/server";
 
-export type PartnerRole = "si" | "supplier";
+export type PartnerRole = "customer" | "si" | "supplier";
 
 export type Partner = {
   id: string;

@@ -6,7 +6,7 @@ import { createDeal, type CreateDealState } from "./actions";
 import { STAGE_LABEL, type DealStage } from "./types";
 import { PartnerPicker } from "@/features/partners/partner-picker";
 
-export type PartnerOption = { name: string; roles: ("si" | "supplier")[] };
+export type PartnerOption = { name: string; roles: ("customer" | "si" | "supplier")[] };
 
 const STAGES = Object.entries(STAGE_LABEL) as [DealStage, string][];
 const norm = (s: string) => s.replace(/\s|\(주\)|주식회사|㈜/g, "").toLowerCase();
@@ -20,6 +20,7 @@ export function NewDealDialog({
   partners: PartnerOption[];
   autoOpen?: boolean;
 }) {
+  const customerOptions = partners.filter((p) => p.roles.includes("customer")).map((p) => p.name);
   const siOptions = partners.filter((p) => p.roles.includes("si")).map((p) => p.name);
   const supplierOptions = partners.filter((p) => p.roles.includes("supplier")).map((p) => p.name);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -91,6 +92,24 @@ export function NewDealDialog({
                 onChange={(e) => setCustomer(e.target.value)}
                 required
               />
+              {customerOptions.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {customerOptions.slice(0, 12).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById("nd-customer") as HTMLInputElement | null;
+                        if (el) el.value = c;
+                        setCustomer(c);
+                      }}
+                      className={`rounded-full border px-2.5 py-0.5 text-[11px] ${customer === c ? "border-accent/60 bg-accent/15 text-fg" : "border-line text-muted hover:text-fg"}`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              )}
               {similar && <p className="mt-1 text-xs text-st-yellow">비슷한 회사가 있습니다: {similar}</p>}
               {err("customer")}
             </div>
@@ -114,7 +133,7 @@ export function NewDealDialog({
               </div>
             </div>
             <div className="sm:col-span-2">
-              <span className={label}>SI 업체 — 등록된 파트너에서 선택 (없으면 비워두기)</span>
+              <span className={label}>매출처(SI) — 등록된 파트너에서 선택 (없으면 비워두기)</span>
               <PartnerPicker name="si" options={siOptions} placeholder="목록에 없는 SI 이름 입력 후 Enter" />
             </div>
             <div className="sm:col-span-2">

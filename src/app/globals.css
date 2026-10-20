@@ -158,3 +158,9 @@ body {
   }
 }
 
+
+/* 티커: 아래에서 위로 들어온다 */
+@keyframes ticker-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

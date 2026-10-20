@@ -1,18 +1,19 @@
 import "server-only";
 
+import { cache } from "react";
 import { createClient } from "@/shared/supabase/server";
 import type { DealRow } from "./types";
 
 const DEAL_SELECT = `
-  id, name, stage, status, amount, last_activity_at,
+  id, name, stage, status, amount, last_activity_at, period_end,
   customer:companies!deals_customer_id_fkey ( id, name ),
   deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
   deal_tasks ( id, type, title, company_id, due_date, done_at, excluded_reason, deleted_at ),
   issues ( id, title, status )
 `;
 
-/** 내 보기: 내가 담당한 사업 (RLS가 부문 범위를 한 번 더 막는다) */
-export async function getMyDeals(userId: string): Promise<DealRow[]> {
+/** 내 보기: 내가 담당한 사업 (RLS가 부문 범위를 한 번 더 막는다). 헤더 티커·대시보드가 한 요청에서 같이 쓴다 */
+export const getMyDeals = cache(async (userId: string): Promise<DealRow[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("deals")
@@ -29,7 +30,7 @@ export async function getMyDeals(userId: string): Promise<DealRow[]> {
     ...row,
     deal_tasks: row.deal_tasks.filter((t) => !t.deleted_at),
   }));
-}
+});
 
 /** 회사명 자동완성용 (부문 내) */
 export async function getCompanyNames(): Promise<string[]> {
