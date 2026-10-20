@@ -31,6 +31,7 @@ export type DealRow = {
   status: DealStatus;
   amount: number | null;
   last_activity_at: string;
+  period_end?: string | null;
   customer: { id: string; name: string };
   deal_parties: PartyRow[];
   deal_tasks: TaskRow[];

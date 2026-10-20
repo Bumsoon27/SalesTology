@@ -7,7 +7,7 @@ import { PartnerForm } from "@/features/partners/partner-form";
 export default function PartnersPage() {
   return (
     <>
-      <AppHeader active="core" page="partners" />
+      <AppHeader active="core" />
       <main className="mx-auto grid w-full max-w-6xl flex-1 gap-6 p-6 lg:grid-cols-[360px_1fr]">
         <div className="lg:sticky lg:top-6 lg:self-start">
           <PartnerForm />
@@ -26,14 +26,14 @@ export default function PartnersPage() {
   );
 }
 
-const ROLE_LABEL = { si: "SI", supplier: "매입처" } as const;
+const ROLE_LABEL = { customer: "고객사", si: "매출처(SI)", supplier: "매입처" } as const;
 
 async function PartnerList() {
   const partners = await getPartners();
   if (partners.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-line p-10 text-center text-sm text-muted">
-        아직 등록된 파트너사가 없습니다. 왼쪽에서 자주 함께하는 SI·매입처를 먼저 등록해 두세요.
+        아직 등록된 파트너사가 없습니다. 왼쪽에서 자주 함께하는 고객사·SI·매입처를 먼저 등록해 두세요.
       </div>
     );
   }

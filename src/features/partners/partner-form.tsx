@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { registerPartner, type RegisterPartnerState } from "./actions";
 
-export function PartnerForm() {
+export function PartnerForm({ bare = false }: { bare?: boolean }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState<RegisterPartnerState, FormData>(registerPartner, { ok: false });
 
@@ -13,17 +13,18 @@ export function PartnerForm() {
 
   const label = "mb-1.5 block text-xs text-muted";
   return (
-    <form ref={formRef} action={action} className="space-y-4 rounded-2xl border border-line bg-surface/70 p-5">
-      <h2 className="text-sm font-semibold">파트너사 등록</h2>
+    <form ref={formRef} action={action} className={bare ? "space-y-4" : "space-y-4 rounded-2xl border border-line bg-surface/70 p-5"}>
+      {!bare && <h2 className="text-sm font-semibold">파트너사 등록</h2>}
       <div>
         <label className={label} htmlFor="pf-name">회사명 *</label>
         <input id="pf-name" name="name" className="field" placeholder="예: 가람정보" required />
       </div>
       <div>
-        <span className={label}>역할 * (둘 다 가능)</span>
+        <span className={label}>역할 * (여러 개 가능)</span>
         <div className="flex gap-2">
           {[
-            ["si", "SI 업체"],
+            ["customer", "고객사"],
+            ["si", "매출처(SI)"],
             ["supplier", "매입처"],
           ].map(([v, l]) => (
             <label key={v} className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-line px-3 py-2.5 text-sm text-muted has-[:checked]:border-accent/60 has-[:checked]:bg-accent/10 has-[:checked]:text-fg">

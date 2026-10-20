@@ -9,12 +9,13 @@ import { todayInSeoul } from "@/features/deals/status";
 import { NewDealDialog } from "@/features/deals/new-deal-dialog";
 import { RealtimeRefresh } from "@/features/deals/realtime-refresh";
 import { getPartners } from "@/features/partners/queries";
+import { PartnerDialog } from "@/features/partners/partner-dialog";
 
 // A 영역 메인 대시보드: '나' 중심의 토폴로지 우주 (설계서 §6)
 export default function DashboardPage() {
   return (
     <>
-      <AppHeader active="core" page="dashboard" />
+      <AppHeader active="core" />
       <main className="relative flex-1 overflow-hidden">
         <Suspense fallback={<p className="p-6 text-sm text-muted">우주를 불러오는 중…</p>}>
           <DashboardUniverse />
@@ -43,10 +44,13 @@ async function DashboardUniverse() {
         </div>
       )}
 
-      <div className="absolute right-4 top-4 flex items-center gap-2">
+      <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
         <RealtimeRefresh />
         {user.teamId ? (
-          <NewDealDialog companyNames={companyNames} partners={partners.map((p) => ({ name: p.name, roles: p.roles }))} />
+          <>
+            <NewDealDialog companyNames={companyNames} partners={partners.map((p) => ({ name: p.name, roles: p.roles }))} />
+            <PartnerDialog />
+          </>
         ) : (
           <span className="rounded-lg border border-line px-3 py-1.5 text-xs text-muted">관리자 계정은 부문이 없어 사업을 등록할 수 없습니다</span>
         )}
