@@ -1,0 +1,9 @@
+#!/bin/sh
+# main 직접 push 차단 (무료 비공개 저장소라 GitHub 브랜치 보호를 쓸 수 없어 로컬에서 막는다)
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "✖ main 에 직접 push 할 수 없습니다. a/... 또는 b/... 브랜치에서 PR 을 여세요." >&2
+    exit 1
+  fi
+done
+exit 0
