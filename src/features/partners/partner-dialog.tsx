@@ -12,7 +12,7 @@ export function PartnerDialog() {
       <button
         type="button"
         onClick={() => ref.current?.showModal()}
-        className="rounded-lg border border-line bg-surface/70 px-3 py-1.5 text-xs text-fg backdrop-blur transition-colors hover:border-accent/40"
+        className="min-w-[7.5rem] rounded-lg bg-fg px-3 py-1.5 text-center text-xs font-semibold text-bg shadow-[0_0_24px_rgba(154,171,255,0.35)] transition-opacity hover:opacity-90"
       >
         + 파트너사 등록
       </button>

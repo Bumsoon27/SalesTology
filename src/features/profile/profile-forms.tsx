@@ -17,7 +17,7 @@ export function NameForm({ name }: { name: string }) {
   return (
     <form action={action} className={card}>
       <h2 className="text-sm font-semibold">실명</h2>
-      <p className="text-xs text-muted">우주 중심 노드와 사업의 영업대표로 표시됩니다.</p>
+      <p className="text-xs text-muted">SalesTology 대시보드의 중심과 사업의 영업대표로 표시됩니다.</p>
       <input name="name" defaultValue={name} className="field" required minLength={2} maxLength={30} />
       <Result state={state} />
       <button type="submit" disabled={pending} className="btn-primary disabled:opacity-50">
