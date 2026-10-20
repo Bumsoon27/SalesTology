@@ -14,7 +14,7 @@
     "seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts",
     "db:new": "supabase migration new",
     "db:lint": "supabase db lint",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "node scripts/setup-hooks.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
