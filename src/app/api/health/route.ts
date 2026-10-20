@@ -1,19 +1,26 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/shared/supabase/server";
+import { publicSupabaseEnv } from "@/shared/supabase/env";
 
-// 배포 확인용: 앱과 Supabase 연결 상태, 어느 환경·커밋이 떠 있는지 보여준다.
+// 배포 확인용: Supabase 연결·키 유효성, 어느 환경·커밋이 떠 있는지 보여준다.
+// 테이블은 조회하지 않는다 — 비로그인(anon)은 RLS·권한으로 모든 테이블이 막혀 있는 게 정상이다.
 export async function GET() {
-  const supabase = await createClient();
-  const { error } = await supabase.from("teams").select("id", { head: true, count: "exact" });
+  let supabase: "connected" | "error" = "error";
+  try {
+    const { url, key } = publicSupabaseEnv();
+    const res = await fetch(`${url}/auth/v1/health`, { headers: { apikey: key }, cache: "no-store" });
+    if (res.ok) supabase = "connected";
+  } catch {
+    // 환경변수 누락 또는 네트워크 오류
+  }
 
   return NextResponse.json(
     {
-      ok: !error,
-      db: error ? "error" : "connected",
+      ok: supabase === "connected",
+      supabase,
       env: process.env.VERCEL_ENV ?? "local",
       commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
       branch: process.env.VERCEL_GIT_COMMIT_REF ?? null,
     },
-    { status: error ? 503 : 200 },
+    { status: supabase === "connected" ? 200 : 503 },
   );
 }
