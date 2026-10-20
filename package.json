@@ -13,7 +13,8 @@
     "check": "npm run lint && npm run typecheck && npm run test",
     "seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts",
     "db:new": "supabase migration new",
-    "db:lint": "supabase db lint"
+    "db:lint": "supabase db lint",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
