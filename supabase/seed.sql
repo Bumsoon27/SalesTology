@@ -1,0 +1,2 @@
+-- 로컬 개발용 시드 (supabase db reset 시 실행). 부문 4개는 마이그레이션에 포함되어 있다.
+-- 관리자 계정은 npm run seed:admin 으로 만든다.

@@ -1,0 +1,76 @@
+name: DB 마이그레이션 적용
+
+# main 에 마이그레이션이 합쳐지면 dev → prod 순서로 원격 Supabase에 적용한다.
+# 비밀값은 GitHub → Settings → Environments 의 dev / production 에 각각 넣는다.
+#   secrets: SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD
+#   variables: SUPABASE_PROJECT_ID
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**"]
+  workflow_dispatch:
+
+# 두 사람이 연달아 합쳐도 마이그레이션이 동시에 돌지 않게 한 줄로 세운다.
+concurrency:
+  group: db-migrate
+  cancel-in-progress: false
+
+jobs:
+  dev:
+    name: dev DB 적용
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: 설정 확인
+        id: cfg
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_ID" ]; then
+            echo "::warning::dev 환경 비밀값이 아직 없습니다. 마이그레이션을 건너뜁니다."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: supabase/setup-cli@v1
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          version: 2.121.0
+      - if: steps.cfg.outputs.ready == 'true'
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_ID"
+          supabase db push --dry-run
+          supabase db push
+
+  prod:
+    name: prod DB 적용
+    needs: dev
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: 설정 확인
+        id: cfg
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_ID" ]; then
+            echo "::warning::production 환경 비밀값이 아직 없습니다. 마이그레이션을 건너뜁니다."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: supabase/setup-cli@v1
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          version: 2.121.0
+      - if: steps.cfg.outputs.ready == 'true'
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_ID"
+          supabase db push --dry-run
+          supabase db push

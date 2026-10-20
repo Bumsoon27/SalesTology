@@ -1,0 +1,25 @@
+# 설계서 §11.1 — 영역별 소유자. 소유자가 PR 리뷰어로 자동 지정된다.
+# TODO: @DJ_GITHUB_ID 를 DJ의 실제 GitHub 아이디로 바꾸세요.
+
+# 기본값: 둘 다
+*                               @Bumsoon27 @DJ_GITHUB_ID
+
+# A 영역 (SB)
+/src/app/(auth)/                @Bumsoon27
+/src/app/(core)/                @Bumsoon27
+/src/features/topology/         @Bumsoon27
+/src/features/notifications/    @Bumsoon27
+/src/features/deals/            @Bumsoon27
+
+# B 영역 (DJ)
+/src/app/sos/                   @DJ_GITHUB_ID
+/src/features/sos/              @DJ_GITHUB_ID
+
+# 공용 — 상대방 리뷰 필수
+/src/shared/                    @Bumsoon27 @DJ_GITHUB_ID
+/src/proxy.ts                   @Bumsoon27 @DJ_GITHUB_ID
+/supabase/                      @Bumsoon27 @DJ_GITHUB_ID
+/.github/                       @Bumsoon27 @DJ_GITHUB_ID
+/package.json                   @Bumsoon27 @DJ_GITHUB_ID
+/package-lock.json              @Bumsoon27 @DJ_GITHUB_ID
+/CLAUDE.md                      @Bumsoon27 @DJ_GITHUB_ID

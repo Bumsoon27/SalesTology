@@ -1,0 +1,5 @@
+# Windows(CRLF)·Linux CI(LF) 혼용 시 diff 폭발 방지: 저장소에는 항상 LF
+* text=auto eol=lf
+*.ico binary
+*.png binary
+*.jpg binary
