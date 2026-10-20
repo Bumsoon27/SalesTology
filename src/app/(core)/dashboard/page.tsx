@@ -3,7 +3,11 @@ import { requireUser } from "@/shared/auth/current-user";
 import { AppHeader } from "@/shared/ui/app-header";
 import { Universe } from "@/features/topology/universe";
 import { UniverseLegend } from "@/features/topology/universe-legend";
-import { buildDemoUniverse } from "@/features/topology/demo-data";
+import { buildMyUniverse } from "@/features/topology/build-graph";
+import { getCompanyNames, getMyDeals } from "@/features/deals/queries";
+import { todayInSeoul } from "@/features/deals/status";
+import { NewDealDialog } from "@/features/deals/new-deal-dialog";
+import { RealtimeRefresh } from "@/features/deals/realtime-refresh";
 
 // A 영역 메인 대시보드: '나' 중심의 토폴로지 우주 (설계서 §6)
 export default function DashboardPage() {
@@ -21,20 +25,37 @@ export default function DashboardPage() {
 
 async function DashboardUniverse() {
   const user = await requireUser();
-  // TODO(A1): 실제 사업 데이터로 교체 — 영업기회 테이블·입력 폼이 들어오면 build-graph 로 만든다
-  const data = buildDemoUniverse(user.name);
+  const [deals, companyNames] = await Promise.all([getMyDeals(user.id), getCompanyNames()]);
+  const data = buildMyUniverse({ id: user.id, name: user.name }, deals, todayInSeoul());
+  const isEmpty = data.nodes.length === 1;
 
   return (
     <>
       <div className="absolute inset-0">
         <Universe data={data} />
       </div>
-      <div className="pointer-events-none absolute inset-x-4 bottom-4 flex items-end justify-between">
-        <div className="pointer-events-auto">
+
+      {isEmpty && (
+        <div className="pointer-events-none absolute inset-x-0 top-[58%] flex flex-col items-center gap-2 text-center">
+          <p className="text-sm text-fg">첫 영업기회를 등록해 보세요</p>
+          <p className="text-xs text-muted">사업이 늘어날수록 나를 중심으로 우주가 넓어집니다</p>
+        </div>
+      )}
+
+      <div className="absolute right-4 top-4 flex items-center gap-2">
+        <RealtimeRefresh />
+        {user.teamId ? (
+          <NewDealDialog companyNames={companyNames} />
+        ) : (
+          <span className="rounded-lg border border-line px-3 py-1.5 text-xs text-muted">관리자 계정은 부문이 없어 사업을 등록할 수 없습니다</span>
+        )}
+      </div>
+
+      {!isEmpty && (
+        <div className="absolute bottom-4 left-4">
           <UniverseLegend data={data} />
         </div>
-        <span className="rounded-full border border-st-yellow/40 px-3 py-1 text-xs text-st-yellow">데모 데이터</span>
-      </div>
+      )}
     </>
   );
 }
