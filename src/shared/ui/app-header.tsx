@@ -56,6 +56,9 @@ async function UserMenu() {
       <span className="text-muted">
         <span className="text-fg">{user.name}</span> · {user.loginId}
       </span>
+      <Link href="/me" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">
+        마이페이지
+      </Link>
       <form action={signOut}>
         <button type="submit" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">
           로그아웃

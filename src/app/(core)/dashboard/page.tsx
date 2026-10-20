@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { requireUser } from "@/shared/auth/current-user";
 import { AppHeader } from "@/shared/ui/app-header";
-import { Universe } from "@/features/topology/universe";
+import { UniverseShell } from "@/features/topology/universe-shell";
 import { UniverseLegend } from "@/features/topology/universe-legend";
 import { buildMyUniverse } from "@/features/topology/build-graph";
 import { getCompanyNames, getMyDeals } from "@/features/deals/queries";
@@ -34,9 +34,7 @@ async function DashboardUniverse() {
 
   return (
     <>
-      <div className="absolute inset-0">
-        <Universe data={data} expandAll={expandAll} />
-      </div>
+      <UniverseShell data={data} expandAll={expandAll} />
 
       {isEmpty && (
         <div className="pointer-events-none absolute inset-x-0 top-[58%] flex flex-col items-center gap-2 text-center">
@@ -55,7 +53,7 @@ async function DashboardUniverse() {
       </div>
 
       {!isEmpty && (
-        <div className="absolute bottom-4 left-4">
+        <div className="absolute bottom-4 right-4">
           <UniverseLegend data={data} />
         </div>
       )}
