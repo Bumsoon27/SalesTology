@@ -15,7 +15,7 @@ export default function PartnersPage() {
         <section className="space-y-3">
           <div className="flex items-baseline justify-between">
             <h1 className="text-lg font-semibold">파트너사</h1>
-            <p className="text-xs text-muted">여러 사업에 함께할수록 우주에서 더 크게 빛납니다</p>
+            <p className="text-xs text-muted">여러 사업에 함께할수록 대시보드에서 더 크게 빛납니다</p>
           </div>
           <Suspense fallback={<p className="text-sm text-muted">불러오는 중…</p>}>
             <PartnerList />

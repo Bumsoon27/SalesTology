@@ -26,7 +26,7 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
         <div className="flex flex-col items-center gap-3 pb-2">
           <LogoMark size={56} />
           <LogoWordmark className="text-2xl" />
-          <p className="text-sm text-muted">영업의 우주를 한눈에</p>
+          <p className="text-sm text-muted">영업의 모든 연결을 한눈에</p>
         </div>
 
         <label className="block space-y-1.5">

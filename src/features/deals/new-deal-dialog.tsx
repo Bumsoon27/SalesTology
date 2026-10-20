@@ -58,7 +58,7 @@ export function NewDealDialog({
           setCustomer("");
           dialogRef.current?.showModal();
         }}
-        className="rounded-lg bg-fg px-3 py-1.5 text-xs font-semibold text-bg shadow-[0_0_24px_rgba(154,171,255,0.35)] transition-opacity hover:opacity-90"
+        className="min-w-[7.5rem] rounded-lg bg-fg px-3 py-1.5 text-center text-xs font-semibold text-bg shadow-[0_0_24px_rgba(154,171,255,0.35)] transition-opacity hover:opacity-90"
       >
         + 새 영업기회
       </button>
