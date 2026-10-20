@@ -4,11 +4,24 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { createDeal, type CreateDealState } from "./actions";
 import { STAGE_LABEL, type DealStage } from "./types";
+import { PartnerPicker } from "@/features/partners/partner-picker";
+
+export type PartnerOption = { name: string; roles: ("si" | "supplier")[] };
 
 const STAGES = Object.entries(STAGE_LABEL) as [DealStage, string][];
 const norm = (s: string) => s.replace(/\s|\(주\)|주식회사|㈜/g, "").toLowerCase();
 
-export function NewDealDialog({ companyNames, autoOpen = false }: { companyNames: string[]; autoOpen?: boolean }) {
+export function NewDealDialog({
+  companyNames,
+  partners,
+  autoOpen = false,
+}: {
+  companyNames: string[];
+  partners: PartnerOption[];
+  autoOpen?: boolean;
+}) {
+  const siOptions = partners.filter((p) => p.roles.includes("si")).map((p) => p.name);
+  const supplierOptions = partners.filter((p) => p.roles.includes("supplier")).map((p) => p.name);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState<CreateDealState, FormData>(createDeal, { ok: false });
@@ -100,13 +113,13 @@ export function NewDealDialog({ companyNames, autoOpen = false }: { companyNames
                 ))}
               </div>
             </div>
-            <div>
-              <label className={label} htmlFor="nd-si">SI 업체 (쉼표로 여러 개)</label>
-              <input id="nd-si" name="si" list="nd-companies" className="field" placeholder="없으면 비워두기" />
+            <div className="sm:col-span-2">
+              <span className={label}>SI 업체 — 등록된 파트너에서 선택 (없으면 비워두기)</span>
+              <PartnerPicker name="si" options={siOptions} placeholder="목록에 없는 SI 이름 입력 후 Enter" />
             </div>
-            <div>
-              <label className={label} htmlFor="nd-sup">매입처 (쉼표로 여러 개)</label>
-              <input id="nd-sup" name="suppliers" className="field" />
+            <div className="sm:col-span-2">
+              <span className={label}>매입처 — 등록된 파트너에서 선택</span>
+              <PartnerPicker name="suppliers" options={supplierOptions} placeholder="목록에 없는 매입처 이름 입력 후 Enter" />
             </div>
             <div>
               <label className={label} htmlFor="nd-amount">사업 규모 (원, 부가세 별도)</label>

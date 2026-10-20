@@ -14,6 +14,8 @@ export type UniverseNode = {
   parentId: string | null;
   /** 상태 사유 요약 (예: "이슈 2", "배송 D-5") */
   reason?: string;
+  /** 실제 회사 id. 같은 회사가 여러 자리에 나타나면 호버 시 함께 빛난다 (설계서 §6.2) */
+  refId?: string;
 };
 
 export type UniverseData = {

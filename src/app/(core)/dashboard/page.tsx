@@ -8,12 +8,13 @@ import { getCompanyNames, getMyDeals } from "@/features/deals/queries";
 import { todayInSeoul } from "@/features/deals/status";
 import { NewDealDialog } from "@/features/deals/new-deal-dialog";
 import { RealtimeRefresh } from "@/features/deals/realtime-refresh";
+import { getPartners } from "@/features/partners/queries";
 
 // A 영역 메인 대시보드: '나' 중심의 토폴로지 우주 (설계서 §6)
 export default function DashboardPage() {
   return (
     <>
-      <AppHeader active="core" />
+      <AppHeader active="core" page="dashboard" />
       <main className="relative flex-1 overflow-hidden">
         <Suspense fallback={<p className="p-6 text-sm text-muted">우주를 불러오는 중…</p>}>
           <DashboardUniverse />
@@ -25,14 +26,16 @@ export default function DashboardPage() {
 
 async function DashboardUniverse() {
   const user = await requireUser();
-  const [deals, companyNames] = await Promise.all([getMyDeals(user.id), getCompanyNames()]);
+  const [deals, companyNames, partners] = await Promise.all([getMyDeals(user.id), getCompanyNames(), getPartners()]);
   const data = buildMyUniverse({ id: user.id, name: user.name }, deals, todayInSeoul());
   const isEmpty = data.nodes.length === 1;
+  // 파트너가 많지 않으면 처음부터 펼쳐서 연관 관계가 보이게 한다
+  const expandAll = data.nodes.filter((n) => n.kind === "party").length <= 60;
 
   return (
     <>
       <div className="absolute inset-0">
-        <Universe data={data} />
+        <Universe data={data} expandAll={expandAll} />
       </div>
 
       {isEmpty && (
@@ -45,7 +48,7 @@ async function DashboardUniverse() {
       <div className="absolute right-4 top-4 flex items-center gap-2">
         <RealtimeRefresh />
         {user.teamId ? (
-          <NewDealDialog companyNames={companyNames} />
+          <NewDealDialog companyNames={companyNames} partners={partners.map((p) => ({ name: p.name, roles: p.roles }))} />
         ) : (
           <span className="rounded-lg border border-line px-3 py-1.5 text-xs text-muted">관리자 계정은 부문이 없어 사업을 등록할 수 없습니다</span>
         )}

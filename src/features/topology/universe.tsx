@@ -224,12 +224,19 @@ export function Universe({ data, interactive = true, expandAll = false, onSelect
 
     // ── 호버·클릭 ───────────────────────────────────
     const neighborhood = (id: string) => {
-      const set = new Set<string>([id]);
-      let cur = all.get(id);
-      while (cur?.parentId) {
-        set.add(cur.parentId);
-        cur = all.get(cur.parentId);
-      }
+      const set = new Set<string>();
+      const addWithAncestors = (x: string) => {
+        set.add(x);
+        let cur = all.get(x);
+        while (cur?.parentId) {
+          set.add(cur.parentId);
+          cur = all.get(cur.parentId);
+        }
+      };
+      addWithAncestors(id);
+      // 같은 회사가 다른 사업에도 있으면 그 자리까지 함께 밝힌다 (파트너 연관도)
+      const ref = all.get(id)?.refId;
+      if (ref) for (const n of all.values()) if (n.refId === ref) addWithAncestors(n.id);
       const walk = (x: string) => (childrenOf.get(x) ?? []).forEach((c) => (set.add(c), walk(c)));
       walk(id);
       return set;

@@ -5,7 +5,13 @@ import { requireUser } from "@/shared/auth/current-user";
 import { LogoMark, LogoWordmark } from "./logo";
 
 // A·B 공용 상단 바. [SalesTology|SOS] 전환 탭 (설계서 §6.1, §11)
-export function AppHeader({ active }: { active: "core" | "sos" }) {
+// A 영역 하위 메뉴 (B는 page 를 넘기지 않으면 표시되지 않는다)
+const CORE_PAGES = [
+  ["dashboard", "/dashboard", "우주"],
+  ["partners", "/partners", "파트너사"],
+] as const;
+
+export function AppHeader({ active, page }: { active: "core" | "sos"; page?: (typeof CORE_PAGES)[number][0] }) {
   const tab = (href: string, label: string, on: boolean) => (
     <Link
       href={href}
@@ -25,6 +31,15 @@ export function AppHeader({ active }: { active: "core" | "sos" }) {
         {tab("/dashboard", "SalesTology", active === "core")}
         {tab("/sos", "SOS", active === "sos")}
       </nav>
+      {page && (
+        <nav className="flex gap-3 text-xs">
+          {CORE_PAGES.map(([key, href, label]) => (
+            <Link key={key} href={href} className={page === key ? "text-fg" : "text-muted hover:text-fg"}>
+              {label}
+            </Link>
+          ))}
+        </nav>
+      )}
       <div className="ml-auto flex items-center gap-3 text-xs">
         <Suspense fallback={<span className="text-muted">…</span>}>
           <UserMenu />

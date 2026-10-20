@@ -20,6 +20,14 @@ export function buildMyUniverse(me: { id: string; name: string }, deals: DealRow
   const customerTotals = [...byCustomer.values()].map((c) => logAmt(c.deals.reduce((s, d) => s + (d.amount ?? 0), 0)));
   const maxCustomer = Math.max(1, ...customerTotals);
 
+  // 파트너별 참여 사업 수 (연관도)
+  const partnerDealCount = new Map<string, number>();
+  for (const d of visible) {
+    for (const id of new Set(d.deal_parties.map((p) => p.company.id))) {
+      partnerDealCount.set(id, (partnerDealCount.get(id) ?? 0) + 1);
+    }
+  }
+
   for (const [customerId, c] of byCustomer) {
     const cid = `c:${customerId}`;
     const computed: { status: DealRow["status"]; last_activity_at: string; computed: UniverseNode["status"] }[] = [];
@@ -39,14 +47,17 @@ export function buildMyUniverse(me: { id: string; name: string }, deals: DealRow
       });
       for (const p of d.deal_parties) {
         const ps = computePartyStatus(d.deal_tasks, p.company.id, today);
+        const shared = partnerDealCount.get(p.company.id) ?? 1;
         nodes.push({
           id: `p:${p.id}`,
           kind: "party",
-          label: `${p.company.name} · ${p.role === "si" ? "SI" : "매입"}`,
+          label: `${p.company.name} · ${p.role === "si" ? "SI" : "매입"}${shared > 1 ? ` · ${shared}건` : ""}`,
           status: ps.status,
           reason: ps.reason,
-          weight: 0.2,
+          // 여러 사업에 함께하는 파트너일수록 크고 밝다
+          weight: Math.min(1, 0.2 + 0.2 * (shared - 1)),
           parentId: did,
+          refId: p.company.id,
         });
       }
     }
@@ -59,6 +70,7 @@ export function buildMyUniverse(me: { id: string; name: string }, deals: DealRow
       status: computeCompanyStatus(computed, today),
       weight: 0.2 + 0.8 * (total / maxCustomer),
       parentId: "me",
+      refId: customerId,
     });
   }
 
