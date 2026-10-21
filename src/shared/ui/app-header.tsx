@@ -17,23 +17,24 @@ export function AppHeader({ active }: { active: "core" | "sos" }) {
   );
 
   return (
-    <header className="relative z-30 grid h-12 shrink-0 grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-line bg-bg/80 px-4 backdrop-blur">
-      <div className="flex items-center gap-4">
+    <header className="pt-safe relative z-30 grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 border-b border-line bg-bg/80 px-3 py-2 backdrop-blur sm:h-12 sm:px-4 sm:py-0">
+      <div className="flex items-center gap-3 sm:gap-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <LogoMark size={24} />
-          <LogoWordmark className="text-sm" />
+          <LogoWordmark className="hidden text-sm sm:inline" />
         </Link>
         <nav className="flex gap-0.5 rounded-lg border border-line p-0.5">
           {tab("/dashboard", "SalesTology", active === "core")}
           {tab("/sos", "SOS", active === "sos")}
         </nav>
       </div>
-      <div className="flex min-w-0 justify-center">
+      {/* 모바일에서는 둘째 줄 전체 폭 */}
+      <div className="order-last col-span-3 flex min-w-0 justify-center sm:order-none sm:col-span-1">
         <Suspense fallback={<span className="h-7 w-64 animate-pulse rounded-full bg-white/5" />}>
           <HeaderTicker />
         </Suspense>
       </div>
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex items-center justify-end gap-2 text-xs">
         <Suspense fallback={<span className="text-muted">…</span>}>
           <UserMenu />
         </Suspense>
@@ -44,11 +45,8 @@ export function AppHeader({ active }: { active: "core" | "sos" }) {
 
 async function UserMenu() {
   const user = await requireUser();
-  return (
+  const links = (
     <>
-      <span className="mr-1 text-muted">
-        <span className="text-fg">{user.name}</span> · {user.loginId}
-      </span>
       {user.role === "admin" && (
         <Link href="/admin" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">
           관리자
@@ -58,10 +56,30 @@ async function UserMenu() {
         마이페이지
       </Link>
       <form action={signOut}>
-        <button type="submit" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">
+        <button type="submit" className="w-full rounded-md border border-line px-2 py-1 text-left text-muted hover:text-fg">
           로그아웃
         </button>
       </form>
+    </>
+  );
+  return (
+    <>
+      {/* 모바일: 이름 첫 글자 버튼 하나로 묶는다 */}
+      <details className="relative sm:hidden">
+        <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full border border-line bg-surface text-sm text-fg">
+          {user.name.slice(0, 1)}
+        </summary>
+        <div className="absolute right-0 top-10 z-40 flex w-44 flex-col gap-1.5 rounded-xl border border-line bg-surface p-2 shadow-2xl">
+          <p className="px-1 pb-1 text-muted">
+            <span className="text-fg">{user.name}</span> · {user.loginId}
+          </p>
+          {links}
+        </div>
+      </details>
+      <span className="mr-1 hidden text-muted sm:inline">
+        <span className="text-fg">{user.name}</span> · {user.loginId}
+      </span>
+      <div className="hidden items-center gap-2 sm:flex">{links}</div>
     </>
   );
 }

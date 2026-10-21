@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist } from "next/font/google";
+import { InstallPrompt } from "@/shared/ui/install-prompt";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -7,23 +8,34 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   title: "SalesTology",
-  description: "영업 사업·고객사·관계사 토폴로지 대시보드",
+  description: "영업의 모든 연결을 한눈에",
+  applicationName: "SalesTology",
+  // iOS 홈 화면 앱: 주소창 없이 전체 화면, 상태바는 검정 배경에 흰 글씨
+  appleWebApp: { capable: true, title: "SalesTology", statusBarStyle: "black-translucent" },
+  icons: { apple: "/apple-touch-icon.png" },
+  formatDetection: { telephone: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#050507",
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  // 키보드가 올라오면 화면 높이를 줄여 입력칸이 가려지지 않게
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="h-full flex flex-col bg-bg text-fg">{children}</body>
+    <html lang="ko" className={`${geistSans.variable} h-full antialiased`}>
+      {/* dvh: 모바일 주소창이 나타나고 사라져도 높이가 튀지 않게 */}
+      <body className="flex h-dvh flex-col bg-bg text-fg">
+        {children}
+        <InstallPrompt />
+      </body>
     </html>
   );
 }

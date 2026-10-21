@@ -11,7 +11,7 @@ export default function SignupPage() {
   return (
     <main className="relative flex flex-1 items-center justify-center overflow-hidden p-6">
       <div className="pointer-events-none absolute inset-0 opacity-45" aria-hidden>
-        <Universe data={backdrop} interactive={false} expandAll />
+        <Universe data={backdrop} interactive={false} />
       </div>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,var(--bg)_75%)]" aria-hidden />
 
