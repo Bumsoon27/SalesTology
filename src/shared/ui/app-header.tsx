@@ -10,20 +10,20 @@ export function AppHeader({ active }: { active: "core" | "sos" }) {
   const tab = (href: string, label: string, on: boolean) => (
     <Link
       href={href}
-      className={`rounded-md px-3 py-1 text-xs transition-colors ${on ? "bg-white/10 text-fg" : "text-muted hover:text-fg"}`}
+      className={`rounded-md px-3 py-1 text-xs transition-colors whitespace-nowrap ${on ? "bg-white/[0.14] font-medium text-white" : "text-[#b4b7c3] hover:text-white"}`}
     >
       {label}
     </Link>
   );
 
   return (
-    <header className="pt-safe relative z-30 grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 border-b border-line bg-bg/80 px-3 py-2 backdrop-blur sm:h-12 sm:px-4 sm:py-0">
+    <header className="pt-safe relative z-30 grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 border-b border-white/10 bg-[#08080b] px-3 py-2 sm:h-12 sm:px-4 sm:py-0">
       <div className="flex items-center gap-3 sm:gap-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <LogoMark size={24} />
           <LogoWordmark className="hidden text-sm sm:inline" />
         </Link>
-        <nav className="flex gap-0.5 rounded-lg border border-line p-0.5">
+        <nav className="flex gap-0.5 rounded-lg border border-white/15 p-0.5">
           {tab("/dashboard", "SalesTology", active === "core")}
           {tab("/sos", "SOS", active === "sos")}
         </nav>
@@ -48,15 +48,15 @@ async function UserMenu() {
   const links = (
     <>
       {user.role === "admin" && (
-        <Link href="/admin" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">
+        <Link href="/admin" className="whitespace-nowrap rounded-md border border-white/15 px-2 py-1 text-[#b4b7c3] hover:text-white">
           관리자
         </Link>
       )}
-      <Link href="/me" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">
+      <Link href="/me" className="whitespace-nowrap rounded-md border border-white/15 px-2 py-1 text-[#b4b7c3] hover:text-white">
         마이페이지
       </Link>
       <form action={signOut}>
-        <button type="submit" className="w-full rounded-md border border-line px-2 py-1 text-left text-muted hover:text-fg">
+        <button type="submit" className="w-full rounded-md border border-white/15 px-2 py-1 text-left text-[#b4b7c3] hover:text-white">
           로그아웃
         </button>
       </form>
