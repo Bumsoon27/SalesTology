@@ -164,3 +164,12 @@ body {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* 검색·티커로 고른 노드 */
+.universe .node.focused .core {
+  stroke: #fff;
+  stroke-width: 1.6;
+}
+.universe .node.focused .glow {
+  animation: blink 1.2s ease-in-out infinite;
+}
