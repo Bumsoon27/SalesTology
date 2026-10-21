@@ -60,7 +60,7 @@ export function SearchPalette({ nodes, onPick }: { nodes: UniverseNode[]; onPick
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 rounded-lg border border-line bg-surface/70 px-3 py-1.5 text-xs text-muted backdrop-blur hover:text-fg"
       >
-        검색 <kbd className="rounded border border-line px-1 text-[10px]">Ctrl K</kbd>
+        검색 <kbd className="hidden rounded border border-line px-1 text-[10px] sm:inline">Ctrl K</kbd>
       </button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[14vh] backdrop-blur-sm" onClick={() => setOpen(false)}>

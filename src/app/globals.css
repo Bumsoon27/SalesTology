@@ -173,3 +173,24 @@ body {
 .universe .node.focused .glow {
   animation: blink 1.2s ease-in-out infinite;
 }
+
+/* 장식용 배경(로그인·가입)은 움직이지 않게 — 입력이 버벅이지 않도록 */
+.universe.decor .glow {
+  animation: none;
+  opacity: 0.8;
+}
+
+/* 터치 기기: iOS 는 16px 미만 입력칸을 누르면 화면을 확대해 버린다 */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea,
+  .field {
+    font-size: 16px !important;
+  }
+}
+
+/* 노치·홈 인디케이터 영역 */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}

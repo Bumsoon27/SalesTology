@@ -80,12 +80,16 @@ export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onCl
   const open = !!node && node.kind !== "me";
   return (
     <aside
-      className={`absolute bottom-3 left-3 top-3 z-20 flex w-[min(400px,calc(100vw-24px))] flex-col overflow-hidden rounded-2xl border border-line bg-surface/80 shadow-2xl shadow-black/60 backdrop-blur-xl transition-transform duration-300 ${
-        open ? "translate-x-0" : "-translate-x-[110%]"
-      }`}
+      className={`absolute z-20 flex flex-col overflow-hidden border border-line bg-surface shadow-2xl shadow-black/60 transition-transform duration-300
+        max-sm:inset-x-0 max-sm:bottom-0 max-sm:h-[72dvh] max-sm:rounded-t-2xl max-sm:pb-[env(safe-area-inset-bottom)]
+        sm:bottom-3 sm:left-3 sm:top-3 sm:w-[400px] sm:rounded-2xl sm:bg-surface/80 sm:backdrop-blur-xl ${
+          open ? "translate-x-0 translate-y-0" : "max-sm:translate-y-[105%] sm:-translate-x-[110%]"
+        }`}
       aria-hidden={!open}
     >
-      <div className="flex items-center justify-between px-5 pb-2 pt-4">
+      {/* 모바일: 아래에서 올라오는 시트의 손잡이 */}
+      <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
+      <div className="flex items-center justify-between px-5 pb-2 pt-3 sm:pt-4">
         <span className="text-[11px] uppercase tracking-wider text-muted">
           {node?.kind === "deal" ? "영업기회" : node?.kind === "customer" ? "고객사" : "파트너사"}
         </span>
