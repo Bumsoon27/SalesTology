@@ -14,7 +14,7 @@ export async function updateMyName(_prev: ProfileState, formData: FormData): Pro
   const { error } = await supabase.rpc("update_my_profile", { p_name: name });
   if (error) return { ok: false, error: error.message };
   refresh();
-  return { ok: true, message: "이름을 바꿨습니다. 대시보드 중심과 영업대표 표시에 바로 반영됩니다." };
+  return { ok: true, message: "이름을 바꿨습니다. SalesTology의 중심과 영업대표 표시에 바로 반영됩니다." };
 }
 
 export async function changeMyPassword(_prev: ProfileState, formData: FormData): Promise<ProfileState> {
