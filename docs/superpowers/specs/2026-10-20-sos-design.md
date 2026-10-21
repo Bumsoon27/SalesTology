@@ -122,7 +122,7 @@
 
 ### 3.4 요약 문장 [DJ: 규칙·템플릿 + Gemini 무료]
 - 기본은 **템플릿**. 예: "{기관}이 {발주시기}에 {사업명}을 발주할 예정입니다. 예산 {금액}, {마감종류} D-{n}. 일치 키워드: {키워드}. 같은 기관 시그널 {n}건."
-- 점수 상위 **30건**(부문 설정)과 이슈 시그널만 **Google Gemini API 무료 등급**으로 다듬는다. [제안]
+- 점수 상위 **5건**(부문 설정)과 이슈 시그널만 **Google Gemini API 무료 등급**으로 다듬는다. [DJ]
 - Gemini에는 수집된 사실만 넘기고 "주어진 사실 밖의 내용 금지"로 지시한다. **예산·날짜 같은 숫자는 카드의 숫자 칸에서 원본 그대로** 보여준다. [제안]
 - 한도 초과·오류 시 템플릿으로 대체하고 카드에 "기본 요약" 표시. 실행은 멈추지 않는다.
 - 요약 생성은 "요약기" 인터페이스 하나로 감싸, 나중에 유료 모델로 바꿀 수 있게 한다.
@@ -165,7 +165,7 @@ A 공용 테이블(`teams`, `profiles`, `companies`)은 **읽기·FK 참조만**
 **`sos_fetch_log`** — 출처·기간별 수집 기록 (재사용 판단용): source, range_from, range_to, fetched_at, item_count.
 
 ### 4.2 부문별
-**`sos_team_settings`**: team_id PK, prespec_alert_days int default 3, ai_summary_top_n int default 30, first_run_days int default 30.
+**`sos_team_settings`**: team_id PK, prespec_alert_days int default 3, ai_summary_top_n int default 5, first_run_days int default 30.
 
 **`sos_keywords`**: id, team_id, term, tier(`core`·`extended`·`exclude`), weight int null(null이면 칸 기본값), sources text[](기본 전체), active boolean, created_by, created_at, updated_at, deleted_at. unique(team_id, lower(term)) where deleted_at is null.
 
@@ -322,10 +322,10 @@ A 레이아웃의 `[SalesTology|SOS]` 탭에서 진입. 공용 `AppHeader active
 ---
 
 ## 9. A(SB)에게 요청할 사항
-1. **deals 생성 API** — B 서버 코드에서 호출할 수 있는 형태(서버 함수 또는 Route Handler). 입력: 사업명, 고객사(company_id 또는 새 회사명), 계약 방식, 규모, 예상 계약월, 단계, 담당자, 멱등 키. 출력: deal id. 권한 검사(같은 부문)는 A가 한다.
-2. **회사 생성** — 신규 기관을 고객사로 만들 때. 1번 API가 새 회사명을 받아 만들어 주거나, 별도 companies 생성 API.
-3. **`NotificationProvider` 인터페이스** — 공급자 등록 방식, 입력(사용자·보기 범위·기준일), 출력(키·문구·긴급도·**클릭 시 이동할 주소**). 토폴로지 노드가 아닌 다른 페이지 주소로 이동할 수 있어야 한다.
-4. **Vercel 팀 초대** — `juny0316` 이 Vercel 프로젝트에 없어 B의 PR 미리보기 배포가 실패한다.
+1. **deals 생성 API** (#27) — B 서버 코드에서 호출할 수 있는 형태(서버 함수 또는 Route Handler). 입력: 사업명, 고객사(company_id 또는 새 회사명), 계약 방식, 규모, 예상 계약월, 단계, 담당자, 멱등 키. 출력: deal id. 권한 검사(같은 부문)는 A가 한다.
+2. **회사 생성** (#28) — 신규 기관을 고객사로 만들 때. 1번 API가 새 회사명을 받아 만들어 주거나, 별도 companies 생성 API.
+3. **`NotificationProvider` 인터페이스** (#29) — 공급자 등록 방식, 입력(사용자·보기 범위·기준일), 출력(키·문구·긴급도·**클릭 시 이동할 주소**). 토폴로지 노드가 아닌 다른 페이지 주소로 이동할 수 있어야 한다.
+4. **Vercel 팀 초대** (#30) — `juny0316` 이 Vercel 프로젝트에 없어 B의 PR 미리보기 배포가 실패한다.
 
 ---
 
