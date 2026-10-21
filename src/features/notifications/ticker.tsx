@@ -11,6 +11,7 @@ const DOT: Record<AppNotification["kind"], string> = {
   missing_schedule: "bg-st-yellow shadow-[0_0_8px_var(--st-yellow)]",
   task_soon: "bg-st-yellow shadow-[0_0_8px_var(--st-yellow)]",
   renewal_soon: "bg-accent shadow-[0_0_8px_var(--accent)]",
+  external: "bg-st-green shadow-[0_0_8px_var(--st-green)]",
 };
 
 export function Ticker({ items }: { items: AppNotification[] }) {
@@ -42,11 +43,12 @@ export function Ticker({ items }: { items: AppNotification[] }) {
       type="button"
       onMouseEnter={() => (paused.current = true)}
       onMouseLeave={() => (paused.current = false)}
-      onClick={() => router.push(`/dashboard?focus=d:${current.dealId}`)}
+      onClick={() => router.push(current.href)}
       className="group flex h-7 min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-full border border-line bg-surface/60 px-3 text-xs hover:border-accent/40"
-      title="눌러서 해당 사업 보기"
+      title="눌러서 자세히 보기"
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[current.kind]}`} />
+      {current.source && <span className="shrink-0 rounded bg-white/10 px-1.5 text-[10px] text-fg">{current.source}</span>}
       <span key={tick} className="animate-[ticker-in_0.45s_ease-out] truncate text-fg/90 group-hover:text-fg">
         {current.text}
       </span>

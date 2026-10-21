@@ -12,7 +12,7 @@ const deal = (o: Partial<Parameters<typeof buildNotifications>[0][number]> = {})
 describe("buildNotifications", () => {
   it("열린 이슈는 긴급도 100", () => {
     const [n] = buildNotifications([deal({ issues: [{ id: "i1", title: "납기 지연", status: "open" }] })], TODAY);
-    expect(n).toMatchObject({ kind: "issue", urgency: 100, key: "issue:i1:2026-10-20" });
+    expect(n).toMatchObject({ kind: "issue", urgency: 100, key: "issue:i1:2026-10-20", href: "/dashboard?focus=d:d1" });
   });
 
   it("계산서 기한 경과는 90, 그 외 경과는 85", () => {
@@ -42,7 +42,7 @@ describe("buildNotifications", () => {
 });
 
 describe("pickNext", () => {
-  const items: AppNotification[] = ["a", "b", "c", "d"].map((k, i) => ({ key: k, kind: "issue", dealId: k, text: k, urgency: 10 * (i + 1) }));
+  const items: AppNotification[] = ["a", "b", "c", "d"].map((k, i) => ({ key: k, kind: "issue", dealId: k, href: `/dashboard?focus=d:${k}`, text: k, urgency: 10 * (i + 1) }));
   it("직전 3개는 고르지 않는다", () => {
     for (let i = 0; i < 20; i++) expect(pickNext(items, ["b", "c", "d"], Math.random)!.key).toBe("a");
   });
