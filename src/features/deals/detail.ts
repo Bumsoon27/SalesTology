@@ -13,6 +13,8 @@ export type DealDetail = {
   name: string;
   stage: DealStage;
   status: DealRow["status"];
+  /** 동시 수정 감지용 */
+  updatedAt: string;
   contractType: "competitive" | "negotiated";
   amount: number | null;
   expectedMonth: string | null;
@@ -50,7 +52,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
     const [{ data: d, error }, { data: log }] = await Promise.all([
       supabase
         .from("deals")
-        .select(`id, name, stage, status, contract_type, amount, expected_contract_month, period_start, period_end, items,
+        .select(`id, name, stage, status, contract_type, updated_at, amount, expected_contract_month, period_start, period_end, items,
           owner:profiles!deals_owner_id_fkey ( name ),
           customer:companies!deals_customer_id_fkey ( id, name ),
           deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
@@ -69,6 +71,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
 
     const row = d as unknown as Omit<DealRow, "deal_tasks"> & {
       contract_type: DealDetail["contractType"];
+      updated_at: string;
       expected_contract_month: string | null;
       period_start: string | null;
       period_end: string | null;
@@ -84,6 +87,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       name: row.name,
       stage: row.stage,
       status: row.status,
+      updatedAt: row.updated_at,
       contractType: row.contract_type,
       amount: row.amount,
       expectedMonth: row.expected_contract_month,

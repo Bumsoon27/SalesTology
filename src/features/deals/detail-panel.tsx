@@ -1,8 +1,13 @@
 "use client";
 
 // 왼쪽 상세 패널: 노드를 누르면 사업의 전반적인 흐름을 보여준다 (설계서 §6.5)
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { loadNodeDetail, type CompanyDetail, type DealDetail, type NodeDetail } from "./detail";
+import {
+  addIssue, addTask, completeTask, excludeTask, reopenTask, rescheduleTask, resolveIssue, updateDeal, type MutationResult,
+} from "./mutations";
+import type { DealStatus, TaskType } from "./types";
 import { computeTaskState, daysUntil } from "./status";
 import { STAGE_LABEL, TASK_LABEL, type DealStage } from "./types";
 import type { UniverseNode } from "@/features/topology/types";
@@ -45,12 +50,16 @@ function Section({ title, children, right }: { title: string; children: React.Re
 export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onClose: () => void }) {
   const [detail, setDetail] = useState<NodeDetail | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const silent = useRef(false);
 
   useEffect(() => {
     if (!node || node.kind === "me") return;
     let alive = true;
     const run = async () => {
-      setLoadingId(node.id);
+      // 조치 후 다시 불러올 때는 기존 내용을 유지한다
+      if (!silent.current) setLoadingId(node.id);
+      silent.current = false;
       const d = await loadNodeDetail(node.id, node.refId);
       if (alive) {
         setDetail(d);
@@ -61,7 +70,12 @@ export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onCl
     return () => {
       alive = false;
     };
-  }, [node]);
+  }, [node, version]);
+
+  const reload = () => {
+    silent.current = true;
+    setVersion((v) => v + 1);
+  };
 
   const open = !!node && node.kind !== "me";
   return (
@@ -87,7 +101,7 @@ export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onCl
             ))}
           </div>
         ) : detail.kind === "deal" ? (
-          <DealView d={detail} />
+          <DealView d={detail} onChanged={reload} />
         ) : detail.kind === "company" ? (
           <CompanyView c={detail} />
         ) : (
@@ -98,33 +112,84 @@ export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onCl
   );
 }
 
-function DealView({ d }: { d: DealDetail }) {
+const STATUS_OPTIONS: [DealStatus, string][] = [
+  ["active", "진행"],
+  ["on_hold", "보류"],
+  ["lost", "실주"],
+  ["closed", "종결"],
+];
+const TASK_TYPES = Object.entries(TASK_LABEL) as [TaskType, string][];
+const mini = "rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted hover:border-accent/40 hover:text-fg";
+
+function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
+  const router = useRouter();
   const today = d.today;
   const flow = FLOW.filter((s) => s !== "bidding" || d.contractType === "competitive");
   const cur = flow.indexOf(d.stage);
   const si = d.parties.filter((p) => p.role === "si");
   const sup = d.parties.filter((p) => p.role === "supplier");
 
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [excluding, setExcluding] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [newTask, setNewTask] = useState<{ type: TaskType; due: string; title: string }>({ type: "delivery", due: "", title: "" });
+  const [newIssue, setNewIssue] = useState("");
+
+  // 조치 실행 → 패널 다시 불러오기 + 대시보드 색 갱신
+  const act = (fn: () => Promise<MutationResult>, after?: () => void) =>
+    startTransition(async () => {
+      const r = await fn();
+      if (!r.ok) {
+        setError(r.error);
+        if (r.conflict) onChanged();
+        return;
+      }
+      setError(null);
+      after?.();
+      onChanged();
+      router.refresh();
+    });
+
   return (
-    <>
+    <div className={pending ? "pointer-events-none opacity-70 transition-opacity" : "transition-opacity"}>
       <div className="space-y-2 px-5 pb-4">
         <h2 className="text-lg font-semibold leading-snug">{d.name}</h2>
         <p className="text-xs text-muted">
           {d.customer.name} · 영업대표 <span className="text-fg">{d.owner ?? "-"}</span>
         </p>
-        <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs ${STATUS_TONE[d.computed.status]}`}>
-          {d.computed.reason ?? "정상"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs ${STATUS_TONE[d.computed.status]}`}>
+            {d.computed.reason ?? "정상"}
+          </span>
+          <select
+            value={d.status}
+            onChange={(e) => act(() => updateDeal(d.id, { status: e.target.value as DealStatus }, d.updatedAt))}
+            className="ml-auto rounded-md border border-line bg-transparent px-2 py-0.5 text-xs text-muted"
+            aria-label="사업 상태"
+          >
+            {STATUS_OPTIONS.map(([v, l]) => (
+              <option key={v} value={v} className="bg-surface">
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+        {error && <p className="rounded-lg border border-st-red/40 bg-st-red/10 px-3 py-2 text-xs text-st-red">{error}</p>}
       </div>
 
-      <Section title="사업 흐름">
+      <Section title="사업 흐름" right={<span className="text-[10px] text-muted">단계를 눌러 변경</span>}>
         <ol className="flex items-start">
           {flow.map((s, i) => (
             <li key={s} className="flex flex-1 flex-col items-center gap-1.5">
               <div className="flex w-full items-center">
                 <span className={`h-px flex-1 ${i === 0 ? "opacity-0" : i <= cur ? "bg-accent/70" : "bg-line"}`} />
-                <span
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                <button
+                  type="button"
+                  disabled={i === cur}
+                  onClick={() => act(() => updateDeal(d.id, { stage: s }, d.updatedAt))}
+                  title={`${STAGE_LABEL[s]} 단계로 변경`}
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full transition-transform hover:scale-150 ${
                     i === cur ? "bg-fg shadow-[0_0_10px_var(--accent)]" : i < cur ? "bg-accent/80" : "border border-line bg-transparent"
                   }`}
                 />
@@ -154,40 +219,166 @@ function DealView({ d }: { d: DealDetail }) {
       </Section>
 
       <Section title={`추적 업무 ${d.tasks.length}`}>
-        {d.tasks.length === 0 ? (
-          <p className="text-xs text-muted">등록된 업무가 없습니다.</p>
-        ) : (
-          <ul className="space-y-2">
-            {d.tasks.map((t) => {
-              const st = computeTaskState(t);
-              const dd = t.due_date ? daysUntil(t.due_date, today) : null;
-              const tone =
-                st !== "open" ? "text-muted" : dd == null ? "text-st-yellow" : dd < 0 ? "text-st-red" : dd <= 14 ? "text-st-yellow" : "text-fg";
-              return (
-                <li key={t.id} className="flex items-center gap-3 text-sm">
-                  <span className={`w-4 text-center ${st === "done" ? "text-st-green" : "text-muted"}`}>{st === "done" ? "✓" : st === "excluded" ? "–" : "○"}</span>
+        {d.tasks.length === 0 && <p className="text-xs text-muted">등록된 업무가 없습니다.</p>}
+        <ul className="space-y-2.5">
+          {d.tasks.map((t) => {
+            const st = computeTaskState(t);
+            const dd = t.due_date ? daysUntil(t.due_date, today) : null;
+            const tone =
+              st !== "open" ? "text-muted" : dd == null ? "text-st-yellow" : dd < 0 ? "text-st-red" : dd <= 14 ? "text-st-yellow" : "text-fg";
+            return (
+              <li key={t.id} className="space-y-1.5">
+                <div className="flex items-center gap-3 text-sm">
+                  <span className={`w-4 text-center ${st === "done" ? "text-st-green" : "text-muted"}`}>
+                    {st === "done" ? "✓" : st === "excluded" ? "–" : "○"}
+                  </span>
                   <span className={`flex-1 ${st !== "open" ? "text-muted line-through" : ""}`}>{t.type === "custom" ? t.title : TASK_LABEL[t.type]}</span>
                   <span className={`text-xs ${tone}`}>
-                    {st === "done" ? `완료 ${t.done_at}` : st === "excluded" ? "제외" : dd == null ? "일정 미등록" : dd < 0 ? `+${-dd}일 지남` : dd === 0 ? "오늘" : `D-${dd}`}
+                    {st === "done"
+                      ? `완료 ${t.done_at}`
+                      : st === "excluded"
+                        ? "제외"
+                        : dd == null
+                          ? "일정 미등록"
+                          : dd < 0
+                            ? `+${-dd}일 지남`
+                            : dd === 0
+                              ? "오늘"
+                              : `D-${dd}`}
                   </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 pl-7">
+                  {st === "open" ? (
+                    <>
+                      <button type="button" className={mini} onClick={() => act(() => completeTask(t.id, today))}>
+                        완료
+                      </button>
+                      <label className={`${mini} cursor-pointer`}>
+                        일정
+                        <input
+                          type="date"
+                          defaultValue={t.due_date ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v) act(() => rescheduleTask(t.id, v));
+                          }}
+                          className="ml-1 w-[7.5rem] bg-transparent text-[11px] text-fg [color-scheme:dark]"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className={mini}
+                        onClick={() => {
+                          setExcluding(t.id);
+                          setReason("");
+                        }}
+                      >
+                        제외
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className={mini} onClick={() => act(() => reopenTask(t.id))}>
+                      되돌리기
+                    </button>
+                  )}
+                </div>
+                {t.excluded_reason && <p className="pl-7 text-[11px] text-muted">사유 · {t.excluded_reason}</p>}
+                {excluding === t.id && (
+                  <form
+                    className="flex gap-1.5 pl-7"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      act(() => excludeTask(t.id, reason), () => setExcluding(null));
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="제외 사유 (예: 해당 없음 — 라이선스만 납품)"
+                      className="field py-1.5 text-xs"
+                    />
+                    <button type="submit" className={mini}>
+                      확인
+                    </button>
+                    <button type="button" className={mini} onClick={() => setExcluding(null)}>
+                      취소
+                    </button>
+                  </form>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <form
+          className="flex flex-wrap items-center gap-1.5 border-t border-dashed border-line pt-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            act(
+              () => addTask(d.id, { type: newTask.type, dueDate: newTask.due, title: newTask.title }),
+              () => setNewTask({ type: "delivery", due: "", title: "" }),
+            );
+          }}
+        >
+          <select
+            value={newTask.type}
+            onChange={(e) => setNewTask({ ...newTask, type: e.target.value as TaskType })}
+            className="rounded-md border border-line bg-transparent px-1.5 py-1 text-xs"
+            aria-label="업무 유형"
+          >
+            {TASK_TYPES.map(([v, l]) => (
+              <option key={v} value={v} className="bg-surface">
+                {l}
+              </option>
+            ))}
+          </select>
+          {newTask.type === "custom" && (
+            <input
+              value={newTask.title}
+              onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+              placeholder="업무 제목"
+              className="field w-28 py-1 text-xs"
+            />
+          )}
+          <input
+            type="date"
+            value={newTask.due}
+            onChange={(e) => setNewTask({ ...newTask, due: e.target.value })}
+            className="rounded-md border border-line bg-transparent px-1.5 py-1 text-xs [color-scheme:dark]"
+            aria-label="기한"
+          />
+          <button type="submit" className={mini}>
+            + 업무 추가
+          </button>
+        </form>
       </Section>
 
-      {d.issues.length > 0 && (
-        <Section title="이슈">
-          <ul className="space-y-1.5">
-            {d.issues.map((i) => (
-              <li key={i.id} className={`text-sm ${i.status === "open" ? "text-st-red" : "text-muted line-through"}`}>
-                ⚠ {i.title}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+      <Section title={`이슈 ${d.issues.filter((i) => i.status === "open").length}`}>
+        <ul className="space-y-1.5">
+          {d.issues.map((i) => (
+            <li key={i.id} className="flex items-center gap-2 text-sm">
+              <span className={`flex-1 ${i.status === "open" ? "text-st-red" : "text-muted line-through"}`}>⚠ {i.title}</span>
+              {i.status === "open" && (
+                <button type="button" className={mini} onClick={() => act(() => resolveIssue(i.id))}>
+                  해결
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+        <form
+          className="flex gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            act(() => addIssue(d.id, newIssue), () => setNewIssue(""));
+          }}
+        >
+          <input value={newIssue} onChange={(e) => setNewIssue(e.target.value)} placeholder="이슈 등록 (예: 납기 지연 우려)" className="field py-1.5 text-xs" />
+          <button type="submit" className={mini}>
+            등록
+          </button>
+        </form>
+      </Section>
 
       <Section title="관계사">
         {d.parties.length === 0 ? (
@@ -227,7 +418,7 @@ function DealView({ d }: { d: DealDetail }) {
           </ul>
         )}
       </Section>
-    </>
+    </div>
   );
 }
 
