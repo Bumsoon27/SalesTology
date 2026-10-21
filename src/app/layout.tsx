@@ -12,8 +12,8 @@ export const metadata: Metadata = {
   title: "SalesTology",
   description: "영업의 모든 연결을 한눈에",
   applicationName: "SalesTology",
-  // iOS 홈 화면 앱: 주소창 없이 전체 화면, 상태바는 검정 배경에 흰 글씨
-  appleWebApp: { capable: true, title: "SalesTology", statusBarStyle: "black-translucent" },
+  // iOS 홈 화면 앱: 주소창 없이 전체 화면, 상태바는 불투명 검정 (헤더와 겹쳐 흐려 보이지 않게)
+  appleWebApp: { capable: true, title: "SalesTology", statusBarStyle: "black" },
   icons: { apple: "/apple-touch-icon.png" },
   formatDetection: { telephone: false },
 };
