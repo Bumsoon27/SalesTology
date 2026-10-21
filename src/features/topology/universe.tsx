@@ -14,7 +14,7 @@ import {
   type SimulationNodeDatum,
 } from "d3-force";
 import { select } from "d3-selection";
-import { zoom, zoomIdentity, type ZoomTransform } from "d3-zoom";
+import { zoom, zoomIdentity, zoomTransform, type ZoomTransform } from "d3-zoom";
 import { computeTargets, nodeRadius, orbitRadius } from "./layout";
 import type { NodeStatus, UniverseData, UniverseNode } from "./types";
 
@@ -43,11 +43,14 @@ type Props = {
   /** 처음에 관계사(party)까지 펼칠지 */
   expandAll?: boolean;
   onSelect?: (node: UniverseNode) => void;
+  /** 이 노드로 화면을 옮기고 확대한다 (검색·티커) */
+  focusId?: string | null;
   className?: string;
 };
 
-export function Universe({ data, interactive = true, expandAll = false, onSelect, className }: Props) {
+export function Universe({ data, interactive = true, expandAll = false, onSelect, focusId, className }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const flyToRef = useRef<((id: string) => void) | null>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
   // 화면 크기를 감지해 중심과 궤도 크기를 다시 계산한다
@@ -281,6 +284,34 @@ export function Universe({ data, interactive = true, expandAll = false, onSelect
         });
       svg.call(z).on("dblclick.zoom", null);
       svg.call(z.transform, zoomIdentity);
+
+      // 노드로 부드럽게 이동·확대. 왼쪽 상세 패널에 가리지 않게 오른쪽으로 비켜 둔다
+      flyToRef.current = (id: string) => {
+        const target = all.get(id);
+        if (!target) return;
+        if (target.kind === "party" && target.parentId && !expanded.has(target.parentId)) {
+          expanded.add(target.parentId);
+          update();
+        }
+        nodeSel.classed("focused", (n) => n.id === id);
+        const from = zoomTransform(svgEl);
+        const k = 1.6;
+        // 왼쪽 패널(약 412px)을 뺀 나머지 영역의 가운데로 (좁은 화면은 패널이 거의 덮으므로 가운데)
+        const offsetX = width >= 640 ? 206 : 0;
+        const startAt = performance.now();
+        const step = (now: number) => {
+          const p = Math.min(1, (now - startAt) / 600);
+          const e = 1 - Math.pow(1 - p, 3);
+          const tx = width / 2 + offsetX - k * (target.x ?? width / 2);
+          const ty = height / 2 - k * (target.y ?? height / 2);
+          const t = zoomIdentity
+            .translate(from.x + (tx - from.x) * e, from.y + (ty - from.y) * e)
+            .scale(from.k + (k - from.k) * e);
+          svg.call(z.transform, t);
+          if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      };
     }
 
     sim.on("tick", () => {
@@ -299,8 +330,16 @@ export function Universe({ data, interactive = true, expandAll = false, onSelect
 
     return () => {
       sim.stop();
+      flyToRef.current = null;
     };
   }, [data, interactive, expandAll, size]);
+
+  // 검색·티커로 고른 노드로 이동 (자리를 잡을 시간을 조금 준다)
+  useEffect(() => {
+    if (!focusId) return;
+    const t = setTimeout(() => flyToRef.current?.(focusId), 350);
+    return () => clearTimeout(t);
+  }, [focusId, data, size]);
 
   return <svg ref={svgRef} className={`universe h-full w-full ${className ?? ""}`} />;
 }
