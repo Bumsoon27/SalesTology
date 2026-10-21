@@ -1,7 +1,7 @@
 # SOS (Signal-based Outbound Sales) — 설계서 (B 영역)
 
 - 작성일: 2026-10-20 (브레인스토밍 2026-10-20~21)
-- 상태: DJ 검토 대기 (빌더 점검 반영 완료)
+- 상태: **DJ 승인 (2026-10-21)** — SB 리뷰 대기
 - 담당: DJ (B, GitHub `juny0316`)
 - 관련: A 설계서 `2026-10-20-salestology-a-design.md` §0, §3.2, §7, §11
 

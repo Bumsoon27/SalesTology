@@ -1,7 +1,7 @@
 # SOS 시각 디자인 (B 영역 전용)
 
 - 작성일: 2026-10-21
-- 상태: DJ 검토 대기
+- 상태: **DJ 승인 (2026-10-21)** — SB 리뷰 대기
 - 관련: SOS 설계서 `2026-10-20-sos-design.md` §5
 - 참고 원본: `references/sos-visual-reference-remember.md` (DJ 제공. 리멤버 웹의 시각 언어를 정리한 카탈로그 문서)
 
