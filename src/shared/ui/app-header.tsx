@@ -49,6 +49,11 @@ async function UserMenu() {
       <span className="mr-1 text-muted">
         <span className="text-fg">{user.name}</span> · {user.loginId}
       </span>
+      {user.role === "admin" && (
+        <Link href="/admin" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">
+          관리자
+        </Link>
+      )}
       <Link href="/me" className="rounded-md border border-line px-2 py-1 text-muted hover:text-fg">
         마이페이지
       </Link>
