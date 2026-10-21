@@ -3,15 +3,22 @@ import { RENEWAL_NOTICE_DAYS, YELLOW_WINDOW_DAYS } from "@/shared/config/status"
 import { computeTaskState, daysUntil } from "@/features/deals/status";
 import { TASK_LABEL, type DealRow, type DealStage } from "@/features/deals/types";
 
-export type NotificationKind = "issue" | "task_overdue" | "missing_schedule" | "task_soon" | "renewal_soon";
+export type NotificationKind = "issue" | "task_overdue" | "missing_schedule" | "task_soon" | "renewal_soon" | "external";
 
 export type AppNotification = {
   key: string; // {종류}:{대상 id}:{기준일}
   kind: NotificationKind;
-  dealId: string;
+  /** A 사업 알림일 때만 */
+  dealId?: string;
   text: string;
   urgency: number;
+  /** 클릭 시 이동할 앱 내부 주소 */
+  href: string;
+  /** 다른 영역(B 등)에서 온 알림의 출처 표시 */
+  source?: string;
 };
+
+const focusHref = (dealId: string) => `/dashboard?focus=d:${dealId}`;
 
 type NotifiableDeal = Pick<DealRow, "id" | "name" | "status" | "stage" | "customer" | "deal_tasks" | "issues"> & {
   period_end?: string | null;
@@ -28,13 +35,13 @@ export function buildNotifications(deals: NotifiableDeal[], today: string): AppN
     if (d.period_end && (d.status === "active" || d.status === "closed")) {
       const left = daysUntil(d.period_end, today);
       if (left >= 0 && left <= RENEWAL_NOTICE_DAYS) {
-        out.push({ key: `renewal_soon:${d.id}:${today}`, kind: "renewal_soon", dealId: d.id, text: `${head} — 계약 종료 D-${left}, 갱신 확인`, urgency: 55 - left / 2 });
+        out.push({ key: `renewal_soon:${d.id}:${today}`, kind: "renewal_soon", dealId: d.id, href: focusHref(d.id), text: `${head} — 계약 종료 D-${left}, 갱신 확인`, urgency: 55 - left / 2 });
       }
     }
     if (d.status !== "active") continue;
 
     for (const i of d.issues.filter((x) => x.status === "open")) {
-      out.push({ key: `issue:${i.id}:${today}`, kind: "issue", dealId: d.id, text: `${head} — 이슈 '${i.title}' 미해결`, urgency: 100 });
+      out.push({ key: `issue:${i.id}:${today}`, kind: "issue", dealId: d.id, href: focusHref(d.id), text: `${head} — 이슈 '${i.title}' 미해결`, urgency: 100 });
     }
 
     for (const t of d.deal_tasks) {
@@ -47,11 +54,12 @@ export function buildNotifications(deals: NotifiableDeal[], today: string): AppN
           key: `task_overdue:${t.id}:${today}`,
           kind: "task_overdue",
           dealId: d.id,
+          href: focusHref(d.id),
           text: `${head} — ${isInvoice ? "계산서 발행 필수" : name} (${-left}일 지남)`,
           urgency: isInvoice ? 90 : 85,
         });
       } else if (left <= YELLOW_WINDOW_DAYS) {
-        out.push({ key: `task_soon:${t.id}:${today}`, kind: "task_soon", dealId: d.id, text: `${head} — ${name} ${left === 0 ? "오늘" : `D-${left}`}`, urgency: 70 - left });
+        out.push({ key: `task_soon:${t.id}:${today}`, kind: "task_soon", dealId: d.id, href: focusHref(d.id), text: `${head} — ${name} ${left === 0 ? "오늘" : `D-${left}`}`, urgency: 70 - left });
       }
     }
 
@@ -59,7 +67,7 @@ export function buildNotifications(deals: NotifiableDeal[], today: string): AppN
       for (const type of ["delivery", "invoice_out"] as const) {
         const ofType = d.deal_tasks.filter((t) => t.type === type);
         if (ofType.length === 0 || ofType.some((t) => computeTaskState(t) === "open" && !t.due_date)) {
-          out.push({ key: `missing_schedule:${d.id}-${type}:${today}`, kind: "missing_schedule", dealId: d.id, text: `${head} — ${type === "delivery" ? "납품" : "계산서"} 일정 미등록`, urgency: 60 });
+          out.push({ key: `missing_schedule:${d.id}-${type}:${today}`, kind: "missing_schedule", dealId: d.id, href: focusHref(d.id), text: `${head} — ${type === "delivery" ? "납품" : "계산서"} 일정 미등록`, urgency: 60 });
         }
       }
     }
