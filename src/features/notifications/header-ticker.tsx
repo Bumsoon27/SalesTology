@@ -13,7 +13,7 @@ export async function HeaderTicker() {
   const today = todayInSeoul();
   const [deals, external] = await Promise.all([
     getMyDeals(user.id),
-    loadExternalNotifications({ userId: user.id, teamId: user.teamId, today }),
+    loadExternalNotifications({ userId: user.id, teamId: user.teamId, today, view: "mine" }),
   ]);
   const items: AppNotification[] = [
     ...buildNotifications(deals, today),

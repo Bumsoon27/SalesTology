@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadExternalNotifications, type NotificationProvider } from "./providers";
 
-const ctx = { userId: "u", teamId: "t", today: "2026-10-21" };
+const ctx = { userId: "u", teamId: "t", today: "2026-10-21", view: "mine" as const };
 const ok: NotificationProvider = {
   id: "sos",
   load: async () => [{ key: "sos:signal:1:2026-10-21", text: "A은행 — 신규 입찰 공고", urgency: 70, href: "/sos/signals/1", source: "SOS" }],

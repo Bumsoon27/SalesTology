@@ -24,6 +24,8 @@ export type NotificationContext = {
   teamId: string | null;
   /** 오늘 (Asia/Seoul, YYYY-MM-DD) */
   today: string;
+  /** 보는 범위: 내 알림(헤더 티커) | 부문 전체(팀 보기, 관리자). 공급자는 범위에 맞게 걸러 돌려준다 */
+  view: "mine" | "team";
 };
 
 export type NotificationProvider = {

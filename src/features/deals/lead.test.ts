@@ -16,8 +16,18 @@ describe("toCreateDealArgs", () => {
         p_items: null,
         p_si: [],
         p_suppliers: [],
+        p_customer_id: null,
+        p_owner_id: null,
+        p_source_ref: null,
       },
     });
+  });
+
+  it("고객사 id·담당자·출처 참조를 넘긴다", () => {
+    const id = "0b8f6c1e-2a3d-4e5f-8a9b-1c2d3e4f5a6b";
+    const r = toCreateDealArgs({ name: "x", customer: "A", procurement: "bid", customerId: id, ownerId: id, sourceRef: " sos_lead:42 " });
+    expect(r.ok && r.args).toMatchObject({ p_customer_id: id, p_owner_id: id, p_source_ref: "sos_lead:42" });
+    expect(toCreateDealArgs({ name: "x", customer: "A", procurement: "bid", ownerId: "me" })).toMatchObject({ ok: false });
   });
 
   it("수의계약, 날짜까지 온 발주 시기, 예산 없음", () => {

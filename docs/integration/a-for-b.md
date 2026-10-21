@@ -17,6 +17,9 @@ const r = await createDealFromLead({
   items: "x86 서버 20식",          // 선택
   // stage: "discovery",           // 선택 (기본 발굴)
   // si: ["가람정보"], suppliers: ["누리텍"],   // 선택
+  sourceRef: `sos_lead:${lead.id}`,  // 권장 — 멱등 키. 같은 값으로 다시 불러도 사업은 하나 (기존 id 반환)
+  // customerId: companyId,        // 선택 — findOrCreateCompany 로 받은 id. 주면 customer 이름 대신 이 회사
+  // ownerId: assigneeUserId,      // 선택 — 담당 영업대표 (같은 부문 활성 사용자). 없으면 호출한 사용자
 });
 
 if (r.ok) {
@@ -27,7 +30,10 @@ if (r.ok) {
 }
 ```
 
-- 담당자(영업대표)는 **호출한 로그인 사용자**가 된다.
+- 담당자(영업대표)는 `ownerId` 를 주면 그 사용자, 없으면 **호출한 로그인 사용자**. 다른 부문·비활성 사용자는 거부된다.
+- `sourceRef` 는 꼭 넘겨 달라: 더블클릭·재시도·동시 전환에도 사업이 하나만 생긴다 (DB 고유 인덱스 `(team_id, source_ref)`).
+  `deals.source_ref` 로 저장되므로 sos 쪽에 dealId 를 저장하기 전에 실패해도 다시 부르면 같은 id 를 받는다.
+- `customerId` 를 주면 `customer` 는 비워도 된다. 다른 부문·삭제된 회사 id 는 거부된다.
 - "1.5억" 같은 한글 단위 문자열은 받지 않는다(오류 반환). 숫자로 바꿔서 넘긴다.
 
 ## 2. 회사(기관) 찾기 / 만들기
@@ -51,8 +57,9 @@ import type { NotificationProvider } from "@/shared/notifications/providers";
 
 export const sosNotificationProvider: NotificationProvider = {
   id: "sos",
-  async load({ userId, teamId, today }) {
-    // sos_ 테이블에서 이 사용자에게 보여줄 시그널을 조회
+  async load({ userId, teamId, today, view }) {
+    // view: "mine" = 헤더 티커(이 사용자 담당분), "team" = 부문 전체 보기
+    // sos_ 테이블에서 범위에 맞는 시그널을 조회
     return [
       {
         key: `sos:signal:${signalId}:${today}`, // 전역 고유, 날짜가 바뀌면 새 알림
