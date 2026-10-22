@@ -209,9 +209,11 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
           {[
             ["사업 규모", won(d.amount)],
-            ["예상 계약월", d.expectedMonth?.slice(0, 7) ?? "-"],
+            ["GP (이윤)", d.gp == null ? "-" : d.amount ? `${won(d.gp)} · ${Math.round((d.gp / d.amount) * 1000) / 10}%` : won(d.gp)],
             ["계약 방식", d.contractType === "competitive" ? "경쟁입찰" : "수의계약"],
             ["계약 기간", d.periodStart ? `${d.periodStart} ~ ${d.periodEnd ?? ""}` : "-"],
+            // 예상 계약월은 등록 화면에서 뺐다 — B(SOS) 리드 전환으로 들어온 경우에만 보인다
+            ...(d.expectedMonth ? [["예상 계약월", d.expectedMonth.slice(0, 7)]] : []),
           ].map(([k, v]) => (
             <div key={k}>
               <dt className="text-[11px] text-muted">{k}</dt>
