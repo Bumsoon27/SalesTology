@@ -33,7 +33,11 @@ const object = (w: string) => `${w}${hasBatchim(w) ? "을" : "를"}`;
 /** 금액을 영업용 표기로 줄인다. 값이 없으면 "미공개". */
 export function formatWon(n: number | null): string {
   if (n === null) return "미공개";
-  if (n >= 100_000_000) return `${(Math.round((n / 100_000_000) * 10) / 10).toString()}억`;
+  // 만 단위로 반올림해 1만만(=1억)이 되는 값도 억으로 올린다
+  if (n >= 100_000_000 || Math.round(n / 10_000) >= 10_000) {
+    const eok = Math.round((n / 100_000_000) * 10) / 10;
+    return `${eok.toLocaleString("en-US", { maximumFractionDigits: 1 })}억`;
+  }
   if (n >= 10_000) return `${Math.round(n / 10_000).toLocaleString("en-US")}만`;
   return `${n.toLocaleString("en-US")}원`;
 }

@@ -39,12 +39,14 @@ export async function summarizeWithGemini(
       body: JSON.stringify({
         system_instruction: { parts: [{ text: PROMPT }] },
         contents: [{ role: "user", parts: [{ text: factsText(facts) }] }],
-        generationConfig: { maxOutputTokens: 200, temperature: 0.2 },
+        generationConfig: { maxOutputTokens: 200, temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } },
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (res.status !== 200) return null;
-    const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: unknown }[] } }[] };
+    const json = (await res.json()) as { candidates?: { finishReason?: string; content?: { parts?: { text?: unknown }[] } }[] };
+    // 잘린 응답(MAX_TOKENS 등)은 쓰지 않는다
+    if (json.candidates?.[0]?.finishReason !== "STOP") return null;
     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
     if (typeof text !== "string") return null;
     const trimmed = text.trim();

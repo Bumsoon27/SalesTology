@@ -34,9 +34,11 @@ export function applyLeadUpdate(
 
   if (!matched || !draft) {
     // 손댄 적 없으면 조용히 숨기고, 손댄 리드는 지우지 않고 표시만 한다
-    return prev.touchedAt
-      ? { create: false, keywordMismatch: true, hidden: false }
-      : { create: false, hidden: true };
+    if (!prev.touchedAt) return { create: false, hidden: true };
+    // 버린 리드의 숨김은 건드리지 않는다
+    return prev.status === "dismissed"
+      ? { create: false, keywordMismatch: true }
+      : { create: false, keywordMismatch: true, hidden: false };
   }
 
   const out: LeadUpdate = {
@@ -49,7 +51,9 @@ export function applyLeadUpdate(
   };
   if (prev.status === "on_hold") {
     const advanced = STAGE_RANK[draft.stage] > STAGE_RANK[prev.stage];
-    const deadlineChanged = draft.nextDeadlineAt !== prev.nextDeadlineAt;
+    // DB 는 "+00:00", 초안은 "Z" — 문자열이 아니라 시각으로 비교
+    const t = (v: string | null) => (v === null ? null : Date.parse(v));
+    const deadlineChanged = t(draft.nextDeadlineAt) !== t(prev.nextDeadlineAt);
     if (advanced || deadlineChanged) out.hasNewProgress = true;
   }
   return out;

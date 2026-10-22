@@ -27,6 +27,15 @@ describe("applyLeadUpdate", () => {
     expect(applyLeadUpdate(stored({ status: "on_hold" }), { draft: { ...d, nextDeadlineAt: "2026-11-05T00:00:00Z" }, matched: true }).hasNewProgress).toBe(true);
     expect("hasNewProgress" in applyLeadUpdate(stored({ status: "on_hold" }), { draft: d, matched: true })).toBe(false);
   });
+  it("on_hold 같은 시각은 표기가 달라도 변경 아님", () => {
+    const r = applyLeadUpdate(stored({ status: "on_hold", nextDeadlineAt: "2026-11-01T00:00:00+00:00" }), { draft: d, matched: true });
+    expect("hasNewProgress" in r).toBe(false);
+  });
+  it("dismissed 불일치는 숨김 유지", () => {
+    const r = applyLeadUpdate(stored({ status: "dismissed", touchedAt: "2026-10-21T00:00:00Z", hidden: true }), { draft: d, matched: false });
+    expect("hidden" in r).toBe(false);
+    expect(r.keywordMismatch).toBe(true);
+  });
   it("converted 는 단계·마감만", () => {
     const r = applyLeadUpdate(stored({ status: "converted" }), { draft: { ...d, stage: "bid" }, matched: true });
     expect(r.stage).toBe("bid");

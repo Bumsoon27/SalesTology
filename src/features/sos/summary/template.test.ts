@@ -26,6 +26,9 @@ describe("formatWon", () => {
     expect(formatWon(45000000)).toBe("4,500만");
     expect(formatWon(320000000)).toBe("3.2억");
     expect(formatWon(100000000)).toBe("1억");
+    expect(formatWon(99_999_999)).toBe("1억");
+    expect(formatWon(9_999)).toBe("9,999원");
+    expect(formatWon(123_456_789_000_000)).toBe("1,234,567.9억");
     expect(formatWon(5000)).toBe("5,000원");
   });
 });
