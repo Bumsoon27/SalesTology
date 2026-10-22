@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireUser, type CurrentUser } from "@/shared/auth/current-user";
 import { createClient } from "@/shared/supabase/server";
 import { resolveSosTeam } from "../lib/team";
+import { SosDbError } from "./db";
 
 export type SosContext = { user: CurrentUser; teamId: string; isAdminView: boolean };
 
@@ -20,7 +21,9 @@ export async function requireSosTeam(requested?: string | null): Promise<SosCont
   if (user.role === "admin") {
     // 관리자는 teams RLS 로 전체 부문이 보인다
     const supabase = await createClient();
-    const { data } = await supabase.from("teams").select("id");
+    const { data, error } = await supabase.from("teams").select("id");
+    // 조회 실패를 "없는 부문"으로 보고 돌려보내면 원인을 알 수 없다 — 오류로 올린다
+    if (error) throw new SosDbError("부문 목록 조회", error);
     teamIds = (data ?? []).map((t: { id: string }) => t.id);
   }
 

@@ -21,7 +21,8 @@ export async function finishStep(ctx: StepContext): Promise<StepResult> {
   const logs = [...labels].flatMap((label) => {
     const st = ctx.stats[label] as OpStats | undefined;
     if (!st || st.error || st.skipped) return [];
-    return [{ source: label, range_from: day.from, range_to: day.to, item_count: st.fetched ?? 0 }];
+    // fetched_at 은 실제로 받기 시작한 시각 — 그 뒤에 시작한 실행만 이 기록으로 원본을 재사용한다
+    return [{ source: label, range_from: day.from, range_to: day.to, item_count: st.fetched ?? 0, fetched_at: st.fetchedAt ?? ctx.now.toISOString() }];
   });
   if (logs.length > 0) must("수집 기록 저장", await admin.from("sos_fetch_log").insert(logs));
 

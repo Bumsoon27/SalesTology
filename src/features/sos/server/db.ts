@@ -80,6 +80,25 @@ export async function loadKeywords(admin: Admin, teamId: string): Promise<Keywor
   return g2bKeywords(rows ?? []);
 }
 
+/**
+ * 모든 부문의 살아 있는 조달 키워드, 부문별 묶음. 원본 payload 를 남길지 정할 때만 쓴다 (설계서 §3.2).
+ * 다른 부문의 키워드이므로 절대 클라이언트로 돌려주지 않는다.
+ */
+export async function loadAllTeamsKeywords(admin: Admin): Promise<Keyword[][]> {
+  const rows = await selectAll<KeywordRow & { team_id: string }>("전체 키워드 조회", (from, to) =>
+    admin
+      .from("sos_keywords")
+      .select("id, team_id, term, tier, weight, active, sources")
+      .eq("active", true)
+      .is("deleted_at", null)
+      .order("id")
+      .range(from, to),
+  );
+  const byTeam = new Map<string, KeywordRow[]>();
+  for (const r of rows) byTeam.set(r.team_id, [...(byTeam.get(r.team_id) ?? []), r]);
+  return [...byTeam.values()].map(g2bKeywords);
+}
+
 export const LEAD_COLUMNS =
   "id, team_id, chain_key, org_id, title, stage, budget, expected_order_month, next_deadline_at, next_deadline_type, matched_keyword_ids, score, status, touched_at, hidden, has_new_progress, keyword_mismatch";
 

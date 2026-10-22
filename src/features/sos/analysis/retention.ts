@@ -1,4 +1,5 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS } from "../lib/date";
+
 const KEEP_DAYS = 14;
 const KEEP_MIN = 3;
 

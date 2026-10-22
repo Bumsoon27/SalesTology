@@ -1,6 +1,7 @@
 // 실행(run) 단계 계획 — 순수 함수. 한 단계 = 서버 호출 한 번(60초 안).
 // 큰 일은 같은 종류 단계를 커서에 다시 넣어 나눠 처리한다 (continueWith).
 import { G2B_OPS, type G2bOp } from "../collectors/g2b";
+import { DAY_MS, todayInSeoul } from "../lib/date";
 
 export type RunMode = "collect" | "reanalyze";
 
@@ -25,11 +26,14 @@ export type RunCursor = {
   matchedIds?: string[];
   // 다른 요청이 이 단계를 처리 중이면 그 만료 시각 (탭 두 개 동시 진행 방지)
   lease?: string | null;
+  // 현재 단계(index)를 몇 번 선점했는지 — 플랫폼 시간 제한으로 죽는 단계의 무한 재시도 방지
+  attempts?: { index: number; count: number };
 };
+
+const MAX_ATTEMPTS = 3;
 
 const STALE_MS = 15 * 60 * 1000;
 const LEASE_MS = 70 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function planRun(mode: RunMode): RunStep[] {
   if (mode === "reanalyze") return [{ kind: "analyze" }, { kind: "summarize" }, { kind: "finish" }];
@@ -80,6 +84,27 @@ export function afterFetch(cursor: RunCursor, op: G2bOp, page: number, totalCoun
 /** heartbeat 가 15분 넘게 그대로면 멈춘 실행 */
 export function isStale(heartbeatAt: string, now: Date): boolean {
   return now.getTime() - Date.parse(heartbeatAt) > STALE_MS;
+}
+
+/** 단계 선점 1회 기록. 단계가 바뀌었으면 1부터 */
+export function recordAttempt(cursor: RunCursor): RunCursor {
+  const prev = cursor.attempts;
+  const count = prev && prev.index === cursor.index ? prev.count + 1 : 1;
+  return { ...cursor, attempts: { index: cursor.index, count } };
+}
+
+/** 같은 단계를 3번 시도하고도 끝내지 못했으면 중단 */
+export function tooManyAttempts(cursor: RunCursor): boolean {
+  return (cursor.attempts?.index === cursor.index ? cursor.attempts.count : 0) > MAX_ATTEMPTS;
+}
+
+/**
+ * 다른 부문(또는 이전 실행)이 받은 원본을 재사용해도 되는지.
+ * 날짜만 비교하면 같은 날 두 번째 실행부터 늘 건너뛰므로, 받은 시각이 이번 범위 끝(실행 시작) 이후여야 한다.
+ */
+export function shouldSkipFetch(logs: { range_from: string; fetched_at: string }[], range: { from: Date; to: Date }): boolean {
+  const fromDay = todayInSeoul(range.from);
+  return logs.some((l) => l.range_from <= fromDay && Date.parse(l.fetched_at) >= range.to.getTime());
 }
 
 export function withLease(cursor: RunCursor, now: Date): RunCursor {

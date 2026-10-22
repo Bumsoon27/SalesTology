@@ -1,6 +1,6 @@
 import "server-only";
 
-import { matchKeywords } from "../../analysis/keywords";
+import { isKeywordHit } from "../../analysis/keywords";
 import { continueWith } from "../../run/steps";
 import { loadKeywords, must } from "../db";
 import { cursorRange, type StepContext, type StepResult } from "./types";
@@ -37,8 +37,7 @@ export async function analyzeScanStep(ctx: StepContext, after?: string): Promise
     if (last) q = q.gt("id", last);
     const rows = must<{ id: string; title: string; match_text: string | null }[]>("원본 훑기", await q) ?? [];
     for (const r of rows) {
-      const m = matchKeywords(r.match_text ?? r.title, keywords);
-      if (m.matched.length > 0 && !m.excluded) matchedIds.push(r.id);
+      if (isKeywordHit(r.match_text ?? r.title, keywords)) matchedIds.push(r.id);
     }
     scanned += rows.length;
     if (rows.length < PAGE) {

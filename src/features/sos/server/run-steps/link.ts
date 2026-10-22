@@ -1,6 +1,6 @@
 import "server-only";
 
-import { matchKeywords } from "../../analysis/keywords";
+import { isKeywordHit } from "../../analysis/keywords";
 import { linkBizOrder } from "../../collectors/g2b-link";
 import { fetchPlanNoForPrespec } from "../../collectors/g2b-link-fetch";
 import { continueWith } from "../../run/steps";
@@ -52,8 +52,7 @@ export async function linkStep(ctx: StepContext, after?: string): Promise<StepRe
         break;
       }
       last = r.external_id;
-      const m = matchKeywords(r.match_text ?? r.title, keywords);
-      if (m.matched.length === 0 || m.excluded) continue;
+      if (!isKeywordHit(r.match_text ?? r.title, keywords)) continue;
 
       stats.tried++;
       let planNo: string | null = null;

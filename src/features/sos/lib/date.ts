@@ -1,5 +1,6 @@
 // 시간대는 항상 Asia/Seoul. 외부 의존성 없이 Intl 로 계산한다.
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 const seoulDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",

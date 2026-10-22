@@ -1,6 +1,6 @@
 import "server-only";
 
-import { daysUntil, todayInSeoul } from "../../lib/date";
+import { DAY_MS, daysUntil, todayInSeoul } from "../../lib/date";
 import { STAGE_LABEL } from "../../lib/labels";
 import { parseAmount } from "../../lib/money";
 import { dateToMonth, othersInOrg } from "../../run/convert";
@@ -12,7 +12,6 @@ import { chunk, loadOrgMembers, loadSettings, must, selectAll, type Admin } from
 import { geminiKey } from "../env";
 import type { StepContext, StepResult } from "./types";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 // Gemini 호출은 건당 최대 10초 — 한 단계에 2건까지만
 const AI_PER_STEP = 2;
 

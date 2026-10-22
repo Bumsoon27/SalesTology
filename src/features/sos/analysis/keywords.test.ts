@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Tier } from "../types";
-import { highlightRanges, matchKeywords, parseKeywordInput } from "./keywords";
+import { highlightRanges, isKeywordHit, matchKeywords, parseKeywordInput } from "./keywords";
 
 const K = (term: string, tier: Tier, active = true) => ({ id: term, term, tier, weight: null, active });
 const kw = [
@@ -46,5 +46,18 @@ describe("highlightRanges", () => {
 
   it("빈 용어는 무시한다", () => {
     expect(highlightRanges("abc", ["", " "])).toEqual([]);
+  });
+});
+
+describe("isKeywordHit", () => {
+  const kws = [
+    { id: "a", term: "서버", tier: "core" as const, weight: null, active: true },
+    { id: "x", term: "청소", tier: "exclude" as const, weight: null, active: true },
+  ];
+  it("맞은 키워드가 있고 제외 키워드가 없을 때만 true", () => {
+    expect(isKeywordHit("서버 교체", kws)).toBe(true);
+    expect(isKeywordHit("서버실 청소", kws)).toBe(false);
+    expect(isKeywordHit("청소 용역", kws)).toBe(false);
+    expect(isKeywordHit("도서 구입", kws)).toBe(false);
   });
 });

@@ -10,8 +10,10 @@ import {
   isStale,
   parseCursor,
   planRun,
+  recordAttempt,
   runRange,
   stepLabel,
+  tooManyAttempts,
   withLease,
   type RunCursor,
   type RunMode,
@@ -143,12 +145,21 @@ export async function advanceRunFor(teamId: string, runId: string): Promise<Adva
     // 다른 탭이 지금 이 단계를 처리 중
     if (isBusy(cursor, now)) return snapshot("running", cursor, run.stats);
 
+    // 플랫폼 시간 제한으로 죽는 단계는 lease 만료 뒤 계속 다시 불린다 — 같은 단계 3번이면 중단
+    const attempted = recordAttempt(cursor);
+    if (tooManyAttempts(attempted)) {
+      const label = stepLabel(currentStep(cursor));
+      return await fail(admin, run, run.stats, `${label}: 시간 초과 반복`, { step: label, reason: "시간 초과 반복" });
+    }
+
     // 단계 선점: 읽은 heartbeat 가 그대로일 때만 lease 를 건다 (동시 호출 중 하나만 진행)
+    const claimedAt = now.toISOString();
+    const claimedCursor = withLease(attempted, now);
     const claimed = must<{ id: string }[]>(
       "단계 선점",
       await admin
         .from("sos_runs")
-        .update({ cursor: withLease(cursor, now), heartbeat_at: now.toISOString() })
+        .update({ cursor: claimedCursor, heartbeat_at: claimedAt })
         .eq("id", run.id)
         .eq("team_id", teamId)
         .eq("status", "running")
@@ -158,10 +169,10 @@ export async function advanceRunFor(teamId: string, runId: string): Promise<Adva
     if (!claimed || claimed.length === 0) return snapshot("running", cursor, run.stats);
 
     const step = currentStep(cursor);
-    const ctx: StepContext = { admin, run, teamId, cursor, stats: run.stats ?? {}, now };
+    const ctx: StepContext = { admin, run, teamId, cursor: claimedCursor, stats: run.stats ?? {}, now };
     let result: StepResult;
     try {
-      result = step ? await runStep(ctx, step) : { cursor, stats: ctx.stats, status: finalStatus(ctx.stats) };
+      result = step ? await runStep(ctx, step) : { cursor: claimedCursor, stats: ctx.stats, status: finalStatus(ctx.stats) };
     } catch (e) {
       return await fail(admin, run, ctx.stats, e instanceof Error ? e.message : "단계 처리 중 오류");
     }
@@ -169,7 +180,8 @@ export async function advanceRunFor(teamId: string, runId: string): Promise<Adva
     const next: RunCursor = { ...advance(result.cursor), lease: null };
     const status: RunStatus = result.status ?? "running";
     const finished = status !== "running";
-    must(
+    // 선점한 heartbeat 가 그대로일 때만 저장 — lease 가 끝나 다른 요청이 넘겨받았으면 덮어쓰지 않는다
+    const saved = must<{ id: string }[]>(
       "진행 저장",
       await admin
         .from("sos_runs")
@@ -181,8 +193,12 @@ export async function advanceRunFor(teamId: string, runId: string): Promise<Adva
           finished_at: finished ? new Date().toISOString() : null,
         })
         .eq("id", run.id)
-        .eq("team_id", teamId),
+        .eq("team_id", teamId)
+        .eq("status", "running")
+        .eq("heartbeat_at", claimedAt)
+        .select("id"),
     );
+    if (!saved || saved.length === 0) return await currentState(admin, teamId, run.id);
     return snapshot(status, next, result.stats);
   } catch (e) {
     return rejected(e instanceof Error ? e.message : "진행하지 못했습니다.");
@@ -206,8 +222,14 @@ function runStep(ctx: StepContext, step: RunStep): Promise<StepResult> {
   }
 }
 
-async function fail(admin: Admin, run: RunRow, stats: Record<string, unknown>, message: string): Promise<AdvanceRunResult> {
-  const nextStats = { ...stats, error: message };
+async function fail(
+  admin: Admin,
+  run: RunRow,
+  stats: Record<string, unknown>,
+  message: string,
+  detail?: Record<string, unknown>,
+): Promise<AdvanceRunResult> {
+  const nextStats = { ...stats, error: detail ?? message };
   const cursor = parseCursor(run.cursor);
   await admin
     .from("sos_runs")
@@ -221,6 +243,16 @@ async function fail(admin: Admin, run: RunRow, stats: Record<string, unknown>, m
     .eq("team_id", run.team_id)
     .eq("status", "running");
   return { ...snapshot("failed", cursor, nextStats), error: message };
+}
+
+/** 다른 요청이 진행을 넘겨받았을 때 — 지금 DB 상태를 그대로 보여 준다 */
+async function currentState(admin: Admin, teamId: string, runId: string): Promise<AdvanceRunResult> {
+  const row = must<Pick<RunRow, "status" | "cursor" | "stats"> | null>(
+    "실행 조회",
+    await admin.from("sos_runs").select("status, cursor, stats").eq("id", runId).eq("team_id", teamId).maybeSingle(),
+  );
+  if (!row) return rejected("실행을 찾을 수 없습니다.");
+  return snapshot(row.status, parseCursor(row.cursor), row.stats);
 }
 
 function snapshot(status: RunStatus, cursor: RunCursor | null, stats: Record<string, unknown>): AdvanceRunResult {

@@ -10,6 +10,9 @@ import {
   opLabel,
   parseCursor,
   planRun,
+  recordAttempt,
+  shouldSkipFetch,
+  tooManyAttempts,
   runRange,
   stepLabel,
   withLease,
@@ -118,5 +121,32 @@ describe("parseCursor", () => {
     expect(parseCursor(null)).toBeNull();
     expect(parseCursor({ steps: [], index: -1, totals: {} })).toBeNull();
     expect(parseCursor({ steps: planRun("reanalyze"), index: "1" })).toBeNull();
+  });
+});
+
+describe("recordAttempt / tooManyAttempts", () => {
+  it("같은 단계 재시도 횟수를 세고, 단계가 바뀌면 처음부터", () => {
+    const c0 = { steps: planRun("reanalyze"), index: 0, totals: {} };
+    const c1 = recordAttempt(c0);
+    expect(c1.attempts).toEqual({ index: 0, count: 1 });
+    const c3 = recordAttempt(recordAttempt(c1));
+    expect(c3.attempts).toEqual({ index: 0, count: 3 });
+    expect(tooManyAttempts(c3)).toBe(false);
+    expect(tooManyAttempts(recordAttempt(c3))).toBe(true); // 4번째 선점이면 중단
+    expect(recordAttempt(advance(c3)).attempts).toEqual({ index: 1, count: 1 });
+  });
+});
+
+describe("shouldSkipFetch", () => {
+  const range = { from: new Date("2026-10-21T01:00:00Z"), to: new Date("2026-10-22T03:00:00Z") };
+  it("이번 시작일 이전부터, 이번 실행 시작 이후에 받은 기록이 있으면 건너뜀", () => {
+    expect(shouldSkipFetch([{ range_from: "2026-10-20", fetched_at: "2026-10-22T03:05:00+00:00" }], range)).toBe(true);
+  });
+  it("같은 날 앞서 받은 기록은 건너뛰지 않음 (그 뒤 올라온 공고가 있을 수 있다)", () => {
+    expect(shouldSkipFetch([{ range_from: "2026-10-20", fetched_at: "2026-10-22T02:59:00+00:00" }], range)).toBe(false);
+  });
+  it("시작일이 더 늦은 기록은 건너뛰지 않음", () => {
+    expect(shouldSkipFetch([{ range_from: "2026-10-22", fetched_at: "2026-10-22T03:05:00+00:00" }], range)).toBe(false);
+    expect(shouldSkipFetch([], range)).toBe(false);
   });
 });

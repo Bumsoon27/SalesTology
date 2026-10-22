@@ -19,6 +19,12 @@ export function matchKeywords(
   };
 }
 
+/** 리드 대상인지: 맞은 키워드가 하나 이상이고 제외 키워드에 걸리지 않음 */
+export function isKeywordHit(text: string, keywords: Keyword[]): boolean {
+  const m = matchKeywords(text, keywords);
+  return m.matched.length > 0 && !m.excluded;
+}
+
 // 설정 화면 칩 입력: 쉼표·줄바꿈 분리, 대소문자 무시 중복은 먼저 쓴 표기 유지
 export function parseKeywordInput(raw: string): string[] {
   const seen = new Set<string>();

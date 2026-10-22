@@ -1,4 +1,5 @@
 import "server-only";
+import { sosEnv } from "../server/env";
 import { G2B_BASE, parseG2bResponse, type G2bOp } from "./g2b";
 import { buildLinkQuery, linkEndpoint, pickPlanNo } from "./g2b-link";
 
@@ -8,8 +9,12 @@ export type LinkResult = { ok: true; planNo: string | null } | { ok: false; code
 
 /** 사전규격 번호 → 발주계획 번호. 던지지 않는다. URL 에 키가 있어 메시지에 URL·키를 넣지 않는다 */
 export async function fetchPlanNoForPrespec(biz: G2bOp["biz"], prespecNo: string): Promise<LinkResult> {
-  const key = process.env.DATA_GO_KR_SERVICE_KEY;
-  if (!key) return { ok: false, code: "NO_KEY" };
+  let key: string;
+  try {
+    key = sosEnv().dataGoKrKey;
+  } catch {
+    return { ok: false, code: "NO_KEY" };
+  }
   const qs = new URLSearchParams(buildLinkQuery(prespecNo));
   qs.set("serviceKey", key);
   try {

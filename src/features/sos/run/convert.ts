@@ -48,7 +48,7 @@ export function dateToMonth(date: string | null): string | null {
   return date ? date.slice(0, 7) : null;
 }
 
-/** 같은 기관에 걸린 다른 리드 수 (겹침 점수·요약용). members: 기관 id → 리드 식별자 집합 */
+/** 같은 기관에 걸린 다른 리드 수, 중복 없이 (겹침 점수 orgSignals90d·요약용 — 시그널 건수가 아니다). members: 기관 id → 리드 식별자 집합 */
 export function othersInOrg(members: Map<string, Set<string>>, orgId: string | null, self: string): number {
   if (!orgId) return 0;
   const set = members.get(orgId);

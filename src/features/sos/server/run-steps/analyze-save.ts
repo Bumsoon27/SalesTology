@@ -1,10 +1,10 @@
 import "server-only";
 
 import { groupChains, resolveChainKey, toLeadDraft, type LeadDraft } from "../../analysis/chain";
-import { matchKeywords } from "../../analysis/keywords";
+import { isKeywordHit, matchKeywords } from "../../analysis/keywords";
 import { applyLeadUpdate } from "../../analysis/lead-update";
 import { scoreLead } from "../../analysis/score";
-import { todayInSeoul } from "../../lib/date";
+import { DAY_MS, todayInSeoul } from "../../lib/date";
 import { parseAmount } from "../../lib/money";
 import { dateToMonth, leadToStored, monthToDate, othersInOrg, rawRowToItem } from "../../run/convert";
 import { STAGE_RANK, type Keyword, type NormalizedItem } from "../../types";
@@ -12,7 +12,6 @@ import { chunk, IN_LIST, loadKeywords, loadLeads, loadOrgMembers, must, selectAl
 import type { LeadRow, RawItemRow } from "../rows";
 import { cursorRange, type StepContext, type StepResult } from "./types";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 // payload 전체 대신 발주월에 필요한 두 값만 꺼낸다 (전송량)
 const RAW_COLUMNS =
   "id, source, external_id, version, title, org_name, org_code, org_id, chain_plan_no, chain_prespec_no, chain_bid_no, budget, published_at, deadline_at, deadline_type, url, match_text, fetched_at, order_year:payload->>orderYear, order_mnth:payload->>orderMnth";
@@ -56,6 +55,8 @@ export async function analyzeSaveStep(ctx: StepContext): Promise<StepResult> {
   }
 
   // 4) 겹침 점수용 기관 → 리드 집합 (이번 묶음 포함)
+  // orgSignals90d = 최근 90일 같은 기관에 걸린 "다른 리드" 수(중복 없이). 설계서는 기관 시그널 건수지만
+  // S1 에는 기관 시그널(kind='org')이 없고, 실행마다 시그널이 다시 쌓여 건수는 부풀므로 의도적으로 다르게 센다
   const members = await loadOrgMembers(admin, teamId, new Date(now.getTime() - 90 * DAY_MS));
   const selfId = (key: string) => leadByKey.get(key)?.id ?? `new:${key}`;
   const orgOfKey = new Map<string, string | null>();
@@ -107,7 +108,7 @@ export async function analyzeSaveStep(ctx: StepContext): Promise<StepResult> {
   }
 
   // 6) 더는 맞지 않는 기존 리드: 이번 범위의 원본이 걸려 있는데 이번에 묶이지 않은 것
-  const unmatched = await markUnmatched(admin, teamId, scopeFrom, leads, new Set(byKey.keys()));
+  const unmatched = await markUnmatched(admin, teamId, scopeFrom, leads, new Set(byKey.keys()), keywords);
 
   // 7) 시그널 — 같은 실행으로 다시 저장해도 중복되지 않게 먼저 지운다
   must("시그널 정리", await admin.from("sos_signals").delete().eq("team_id", teamId).eq("run_id", run.id));
@@ -209,6 +210,7 @@ async function markUnmatched(
   scopeFrom: string,
   leads: LeadRow[],
   keptKeys: Set<string>,
+  keywords: Keyword[],
 ): Promise<{ hidden: number; mismatched: number }> {
   const inScope = await selectAll<{ lead_id: string }>("범위 시그널 조회", (from, to) =>
     admin
@@ -221,12 +223,34 @@ async function markUnmatched(
       .range(from, to),
   );
   const scoped = new Set(inScope.map((s) => s.lead_id));
+  const candidates = leads.filter((l) => scoped.has(l.id) && !(l.chain_key && keptKeys.has(l.chain_key)));
+
+  // 범위 안에 들어온 원본이 키워드 없는 연결 원본(예: 매번 다시 받는 발주계획)일 수 있다.
+  // 리드에 걸린 원본을 전부 다시 맞춰 보고, 하나라도 맞으면 그대로 둔다
+  const stillHit = new Set<string>();
+  for (const part of chunk(candidates.map((l) => l.id), IN_LIST)) {
+    const rows = await selectAll<{ lead_id: string; sos_raw_items: { title: string; match_text: string | null } | null }>(
+      "리드 원본 조회",
+      (from, to) =>
+        admin
+          .from("sos_signals")
+          .select("lead_id, sos_raw_items(title, match_text)")
+          .eq("team_id", teamId)
+          .in("lead_id", part)
+          .order("id")
+          .range(from, to),
+    );
+    for (const r of rows) {
+      const raw = r.sos_raw_items;
+      if (raw && isKeywordHit(raw.match_text ?? raw.title, keywords)) stillHit.add(r.lead_id);
+    }
+  }
 
   const hide: string[] = [];
   const mismatchShow: string[] = [];
   const mismatchKeep: string[] = [];
-  for (const l of leads) {
-    if (!scoped.has(l.id) || (l.chain_key && keptKeys.has(l.chain_key))) continue;
+  for (const l of candidates) {
+    if (stillHit.has(l.id)) continue;
     const u = applyLeadUpdate(leadToStored(l), { draft: null, matched: false });
     if (u.hidden === true) hide.push(l.id);
     else if (u.hidden === false) mismatchShow.push(l.id);

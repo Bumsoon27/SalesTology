@@ -1,18 +1,18 @@
 import "server-only";
 
-import { matchKeywords } from "../../analysis/keywords";
+import { isKeywordHit } from "../../analysis/keywords";
 import { displayOrgName, normalizeOrgName } from "../../analysis/org";
 import { normalize, stripPersonal, type G2bOp } from "../../collectors/g2b";
 import { fetchG2bPage } from "../../collectors/g2b-fetch";
-import { todayInSeoul } from "../../lib/date";
-import { afterFetch, opLabel } from "../../run/steps";
+import { afterFetch, opLabel, shouldSkipFetch } from "../../run/steps";
 import type { NormalizedItem } from "../../types";
-import { chunk, IN_LIST, IN_LIST_NAMES, loadKeywords, must, type Admin } from "../db";
+import { chunk, IN_LIST, IN_LIST_NAMES, loadAllTeamsKeywords, loadKeywords, must, type Admin } from "../db";
 import { cursorRange, type StepContext, type StepResult } from "./types";
 
 const ROWS = 999;
 
-export type OpStats = { fetched?: number; matched?: number; pages?: number; skipped?: boolean; error?: string };
+// fetchedAt: 이 업무의 1쪽을 받기 직전 시각 — sos_fetch_log.fetched_at 으로 남긴다 (재사용 판단 기준)
+export type OpStats = { fetched?: number; matched?: number; pages?: number; skipped?: boolean; error?: string; fetchedAt?: string };
 
 /** 나라장터 한 쪽 수집 → 원본 저장. 오류 응답이면 기록만 하고 이 업무의 남은 쪽은 건너뛴다 */
 export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Promise<StepResult> {
@@ -20,21 +20,19 @@ export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Prom
   const label = opLabel(op);
   const prev = (ctx.stats[label] ?? {}) as OpStats;
   const range = cursorRange(ctx);
-  const day = { from: todayInSeoul(range.from), to: todayInSeoul(range.to) };
 
-  // 다른 부문(또는 이전 실행)이 같은 범위를 이미 받았으면 원본을 재사용한다 (API 한도 절약)
+  // 다른 부문(또는 이전 실행)이 이번 실행 시작 뒤에 같은 범위를 받았으면 원본을 재사용한다 (API 한도 절약)
   if (page === 1) {
-    const done = must<{ id: string }[]>(
+    const logs = must<{ range_from: string; fetched_at: string }[]>(
       "수집 기록 조회",
       await admin
         .from("sos_fetch_log")
-        .select("id")
+        .select("range_from, fetched_at")
         .eq("source", label)
-        .lte("range_from", day.from)
-        .gte("range_to", day.to)
-        .limit(1),
+        .gte("fetched_at", range.to.toISOString())
+        .limit(20),
     );
-    if (done && done.length > 0) {
+    if (shouldSkipFetch(logs ?? [], range)) {
       return { cursor: ctx.cursor, stats: { ...ctx.stats, [label]: { skipped: true, fetched: 0, matched: 0 } } };
     }
   }
@@ -46,23 +44,22 @@ export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Prom
   }
 
   const items = latestOnly(res.items.map((r) => normalize(op.source, r)).filter((i): i is NormalizedItem => i !== null));
+  // 건수는 이 부문 기준, payload 는 어느 부문 키워드에든 맞으면 남긴다 (그 부문이 원본을 재사용할 수 있게)
   const keywords = await loadKeywords(admin, teamId);
-  const matched = new Set(
-    items
-      .filter((it) => {
-        const m = matchKeywords(it.matchText, keywords);
-        return m.matched.length > 0 && !m.excluded;
-      })
-      .map((it) => it.externalId),
+  const matched = items.filter((it) => isKeywordHit(it.matchText, keywords)).length;
+  const allTeams = await loadAllTeamsKeywords(admin);
+  const keepPayload = new Set(
+    items.filter((it) => allTeams.some((kws) => isKeywordHit(it.matchText, kws))).map((it) => it.externalId),
   );
 
   const orgIdOf = await upsertOrgs(admin, items);
-  await upsertRawItems(admin, op, items, matched, orgIdOf, now);
+  await upsertRawItems(admin, op, items, keepPayload, orgIdOf, now);
 
   const stats: OpStats = {
     fetched: (prev.fetched ?? 0) + items.length,
-    matched: (prev.matched ?? 0) + matched.size,
+    matched: (prev.matched ?? 0) + matched,
     pages: page,
+    fetchedAt: prev.fetchedAt ?? now.toISOString(),
   };
   return { cursor: afterFetch(ctx.cursor, op, page, res.totalCount, ROWS), stats: { ...ctx.stats, [label]: stats } };
 }
@@ -123,13 +120,13 @@ async function upsertOrgs(admin: Admin, items: NormalizedItem[]): Promise<OrgLoo
 
 /**
  * 원본 upsert (source, external_id). 저장된 차수가 더 크면 건너뛴다 (정정공고 역행 방지).
- * payload 는 이 부문 키워드에 맞은 건만 넣고, 안 맞은 건은 payload 칸을 아예 보내지 않아 기존 값을 지우지 않는다.
+ * payload 는 어느 부문 키워드에든 맞은 건만 넣고, 안 맞은 건은 payload 칸을 아예 보내지 않아 기존 값을 지우지 않는다.
  */
 async function upsertRawItems(
   admin: Admin,
   op: G2bOp,
   items: NormalizedItem[],
-  matched: Set<string>,
+  keepPayload: Set<string>,
   orgIdOf: OrgLookup,
   now: Date,
 ): Promise<void> {
@@ -167,8 +164,8 @@ async function upsertRawItems(
     return row;
   };
 
-  const withPayload = fresh.filter((it) => matched.has(it.externalId)).map((it) => ({ ...toRow(it), payload: stripPersonal(it.payload) }));
-  const withoutPayload = fresh.filter((it) => !matched.has(it.externalId)).map(toRow);
+  const withPayload = fresh.filter((it) => keepPayload.has(it.externalId)).map((it) => ({ ...toRow(it), payload: stripPersonal(it.payload) }));
+  const withoutPayload = fresh.filter((it) => !keepPayload.has(it.externalId)).map(toRow);
   for (const rows of [...chunk(withPayload, 500), ...chunk(withoutPayload, 500)]) {
     must("원본 저장", await admin.from("sos_raw_items").upsert(rows, { onConflict: "source,external_id" }));
   }
