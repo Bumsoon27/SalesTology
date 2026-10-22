@@ -1,18 +1,28 @@
+import Link from "next/link";
 import { groupByOrg } from "../analysis/group";
 import { daysUntil } from "../lib/date";
 import { DEADLINE_LABEL, LEAD_STATUS_LABEL, STAGE_LABEL } from "../lib/labels";
 import { formatWon } from "../summary/template";
 import type { LeadListItem } from "../types";
 
-// 리드 목록 — 사업별(한 줄씩) / 기관별(기관 행을 펼치면 사업). 전체 카드·상세는 Task 12.
-export function LeadList({ items, view, today }: { items: LeadListItem[]; view: "deal" | "org"; today: string }) {
+// 리드 목록 — 사업별(한 줄씩) / 기관별(기관 행을 펼치면 사업). 줄을 누르면 상세(?lead=)가 열린다
+type ListProps = {
+  items: LeadListItem[];
+  view: "deal" | "org";
+  today: string;
+  hrefFor: (leadId: string) => string;
+  selectedId: string | null;
+};
+
+export function LeadList({ items, view, today, hrefFor, selectedId }: ListProps) {
+  const row = (it: LeadListItem, hideOrg?: boolean) => (
+    <LeadRow item={it} today={today} hideOrg={hideOrg} href={hrefFor(it.id)} selected={it.id === selectedId} />
+  );
   if (view === "deal") {
     return (
       <ul className="flex flex-col gap-3">
         {items.map((it) => (
-          <li key={it.id}>
-            <LeadRow item={it} today={today} />
-          </li>
+          <li key={it.id}>{row(it)}</li>
         ))}
       </ul>
     );
@@ -36,9 +46,7 @@ export function LeadList({ items, view, today }: { items: LeadListItem[]; view: 
             </summary>
             <ul className="flex flex-col gap-3 pb-4 pl-4">
               {g.items.map((it) => (
-                <li key={it.id}>
-                  <LeadRow item={it} today={today} hideOrg />
-                </li>
+                <li key={it.id}>{row(it, true)}</li>
               ))}
             </ul>
           </details>
@@ -48,18 +56,23 @@ export function LeadList({ items, view, today }: { items: LeadListItem[]; view: 
   );
 }
 
-function LeadRow({ item, today, hideOrg }: { item: LeadListItem; today: string; hideOrg?: boolean }) {
+type RowProps = { item: LeadListItem; today: string; hideOrg?: boolean; href: string; selected: boolean };
+
+function LeadRow({ item, today, hideOrg, href, selected }: RowProps) {
   const summaryLine = item.summary?.split("\n")[0]?.trim();
   return (
     <article
-      className={`rounded-[6px] border border-[var(--sos-divider)] p-5 ${
-        item.hasNewProgress ? "bg-[var(--sos-bg-highlight)]" : "bg-[var(--sos-bg-surface)]"
-      }`}
+      className={`relative rounded-[6px] border p-5 transition-colors duration-200 hover:border-[var(--sos-text-hint)] ${
+        selected ? "border-[var(--sos-text-sub)]" : "border-[var(--sos-divider)]"
+      } ${item.hasNewProgress ? "bg-[var(--sos-bg-highlight)]" : "bg-[var(--sos-bg-surface)]"}`}
     >
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
           <h3 className="text-base text-[var(--sos-text-strong)]">
-            {item.title}
+            {/* 줄 전체를 누를 수 있게 링크를 카드 크기로 넓힌다 */}
+            <Link href={href} scroll={false} aria-current={selected ? "true" : undefined} className="after:absolute after:inset-0 after:content-['']">
+              {item.title}
+            </Link>
             {!hideOrg && item.orgName && <span className="ml-2 text-xs font-medium text-[var(--sos-text-sub)]">{item.orgName}</span>}
           </h3>
           {summaryLine && <p className="mt-1 truncate text-sm text-[var(--sos-text)]">{summaryLine}</p>}
@@ -95,7 +108,8 @@ function Deadline({ item, today }: { item: LeadListItem; today: string }) {
   );
 }
 
-function Badges({ item }: { item: LeadListItem }) {
+/** 상태 표시 (시각 설계서 §5.3) — 목록 줄과 상세 카드가 같이 쓴다 */
+export function Badges({ item }: { item: Pick<LeadListItem, "status" | "companyId" | "hasNewProgress" | "keywordMismatch"> }) {
   const tags: { text: string; color: string }[] = [];
   if (item.status === "converted") tags.push({ text: LEAD_STATUS_LABEL.converted, color: "text-[var(--sos-green)]" });
   else if (item.status !== "new") tags.push({ text: LEAD_STATUS_LABEL[item.status], color: "text-[var(--sos-text-sub)]" });

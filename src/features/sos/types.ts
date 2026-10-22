@@ -62,3 +62,30 @@ export type LeadListItem = {
   assigneeName: string | null;
   updatedAt: string;
 };
+
+// 리드 상세 (카드 전체). 근거 시그널은 출처·날짜·제목·원문 링크만 — 원본 payload 는 싣지 않는다
+export type LeadDetail = {
+  id: string;
+  title: string;
+  orgName: string;
+  companyId: string | null;
+  stage: Stage;
+  status: LeadStatus;
+  score: number;
+  budget: number | null;
+  expectedOrderMonth: string | null;
+  nextDeadlineAt: string | null;
+  nextDeadlineType: DeadlineType | null;
+  summary: string | null;
+  summarySource: "ai" | "template" | null;
+  hasNewProgress: boolean;
+  keywordMismatch: boolean;
+  assigneeId: string | null;
+  memo: string | null;
+  updatedAt: string;
+  keywords: { id: string; term: string; tier: Tier }[];
+  products: { id: string; name: string; vendor: string | null; terms: string[] }[];
+  signals: { id: string; source: SourceId; sourceLabel: string; title: string; publishedAt: string | null; url: string | null }[];
+  // 담당 지정 후보: 리드 부문의 활성 사용자
+  members: { id: string; name: string }[];
+};
