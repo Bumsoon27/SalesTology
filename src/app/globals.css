@@ -31,7 +31,7 @@
   --color-st-yellow: var(--st-yellow);
   --color-st-green: var(--st-green);
   --color-st-grey: var(--st-grey);
-  --font-sans: var(--font-maruburi), "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-sans: var(--font-nanum-round), "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -39,6 +39,11 @@ html,
 body {
   background: var(--bg);
   color: var(--text);
+}
+
+/* 앱 폰트: next/font 변수(html)를 직접 참조 — @theme inline 은 :root 변수를 만들지 않는다 */
+body {
+  font-family: var(--font-nanum-round), "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
 ::selection {
