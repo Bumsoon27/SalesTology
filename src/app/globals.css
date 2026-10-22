@@ -31,7 +31,7 @@
   --color-st-yellow: var(--st-yellow);
   --color-st-green: var(--st-green);
   --color-st-grey: var(--st-grey);
-  --font-sans: var(--font-geist-sans), "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-sans: var(--font-maruburi), "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -39,10 +39,6 @@ html,
 body {
   background: var(--bg);
   color: var(--text);
-}
-
-body {
-  font-family: var(--font-sans);
 }
 
 ::selection {
@@ -59,6 +55,18 @@ body {
   color: var(--text);
   outline: none;
   transition: border-color 0.15s, background 0.15s;
+}
+/* 드롭다운 목록: 기본 흰 바탕에 밝은 글씨라 안 보이던 문제 → 어두운 바탕 */
+select {
+  color-scheme: dark;
+}
+select option,
+select optgroup {
+  background-color: var(--surface-2);
+  color: var(--text);
+}
+select option:disabled {
+  color: var(--muted);
 }
 .field:focus {
   border-color: rgb(154 171 255 / 0.6);

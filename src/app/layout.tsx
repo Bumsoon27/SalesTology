@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import localFont from "next/font/local";
 import { InstallPrompt } from "@/shared/ui/install-prompt";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// 마루부리 (NAVER, SIL OFL 1.1) — 영문·KS X 1001 한글 2,350자로 줄인 woff2 (fonts/README.md)
+const maruBuri = localFont({
+  variable: "--font-maruburi",
+  display: "swap",
+  src: [
+    { path: "./fonts/MaruBuri-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/MaruBuri-SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/MaruBuri-Bold.woff2", weight: "700", style: "normal" },
+  ],
 });
 
 export const metadata: Metadata = {
@@ -30,9 +36,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="ko" className={`${maruBuri.variable} h-full antialiased`}>
       {/* dvh: 모바일 주소창이 나타나고 사라져도 높이가 튀지 않게 */}
-      <body className="flex h-dvh flex-col bg-bg text-fg">
+      <body className="flex h-dvh flex-col bg-bg font-sans text-fg">
         {children}
         <InstallPrompt />
       </body>
