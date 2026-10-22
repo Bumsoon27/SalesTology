@@ -147,13 +147,18 @@ const SOURCE_LABEL: Record<G2bOp["source"], string> = {
 };
 const BIZ_LABEL: Record<G2bOp["biz"], string> = { Thng: "물품", Servc: "용역" };
 
+/** 화면용 업무 이름 — "사전규격(물품)" */
+export function opDisplayName(op: G2bOp): string {
+  return `${SOURCE_LABEL[op.source]}(${BIZ_LABEL[op.biz]})`;
+}
+
 export function stepLabel(step: RunStep | null): string {
   if (!step) return "완료";
   switch (step.kind) {
     case "purge":
       return "보관 정리";
     case "fetch":
-      return `${SOURCE_LABEL[step.op.source]}(${BIZ_LABEL[step.op.biz]}) ${step.page}쪽 수집`;
+      return `${opDisplayName(step.op)} ${step.page}쪽 수집`;
     case "link":
       return "사업 흐름 연결";
     case "analyze":

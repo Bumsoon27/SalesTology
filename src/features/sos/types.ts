@@ -41,3 +41,24 @@ export const STAGE_RANK: Record<Stage, number> = {
   award: 3,
   contract: 4,
 };
+
+// 목록 화면 한 줄 (sos_leads + 기관명·담당자명)
+export type LeadListItem = {
+  id: string;
+  title: string;
+  orgName: string;
+  orgId: string | null;
+  companyId: string | null;
+  stage: Stage;
+  status: LeadStatus;
+  score: number;
+  budget: number | null;
+  nextDeadlineAt: string | null;
+  nextDeadlineType: DeadlineType | null;
+  summary: string | null;
+  summarySource: "ai" | "template" | null;
+  hasNewProgress: boolean;
+  keywordMismatch: boolean;
+  assigneeName: string | null;
+  updatedAt: string;
+};
