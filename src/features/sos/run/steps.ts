@@ -1,0 +1,133 @@
+// 실행(run) 단계 계획 — 순수 함수. 한 단계 = 서버 호출 한 번(60초 안).
+// 큰 일은 같은 종류 단계를 커서에 다시 넣어 나눠 처리한다 (continueWith).
+import { G2B_OPS, type G2bOp } from "../collectors/g2b";
+
+export type RunMode = "collect" | "reanalyze";
+
+export type RunStep =
+  | { kind: "purge" }
+  | { kind: "fetch"; op: G2bOp; page: number }
+  // after: 이어서 볼 사전규격 external_id (keyset)
+  | { kind: "link"; after?: string }
+  // after: 이어서 훑을 원본 id (keyset). save: 다 훑었으니 리드 저장
+  | { kind: "analyze"; after?: string; save?: boolean }
+  // aiOffset 이 있으면 템플릿은 끝났고 상위 N건 AI 요약 중
+  | { kind: "summarize"; aiOffset?: number }
+  | { kind: "finish" };
+
+export type RunCursor = {
+  steps: RunStep[];
+  index: number;
+  totals: Partial<Record<string, number>>;
+  // 수집·분석 기준 시각 범위 (ISO). 시작 시 정해 두고 모든 단계가 같은 값을 쓴다
+  range?: { from: string; to: string };
+  // analyze 훑기 결과 — 부문 키워드에 맞은 원본 id
+  matchedIds?: string[];
+  // 다른 요청이 이 단계를 처리 중이면 그 만료 시각 (탭 두 개 동시 진행 방지)
+  lease?: string | null;
+};
+
+const STALE_MS = 15 * 60 * 1000;
+const LEASE_MS = 70 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function planRun(mode: RunMode): RunStep[] {
+  if (mode === "reanalyze") return [{ kind: "analyze" }, { kind: "summarize" }, { kind: "finish" }];
+  return [
+    { kind: "purge" },
+    ...G2B_OPS.map((op): RunStep => ({ kind: "fetch", op, page: 1 })),
+    { kind: "link" },
+    { kind: "analyze" },
+    { kind: "summarize" },
+    { kind: "finish" },
+  ];
+}
+
+/** stats·totals·sos_fetch_log 에 쓰는 업무 이름 */
+export function opLabel(op: G2bOp): string {
+  return `${op.source}:${op.biz}`;
+}
+
+/** 현재 단계 바로 뒤에 step 을 넣는다 (진행은 하지 않음) */
+export function continueWith(cursor: RunCursor, step: RunStep): RunCursor {
+  const steps = [...cursor.steps];
+  steps.splice(cursor.index + 1, 0, step);
+  return { ...cursor, steps };
+}
+
+export function advance(cursor: RunCursor): RunCursor {
+  return { ...cursor, index: cursor.index + 1 };
+}
+
+/** DB jsonb → 커서. 모양이 다르면 null (손상된 실행은 실패 처리) */
+export function parseCursor(value: unknown): RunCursor | null {
+  if (!value || typeof value !== "object") return null;
+  const c = value as Partial<RunCursor>;
+  if (!Array.isArray(c.steps) || typeof c.index !== "number" || !Number.isInteger(c.index) || c.index < 0) return null;
+  return { ...c, steps: c.steps, index: c.index, totals: c.totals && typeof c.totals === "object" ? c.totals : {} };
+}
+
+export function currentStep(cursor: RunCursor): RunStep | null {
+  return cursor.steps[cursor.index] ?? null;
+}
+
+/** 한 쪽을 받은 뒤: 전체 건수를 기록하고, 다음 쪽이 있으면 바로 뒤에 넣는다 */
+export function afterFetch(cursor: RunCursor, op: G2bOp, page: number, totalCount: number, rows: number): RunCursor {
+  const next: RunCursor = { ...cursor, totals: { ...cursor.totals, [opLabel(op)]: totalCount } };
+  return page * rows < totalCount ? continueWith(next, { kind: "fetch", op, page: page + 1 }) : next;
+}
+
+/** heartbeat 가 15분 넘게 그대로면 멈춘 실행 */
+export function isStale(heartbeatAt: string, now: Date): boolean {
+  return now.getTime() - Date.parse(heartbeatAt) > STALE_MS;
+}
+
+export function withLease(cursor: RunCursor, now: Date): RunCursor {
+  return { ...cursor, lease: new Date(now.getTime() + LEASE_MS).toISOString() };
+}
+
+export function isBusy(cursor: RunCursor, now: Date): boolean {
+  return !!cursor.lease && Date.parse(cursor.lease) > now.getTime();
+}
+
+/**
+ * 수집 범위: 지난 실행 시작 시각 ~ now. 첫 실행이거나 너무 오래됐으면 최근 firstRunDays 일.
+ * 지난 실행의 "시작" 시각을 받는다 — 실행 도중 올라온 공고를 놓치지 않게 (겹침은 upsert 가 흡수).
+ */
+export function runRange(lastFinishedAt: string | null, now: Date, firstRunDays: number): { from: Date; to: Date } {
+  const floor = now.getTime() - firstRunDays * DAY_MS;
+  const last = lastFinishedAt ? Date.parse(lastFinishedAt) : NaN;
+  const from = Number.isFinite(last) ? Math.max(last, floor) : floor;
+  return { from: new Date(from), to: new Date(now.getTime()) };
+}
+
+/** 출처 하나라도 오류면 partial */
+export function finalStatus(stats: Record<string, unknown>): "done" | "partial" {
+  const failed = Object.values(stats).some((v) => !!v && typeof v === "object" && "error" in v);
+  return failed ? "partial" : "done";
+}
+
+const SOURCE_LABEL: Record<G2bOp["source"], string> = {
+  g2b_plan: "발주계획",
+  g2b_prespec: "사전규격",
+  g2b_bid: "입찰공고",
+};
+const BIZ_LABEL: Record<G2bOp["biz"], string> = { Thng: "물품", Servc: "용역" };
+
+export function stepLabel(step: RunStep | null): string {
+  if (!step) return "완료";
+  switch (step.kind) {
+    case "purge":
+      return "보관 정리";
+    case "fetch":
+      return `${SOURCE_LABEL[step.op.source]}(${BIZ_LABEL[step.op.biz]}) ${step.page}쪽 수집`;
+    case "link":
+      return "사업 흐름 연결";
+    case "analyze":
+      return step.save ? "리드 저장" : "키워드 분석";
+    case "summarize":
+      return step.aiOffset === undefined ? "요약 작성" : "AI 요약";
+    case "finish":
+      return "마무리";
+  }
+}
