@@ -19,7 +19,7 @@ export async function createDeal(_prev: CreateDealState, formData: FormData): Pr
   const customer = text(formData.get("customer"));
   const contractType = String(formData.get("contractType") ?? "");
   const amountRaw = String(formData.get("amount") ?? "").replace(/[,\s원]/g, "");
-  const month = String(formData.get("expectedMonth") ?? ""); // YYYY-MM
+  const gpRaw = String(formData.get("gp") ?? "").replace(/[,s원]/g, "");
   const periodStart = date(formData.get("periodStart"));
   const periodEnd = date(formData.get("periodEnd"));
 
@@ -28,6 +28,7 @@ export async function createDeal(_prev: CreateDealState, formData: FormData): Pr
   if (!customer) fieldErrors.customer = "고객사를 입력하세요.";
   if (contractType !== "competitive" && contractType !== "negotiated") fieldErrors.contractType = "계약 방식을 고르세요.";
   if (amountRaw && !/^\d+$/.test(amountRaw)) fieldErrors.amount = "금액은 숫자만 입력하세요.";
+  if (gpRaw && !/^-?d+$/.test(gpRaw)) fieldErrors.gp = "GP는 숫자만 입력하세요.";
   if (periodStart && periodEnd && periodEnd < periodStart) fieldErrors.periodEnd = "종료일은 시작일 이후여야 합니다.";
   if (Object.keys(fieldErrors).length) return { ok: false, fieldErrors };
 
@@ -38,15 +39,14 @@ export async function createDeal(_prev: CreateDealState, formData: FormData): Pr
     p_contract_type: contractType,
     p_stage: String(formData.get("stage") || "discovery"),
     p_amount: amountRaw ? Number(amountRaw) : null,
-    p_expected_contract_month: month ? `${month}-01` : null,
     p_period_start: periodStart,
     p_period_end: periodEnd,
     p_items: text(formData.get("items")),
     p_si: list(formData.get("si")),
     p_suppliers: list(formData.get("suppliers")),
-    p_contract_date: date(formData.get("contractDate")),
     p_delivery_date: date(formData.get("deliveryDate")),
     p_invoice_date: date(formData.get("invoiceDate")),
+    p_gp: gpRaw ? Number(gpRaw) : null,
   });
   if (error) return { ok: false, error: error.message };
 

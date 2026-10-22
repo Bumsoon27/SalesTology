@@ -146,8 +146,9 @@ export function NewDealDialog({
               {err("amount")}
             </div>
             <div>
-              <label className={label} htmlFor="nd-month">예상 계약월</label>
-              <input id="nd-month" name="expectedMonth" type="month" className="field" />
+              <label className={label} htmlFor="nd-gp">GP (이윤, 원)</label>
+              <input id="nd-gp" name="gp" inputMode="numeric" className="field" placeholder="예: 15000000" />
+              {err("gp")}
             </div>
             <div>
               <label className={label} htmlFor="nd-stage">단계</label>
@@ -174,9 +175,8 @@ export function NewDealDialog({
 
           <fieldset className="rounded-xl border border-line p-4">
             <legend className="px-1 text-xs text-muted">빠른 일정 — 날짜를 넣으면 추적 업무가 자동으로 만들어집니다</legend>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               {[
-                ["contractDate", "계약 예정일"],
                 ["deliveryDate", "배송일"],
                 ["invoiceDate", "계산서 발행일"],
               ].map(([n, l]) => (
