@@ -233,7 +233,8 @@ create policy sos_team_settings_update on public.sos_team_settings for update to
   with check (public.is_admin() or team_id = public.current_team_id());
 
 -- 키워드: 자기 부문 조회·생성·수정. 물리 삭제 대신 deleted_at (소프트 삭제).
-grant select, insert, update on public.sos_keywords to authenticated;
+grant select, insert on public.sos_keywords to authenticated;
+grant update (term, tier, weight, sources, active, deleted_at) on public.sos_keywords to authenticated;
 
 create policy sos_keywords_select on public.sos_keywords for select to authenticated
   using (public.is_admin() or team_id = public.current_team_id());
@@ -246,8 +247,9 @@ create policy sos_keywords_update on public.sos_keywords for update to authentic
   using (public.is_admin() or team_id = public.current_team_id())
   with check (public.is_admin() or team_id = public.current_team_id());
 
--- 제품: 자기 부문 조회·생성·수정
-grant select, insert, update on public.sos_products to authenticated;
+-- 제품: 자기 부문 조회·생성·수정·삭제 (삭제 시 키워드 연결도 같이 지워진다)
+grant select, insert, delete on public.sos_products to authenticated;
+grant update (name, vendor) on public.sos_products to authenticated;
 
 create policy sos_products_select on public.sos_products for select to authenticated
   using (public.is_admin() or team_id = public.current_team_id());
@@ -256,6 +258,8 @@ create policy sos_products_insert on public.sos_products for insert to authentic
 create policy sos_products_update on public.sos_products for update to authenticated
   using (public.is_admin() or team_id = public.current_team_id())
   with check (public.is_admin() or team_id = public.current_team_id());
+create policy sos_products_delete on public.sos_products for delete to authenticated
+  using (public.is_admin() or team_id = public.current_team_id());
 
 -- 키워드↔제품 연결: 연결 해제는 행 삭제이므로 delete 허용. 키워드와 제품은 같은 부문이어야 한다.
 grant select, insert, delete on public.sos_keyword_products to authenticated;
@@ -304,13 +308,17 @@ grant update (status, assignee_id, memo, touched_at, has_new_progress, converted
 
 create policy sos_leads_select on public.sos_leads for select to authenticated
   using (public.is_admin() or team_id = public.current_team_id());
--- 담당자는 같은 부문 사용자만 (profiles RLS 로 보이는 사람 중 그 부문 소속)
+-- 담당자는 같은 부문의 활성 사용자만. 전환 사업은 내가 볼 수 있는 사업만 (서브쿼리에 deals RLS 적용)
 create policy sos_leads_update on public.sos_leads for update to authenticated
   using (public.is_admin() or team_id = public.current_team_id())
   with check (
     (public.is_admin() or team_id = public.current_team_id())
     and (assignee_id is null or exists (
-      select 1 from public.profiles p where p.id = assignee_id and p.team_id = sos_leads.team_id
+      select 1 from public.profiles p
+      where p.id = assignee_id and p.team_id = sos_leads.team_id and p.is_active
+    ))
+    and (converted_deal_id is null or exists (
+      select 1 from public.deals d where d.id = converted_deal_id
     ))
   );
 
