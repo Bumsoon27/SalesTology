@@ -1,7 +1,7 @@
 # SOS (Signal-based Outbound Sales) — 설계서 (B 영역)
 
 - 작성일: 2026-10-20 (브레인스토밍 2026-10-20~21)
-- 상태: **DJ 승인 (2026-10-21)** — SB 리뷰 대기
+- 상태: **DJ 승인 (2026-10-21)**, SB 리뷰 반영 (2026-10-22)
 - 담당: DJ (B, GitHub `juny0316`)
 - 관련: A 설계서 `2026-10-20-salestology-a-design.md` §0, §3.2, §7, §11
 
@@ -198,7 +198,7 @@ A 공용 테이블(`teams`, `profiles`, `companies`)은 **읽기·FK 참조만**
 | summary text, summary_source | `ai` \| `template` |
 | status | `new` \| `reviewing` \| `on_hold` \| `dismissed` \| `converted` |
 | assignee_id FK profiles null, memo text | |
-| converted_deal_id uuid null | A deals API가 돌려준 id (A 테이블이 생기면 FK) |
+| converted_deal_id uuid null FK → deals on delete set null | `createDealFromLead` 가 돌려준 dealId |
 | touched_at timestamptz null | 사람이 담당·메모·상태·전환을 처음 한 시각. 있으면 보관 정리에서 제외 |
 | has_new_progress boolean | 보류 리드에 새 단계·마감이 왔음 (§3.3-4) |
 | keyword_mismatch boolean | 손댄 리드가 키워드 변경으로 더는 맞지 않음 |
@@ -234,7 +234,7 @@ A 공용 테이블(`teams`, `profiles`, `companies`)은 **읽기·FK 참조만**
 
 A 레이아웃의 `[SalesTology|SOS]` 탭에서 진입. 공용 `AppHeader active="sos"` 사용.
 
-관리자(`team_id` 가 null일 수 있음)는 A와 같이 화면 상단에서 **부문을 골라** 그 부문의 실행·키워드·리드로 동작한다. 서버는 일반 멤버는 `current_team_id()`, 관리자는 선택한 부문을 쓴다. [제안]
+관리자(`team_id` 가 null일 수 있음)는 A와 같이 화면 상단에서 **부문을 골라** 그 부문의 실행·키워드·리드로 동작한다. 서버는 일반 멤버는 `current_team_id()`, 관리자는 선택한 부문을 쓴다. [제안] 단, 관리자는 [사업으로 전환]을 쓸 수 없다(§6.1).
 
 ### 5.1 `/sos` — 리드 목록 (메인)
 - 상단: **[수집 시작]**, 마지막 실행 요약("10/21 14:20 · 실행자 · 새 리드 12 · 이슈 2"), 진행 중이면 출처별 진행 막대.
@@ -275,20 +275,40 @@ A 레이아웃의 `[SalesTology|SOS]` 탭에서 진입. 공용 `AppHeader active
 
 ## 6. A 영역과의 연동
 
+A가 제공하는 함수·인터페이스는 main 에 반영돼 있다 (#26·#31·#32). 사용법 원문: `docs/integration/a-for-b.md`.
+
 ### 6.1 리드 → 사업 전환
-- [사업으로 전환] → B 서버가 **A의 deals 생성 API를 호출**한다. 직접 INSERT 하지 않는다.
-- 미리 채우는 값: 사업명 = 리드 title, 고객사 = 기존 고객이면 company_id, 아니면 기관명으로 새 회사, 사업 규모 = budget, 예상 계약월 = expected_order_month, 계약 방식 = 조달 입찰이면 `competitive`, 단계 `discovery`, 담당자 = 리드 담당자(없으면 누른 사람). 사용자가 확인·수정 후 저장 [제안].
-- 성공하면 리드 `status = converted`, `converted_deal_id` 저장, 토폴로지의 그 사업으로 가는 링크 표시.
-- 같은 리드를 두 번 전환하지 않도록 리드 id를 멱등 키로 보낸다.
-- A API가 준비되기 전에는 버튼을 비활성화하고 "준비 중" 표시.
+- [사업으로 전환] → B 서버 액션이 **`createDealFromLead()`** (`@/features/deals/api`, server-only)를 호출한다. 직접 INSERT 하지 않는다.
+- 넘기는 값:
+  | `LeadToDealInput` | SOS 값 |
+  |---|---|
+  | `name` | 리드 title |
+  | `customer` / `customerId` | 기존 고객이면 `customerId = company_id`, 아니면 `customer = 표준화한 기관명` (A는 이름이 **정확히 같을 때만** 같은 회사로 본다) |
+  | `budget` | budget (원, 숫자) |
+  | `orderMonth` | expected_order_month (`YYYY-MM`) |
+  | `procurement` | 조달 입찰 리드는 `"bid"` |
+  | `ownerId` | 리드 담당자(없으면 생략 → 누른 사람) |
+  | `sourceRef` | **`sos_lead:{lead_id}`** — 멱등 키. 재시도·더블클릭에도 사업 하나 |
+- 사용자가 확인 창에서 값을 보고 저장한다 [제안].
+- 성공(`r.ok`)하면 리드 `status = converted`, `converted_deal_id = r.data.dealId`, 카드에 `r.data.href`(대시보드에서 그 사업이 열리는 주소) 링크. 실패하면 `r.error`(한국어)를 토스트로.
+- **관리자(`team_id` null)는 `create_deal` 을 호출할 수 없으므로 [사업으로 전환] 버튼을 비활성화**한다. [SB 리뷰]
 
 ### 6.2 티커·종 알림 [DJ: 사전규격 의견 마감 임박]
-- B가 A의 `NotificationProvider` 를 구현해 등록한다.
-- 종류 `sos_prespec_deadline`: 단계가 사전규격이고 상태가 `dismissed`·`on_hold`·`converted` 가 아닌 리드, 의견 마감 **D-{prespec_alert_days}(기본 3)부터 마감일까지**.
-- 범위: 내 보기 = 내가 담당인 리드, 팀 전체 = 부문 전체 리드.
-- 문구: "[SOS] {기관} · {사업명} — 사전규격 의견 마감 D-{n} (예산 {금액})"
-- 긴급도: `70 − 남은 일수` (A의 `task_soon` 과 같은 척도). 키: `sos_prespec_deadline:{lead_id}:{기준일}`.
-- 클릭: `/sos?lead={id}` 로 이동해 카드를 연다.
+- `src/features/sos/notification-provider.ts` 에서 `NotificationProvider`(`@/shared/notifications/providers`)를 구현하고, 공용 파일 `providers.ts` 의 `notificationProviders` 배열에 등록한다(**공용 → 작은 PR, A 리뷰**).
+- 입력 `NotificationContext`: `userId`, `teamId`, `today`(Asia/Seoul `YYYY-MM-DD`), `view: "mine" | "team"`.
+- 종류: 단계가 사전규격이고 상태가 `dismissed`·`on_hold`·`converted` 가 아닌 리드, 의견 마감 **D-{prespec_alert_days}(기본 3)부터 마감일까지**.
+- 범위: `view = "mine"` → 내가 담당인 리드, `"team"` → 부문 전체 리드.
+- 출력 `ExternalNotification`:
+  - `key`: `sos:prespec_deadline:{lead_id}:{today}` (A 규칙 `{공급자 id}:{종류}:{대상 id}:{기준일}`)
+  - `text`: "{기관} · {사업명} — 사전규격 의견 마감 D-{n} (예산 {금액})" — **앞에 `[SOS]` 를 붙이지 않는다**(`source` 가 배지로 붙음) [SB 리뷰]
+  - `urgency`: `70 − 남은 일수`
+  - `href`: `/sos?lead={lead_id}`
+  - `source`: `"SOS"`
+- `load` 는 **1.5초 안에** 끝나야 한다(넘기면 A가 SOS 알림만 뺀다). 쿼리 하나로 끝내고 인덱스를 둔다.
+- 읽음 처리는 A가 같은 키로 처리한다(B 추가 작업 없음).
+
+### 6.3 대시보드 사업 패널의 'SOS 시그널' 자리 (S2) [SB 제안]
+A의 사업 상세 패널에 SOS 섹션 자리가 있다. B가 `src/features/sos/deal-signals.tsx` 에 `export function DealSignals({ dealId, customerId }: { dealId: string; customerId: string })` 를 만들면 A가 끼운다. 전환된 리드의 근거 시그널과 같은 기관의 최근 시그널을 보여준다. S1 범위 밖.
 
 ---
 
@@ -300,6 +320,8 @@ A 레이아웃의 `[SalesTology|SOS]` 탭에서 진입. 공용 `AppHeader active
 - 원본 필드 누락(예산·마감 없음): 칸을 "미공개"로 두고 점수에서 해당 항목만 0.
 - 동시 수정(담당·상태·메모): A와 같은 방식으로 `updated_at` 비교, 다르면 덮어쓰지 않고 알림.
 - 인증키·비밀값은 클라이언트로 보내지 않고 로그에 남기지 않는다.
+- **secret key(관리자 클라이언트)로 RLS를 우회하는 경로**(수집 실행·공용 원본 저장·보관 정리)에서는 `team_id` 를 사용자 요청값에서 받지 않는다. 항상 `requireUser()` 의 `teamId`(관리자는 선택한 부문을 서버에서 다시 검증)로 정하고, 모든 쿼리에 `team_id` 조건을 명시한다. [SB 리뷰]
+- Next 16 `cacheComponents`: 서버에서 `new Date()`·`Date.now()` 를 쓰는 코드는 `await connection()` 뒤에 둔다. 세션을 읽는 컴포넌트는 `<Suspense>` 안에 둔다. [SB 안내]
 
 ---
 
@@ -321,18 +343,20 @@ A 레이아웃의 `[SalesTology|SOS]` 탭에서 진입. 공용 `AppHeader active
 
 ---
 
-## 9. A(SB)에게 요청할 사항
-1. **deals 생성 API** (#27) — B 서버 코드에서 호출할 수 있는 형태(서버 함수 또는 Route Handler). 입력: 사업명, 고객사(company_id 또는 새 회사명), 계약 방식, 규모, 예상 계약월, 단계, 담당자, 멱등 키. 출력: deal id. 권한 검사(같은 부문)는 A가 한다.
-2. **회사 생성** (#28) — 신규 기관을 고객사로 만들 때. 1번 API가 새 회사명을 받아 만들어 주거나, 별도 companies 생성 API.
-3. **`NotificationProvider` 인터페이스** (#29) — 공급자 등록 방식, 입력(사용자·보기 범위·기준일), 출력(키·문구·긴급도·**클릭 시 이동할 주소**). 토폴로지 노드가 아닌 다른 페이지 주소로 이동할 수 있어야 한다.
-4. **Vercel 팀 초대** (#30) — `juny0316` 이 Vercel 프로젝트에 없어 B의 PR 미리보기 배포가 실패한다.
+## 9. A(SB)에게 요청한 사항 — 모두 완료
+| 요청 | 결과 |
+|---|---|
+| deals 생성 API (#27) | `createDealFromLead()` — #26·#31·#32 |
+| 회사 생성 (#28) | `findOrCreateCompany(name, roles)` — 이름 정확히 일치만 같은 회사 |
+| `NotificationProvider` (#29) | `src/shared/notifications/providers.ts` — `href`·`source`·`view` 지원 |
+| Vercel 미리보기 (#30) | 초대 대신 GitHub Actions(SB 토큰) 배포로 해결. B PR에도 미리보기 주소 댓글이 달린다 |
 
 ---
 
 ## 10. 단계별 로드맵 [제안]
 | 단계 | 범위 |
 |---|---|
-| **S1** | [수집 시작]·실행 기록·보관 정리, 조달 4종(발주계획·사전규격·입찰공고·계약과정통합공개), 키워드 설정(태그 입력 + 결과 화면 추가 + 이력), 키워드 ↔ 제품, 사업 리드 목록(사업별/기관별)·카드, 점수, 템플릿 + Gemini 요약, 사업 전환(A API 준비 시), 사전규격 마감 알림(A 인터페이스 준비 시) |
+| **S1** | [수집 시작]·실행 기록·보관 정리, 조달 4종(발주계획·사전규격·입찰공고·계약과정통합공개), 키워드 설정(태그 입력 + 결과 화면 추가 + 이력), 키워드 ↔ 제품, 사업 리드 목록(사업별/기관별)·카드, 점수, 템플릿 + Gemini 요약, 사업 전환(`createDealFromLead`), 사전규격 마감 알림(`NotificationProvider`) |
 | **S2** | 낙찰·계약 → 재발주 예측(`predicted`), 경쟁사 낙찰 정보, 채용(사람인·고용24) 기관 시그널, 기관 확인 필요 화면, 영업사원 수동 리드 등록 |
 | **S3** | 네이버 뉴스 → 이슈 시그널, 업종 태그, 이슈 대상 목록(기존/신규), 대상별 리드 만들기 |
 
@@ -345,7 +369,8 @@ A 레이아웃의 `[SalesTology|SOS]` 탭에서 진입. 공용 `AppHeader active
 - 사람인 Open API 이용 신청(승인 필요), 고용24 API 인증키 (S2)
 - 네이버 개발자센터 검색 API 앱 등록 (S3)
 - Google AI Studio에서 Gemini API 키 (무료 등급)
-- 환경변수 [제안]: `DATA_GO_KR_SERVICE_KEY`, `SARAMIN_ACCESS_KEY`, `WORK24_AUTH_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`. 모두 `NEXT_PUBLIC_` 금지, `src/features/sos/server/` 의 `server-only` 모듈에서만 읽는다. `.env.example` 에 이름 추가(공용 파일 → 작은 PR).
+- 환경변수: S1은 `DATA_GO_KR_SERVICE_KEY`, `GEMINI_API_KEY`(2026-10-21 발급 완료). S2 `SARAMIN_ACCESS_KEY`, `WORK24_AUTH_KEY`. S3 뉴스는 A가 이미 쓰는 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 을 함께 쓴다. 모두 `NEXT_PUBLIC_` 금지, `src/features/sos/server/` 의 `server-only` 모듈에서만 읽는다. `.env.example` 에 이름 추가(공용 파일 → 작은 PR).
+- 운영(Vercel) 환경변수 등록은 SB가 한다. **값은 DJ가 SB에게 직접 전달하고 저장소·PR·이슈에는 절대 쓰지 않는다.** [SB 리뷰]
 
 ## 12. 코드 위치 [제안]
 ```
@@ -355,7 +380,7 @@ src/features/sos/
   analysis/                  키워드 일치, 묶기, 점수, 이슈 감지 (순수 함수)
   summary/                   템플릿 요약기, Gemini 요약기
   retention/                 보관 정리
-  notifications/             NotificationProvider 구현
+  notification-provider.ts   NotificationProvider 구현 (A 가이드가 정한 경로)
   server/                    인증키·Supabase 서버 접근 (server-only)
   ui/                        카드·칩 입력 등
 supabase/migrations/         YYYYMMDDHHMMSS_b_*.sql
