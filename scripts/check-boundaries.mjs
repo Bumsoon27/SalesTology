@@ -19,7 +19,11 @@ const diff = execSync(`git diff --name-status ${base}...HEAD`, { encoding: "utf8
     return { status: status[0], path: paths.at(-1) };
   });
 
-const A_PATHS = ["src/app/(auth)/", "src/app/(core)/", "src/features/topology/", "src/features/notifications/", "src/features/deals/"];
+const A_PATHS = [
+  "src/app/(auth)/", "src/app/(core)/",
+  "src/features/topology/", "src/features/notifications/", "src/features/deals/",
+  "src/features/partners/", "src/features/profile/", "src/features/admin/",
+];
 const B_PATHS = ["src/app/sos/", "src/features/sos/"];
 const MIGRATION_RE = /^supabase\/migrations\/\d{14}_(a|b)_[a-z0-9_]+\.sql$/;
 const SHARED_TABLES = /\b(alter|drop|truncate)\s+table\s+(if\s+exists\s+)?(public\.)?(teams|profiles|companies|deals|deal_\w+|issues|activity_log|notification_reads)\b/i;

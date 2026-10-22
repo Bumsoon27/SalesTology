@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const LOGIN_ID = "sbbae";
+const TEAM_JOIN_CODE = "1000"; // Enterprise사업부문 — 관리자도 자기 부문으로 사업을 등록한다
 const EMAIL = `${LOGIN_ID}@salestology.local`;
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,11 +45,14 @@ async function main() {
     console.log(`관리자 계정이 이미 있습니다: ${LOGIN_ID} (비밀번호는 바꾸지 않음)`);
   }
 
+  const { data: team, error: teamError } = await supabase.from("teams").select("id, name").eq("join_code", TEAM_JOIN_CODE).single();
+  if (teamError) throw teamError;
+
   const { error } = await supabase
     .from("profiles")
-    .upsert({ id: userId, login_id: LOGIN_ID, name: "관리자", role: "admin", is_active: true }, { onConflict: "id" });
+    .upsert({ id: userId, login_id: LOGIN_ID, name: "관리자", role: "admin", team_id: team.id, is_active: true }, { onConflict: "id" });
   if (error) throw error;
-  console.log("profiles 반영 완료");
+  console.log(`profiles 반영 완료 (소속: ${team.name})`);
 }
 
 main().catch((e) => {

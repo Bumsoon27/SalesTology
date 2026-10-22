@@ -1,26 +1,196 @@
 @import "tailwindcss";
 
+/* SalesTology 블랙 테마 — 색은 여기서만 정의한다 (A·B 공용) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --bg: #050507;
+  --surface: #0d0e12;
+  --surface-2: #14151b;
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.16);
+  --text: #ececf1;
+  --muted: #8a8d99;
+  --accent: #9aabff;
+
+  /* 상태 색 (설계서 §4) */
+  --st-red: #ff5d62;
+  --st-yellow: #f6b94c;
+  --st-green: #5fd9a0;
+  --st-grey: #5d606b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-st-red: var(--st-red);
+  --color-st-yellow: var(--st-yellow);
+  --color-st-green: var(--st-green);
+  --color-st-grey: var(--st-grey);
+  --font-sans: var(--font-geist-sans), "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: rgb(154 171 255 / 0.35);
+}
+
+/* 공용 입력 컴포넌트 */
+.field {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgb(255 255 255 / 0.03);
+  padding: 0.7rem 0.9rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.field:focus {
+  border-color: rgb(154 171 255 / 0.6);
+  background: rgb(255 255 255 / 0.05);
+}
+.btn-primary {
+  width: 100%;
+  border-radius: 10px;
+  background: var(--text);
+  color: #0a0a0c;
+  padding: 0.7rem 0.9rem;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.btn-primary:hover {
+  opacity: 0.88;
+}
+
+/* ─── 토폴로지 우주 ─────────────────────────────────── */
+.universe .link {
+  stroke: rgb(154 171 255 / 0.17);
+  stroke-width: 0.7;
+  transition: stroke 0.25s, opacity 0.25s;
+}
+.universe .node {
+  cursor: pointer;
+  transition: opacity 0.25s;
+}
+.universe .label {
+  fill: #c9ccd8;
+  font-size: 11px;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  transition: opacity 0.25s;
+}
+.universe .label.k-me {
+  font-size: 13px;
+  font-weight: 600;
+  fill: #fff;
+}
+.universe .label.k-deal,
+.universe .label.k-party {
+  font-size: 9.5px;
+  fill: #9a9eae;
+}
+.universe .label.k-deal {
+  opacity: 0;
+}
+.universe.near .label.k-deal {
+  opacity: 1;
+}
+.universe.far .label.k-customer,
+.universe.far .label.k-party {
+  opacity: 0;
+}
+.universe.focusing .node:not(.hl),
+.universe.focusing .label:not(.hl) {
+  opacity: 0.1;
+}
+.universe.focusing .label.hl {
+  opacity: 1;
+}
+.universe.focusing .link:not(.hl) {
+  opacity: 0.04;
+}
+.universe.focusing .link.hl {
+  stroke: rgb(154 171 255 / 0.7);
+}
+.universe .glow {
+  animation: breathe 5s ease-in-out infinite;
+}
+.universe .glow.s-yellow {
+  animation: blink 1.5s ease-in-out infinite;
+}
+.universe .twinkle {
+  animation: twinkle 4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.95; }
+}
+@keyframes blink {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .universe .glow,
+  .universe .twinkle {
+    animation: none;
+  }
+}
+
+
+/* 티커: 아래에서 위로 들어온다 */
+@keyframes ticker-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* 검색·티커로 고른 노드 */
+.universe .node.focused .core {
+  stroke: #fff;
+  stroke-width: 1.6;
+}
+.universe .node.focused .glow {
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+/* 장식용 배경(로그인·가입)은 움직이지 않게 — 입력이 버벅이지 않도록 */
+.universe.decor .glow {
+  animation: none;
+  opacity: 0.8;
+}
+
+/* 터치 기기: iOS 는 16px 미만 입력칸을 누르면 화면을 확대해 버린다 */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea,
+  .field {
+    font-size: 16px !important;
+  }
+}
+
+/* 노치·홈 인디케이터 영역 */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
 }
