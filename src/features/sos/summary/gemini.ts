@@ -31,26 +31,29 @@ export async function summarizeWithGemini(
   opts: { apiKey: string; fetchImpl?: typeof fetch; model?: string },
 ): Promise<string | null> {
   const doFetch = opts.fetchImpl ?? fetch;
-  const model = opts.model ?? "gemini-2.5-flash";
+  const model = opts.model ?? "gemini-flash-latest";
   try {
-    const res = await doFetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    const res = await doFetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": opts.apiKey },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: PROMPT }] },
         contents: [{ role: "user", parts: [{ text: factsText(facts) }] }],
-        generationConfig: { maxOutputTokens: 200, temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } },
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.2, thinkingConfig: { thinkingLevel: "low" } },
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (res.status !== 200) return null;
-    const json = (await res.json()) as { candidates?: { finishReason?: string; content?: { parts?: { text?: unknown }[] } }[] };
+    const json = (await res.json()) as { candidates?: { finishReason?: string; content?: { parts?: { text?: unknown; thought?: boolean }[] } }[] };
     // 잘린 응답(MAX_TOKENS 등)은 쓰지 않는다
     if (json.candidates?.[0]?.finishReason !== "STOP") return null;
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (typeof text !== "string") return null;
+    // 생각 파트는 버리고 답변 파트만 이어 붙인다
+    const parts = json.candidates?.[0]?.content?.parts ?? [];
+    const text = parts.filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text as string).join("");
     const trimmed = text.trim();
-    return isAcceptableAiSummary(trimmed) ? trimmed : null;
+    if (!trimmed) return null;
+    const allowed = [facts.orgName, facts.title, ...facts.keywords, ...facts.products, ...facts.signalTitles];
+    return isAcceptableAiSummary(trimmed, allowed) ? trimmed : null;
   } catch {
     return null;
   }

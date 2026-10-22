@@ -7,6 +7,7 @@ import { summarizeWithGemini } from "./gemini";
 import { isAcceptableAiSummary } from "./validate";
 
 const facts = { orgName: "○○공단", title: "백업장비 교체", stageLabel: "사전규격", keywords: ["LTO드라이브"], products: ["테이프 라이브러리"], signalTitles: [] };
+const okParts = (parts: object[]) => async () => new Response(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { parts } }] }));
 const ok = (text: string) => async () => new Response(JSON.stringify({ candidates: [{ finishReason: "STOP", content: { parts: [{ text }] } }] }));
 
 describe("isAcceptableAiSummary", () => {
@@ -14,6 +15,9 @@ describe("isAcceptableAiSummary", () => {
     expect(isAcceptableAiSummary("○○공단이 백업 장비 교체를 준비 중이라 테이프 라이브러리를 제안할 시점입니다.")).toBe(true);
     expect(isAcceptableAiSummary("예산 3억으로 발주합니다.")).toBe(false);
     expect(isAcceptableAiSummary("")).toBe(false);
+    expect(isAcceptableAiSummary("IBM TS4300 테이프 라이브러리를 제안할 시점입니다.", ["IBM TS4300"])).toBe(true);
+    expect(isAcceptableAiSummary("IBM TS4300 테이프 라이브러리를 제안할 시점입니다.")).toBe(false);
+    expect(isAcceptableAiSummary("예산 3억입니다.", ["IBM TS4300"])).toBe(false);
     expect(isAcceptableAiSummary("가나다. 라마바. 사아자.")).toBe(false);
     expect(isAcceptableAiSummary("가".repeat(201))).toBe(false);
   });
@@ -33,13 +37,19 @@ describe("summarizeWithGemini", () => {
     const f = async () => new Response(JSON.stringify({ candidates: [{ finishReason: "MAX_TOKENS", content: { parts: [{ text: "공단이 준비 중입니다." }] } }] }));
     expect(await summarizeWithGemini(facts, { apiKey: "k", fetchImpl: f as typeof fetch })).toBeNull();
   });
+  it("사실에 있는 제품명의 숫자는 허용, thought 파트는 제외", async () => {
+    const f = okParts([{ text: "생각 중 123", thought: true }, { text: "IBM TS4300 " }, { text: "장비 교체를 제안할 시점입니다." }]);
+    const r = await summarizeWithGemini({ ...facts, products: ["IBM TS4300"] }, { apiKey: "k", fetchImpl: f as typeof fetch });
+    expect(r).toBe("IBM TS4300 장비 교체를 제안할 시점입니다.");
+  });
   it("정상 응답과 요청 형태", async () => {
     const spy = vi.fn(ok("공단이 장비 교체를 준비 중입니다."));
     const r = await summarizeWithGemini(facts, { apiKey: "secret", fetchImpl: spy as unknown as typeof fetch });
     expect(r).toBe("공단이 장비 교체를 준비 중입니다.");
     const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
-    expect(JSON.parse(init.body as string).generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent");
+    expect(JSON.parse(init.body as string).generationConfig.thinkingConfig).toEqual({ thinkingLevel: "low" });
+    expect(JSON.parse(init.body as string).generationConfig.maxOutputTokens).toBe(1024);
     expect(url).not.toContain("secret");
     expect((init.headers as Record<string, string>)["x-goog-api-key"]).toBe("secret");
   });
