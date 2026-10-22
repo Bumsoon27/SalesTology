@@ -11,6 +11,7 @@ import type { DealStatus, TaskType } from "./types";
 import { computeTaskState, daysUntil } from "./status";
 import { STAGE_LABEL, TASK_LABEL, type DealStage } from "./types";
 import type { UniverseNode } from "@/features/topology/types";
+import { DealInfoEditor } from "./deal-info-editor";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
 const STATUS_TONE: Record<string, string> = {
@@ -139,6 +140,9 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
   const [reason, setReason] = useState("");
   const [newTask, setNewTask] = useState<{ type: TaskType; due: string; title: string }>({ type: "delivery", due: "", title: "" });
   const [newIssue, setNewIssue] = useState("");
+  // 수정 중인 사업 id — 다른 노드로 바꾸면 자동으로 보기 모드
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = editingId === d.id;
 
   // 조치 실행 → 패널 다시 불러오기 + 대시보드 색 갱신
   const act = (fn: () => Promise<MutationResult>, after?: () => void) =>
@@ -205,23 +209,45 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         </ol>
       </Section>
 
-      <Section title="핵심 정보">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-          {[
-            ["사업 규모", won(d.amount)],
-            ["GP (이윤)", d.gp == null ? "-" : d.amount ? `${won(d.gp)} · ${Math.round((d.gp / d.amount) * 1000) / 10}%` : won(d.gp)],
-            ["계약 방식", d.contractType === "competitive" ? "경쟁입찰" : "수의계약"],
-            ["계약 기간", d.periodStart ? `${d.periodStart} ~ ${d.periodEnd ?? ""}` : "-"],
-            // 예상 계약월은 등록 화면에서 뺐다 — B(SOS) 리드 전환으로 들어온 경우에만 보인다
-            ...(d.expectedMonth ? [["예상 계약월", d.expectedMonth.slice(0, 7)]] : []),
-          ].map(([k, v]) => (
-            <div key={k}>
-              <dt className="text-[11px] text-muted">{k}</dt>
-              <dd>{v}</dd>
-            </div>
-          ))}
-        </dl>
-        {d.items && <p className="text-xs text-muted">물품 · {d.items}</p>}
+      <Section
+        title="핵심 정보"
+        right={
+          !editing && (
+            <button type="button" className={mini} onClick={() => setEditingId(d.id)}>
+              수정
+            </button>
+          )
+        }
+      >
+        {editing ? (
+          <DealInfoEditor
+            d={d}
+            onDone={() => setEditingId(null)}
+            onSaved={() => {
+              onChanged();
+              router.refresh();
+            }}
+          />
+        ) : (
+          <>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+              {[
+                ["사업 규모", won(d.amount)],
+                ["GP (이윤)", d.gp == null ? "-" : d.amount ? `${won(d.gp)} · ${Math.round((d.gp / d.amount) * 1000) / 10}%` : won(d.gp)],
+                ["계약 방식", d.contractType === "competitive" ? "경쟁입찰" : "수의계약"],
+                ["계약 기간", d.periodStart ? `${d.periodStart} ~ ${d.periodEnd ?? ""}` : "-"],
+                // 예상 계약월은 등록 화면에서 뺐다 — B(SOS) 리드 전환으로 들어온 경우에만 보인다
+                ...(d.expectedMonth ? [["예상 계약월", d.expectedMonth.slice(0, 7)]] : []),
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <dt className="text-[11px] text-muted">{k}</dt>
+                  <dd>{v}</dd>
+                </div>
+              ))}
+            </dl>
+            {d.items && <p className="text-xs text-muted">물품 · {d.items}</p>}
+          </>
+        )}
       </Section>
 
       <Section title={`추적 업무 ${d.tasks.length}`}>
