@@ -4,6 +4,7 @@ import {
   advance,
   afterFetch,
   continueWith,
+  fetchLogRange,
   finalStatus,
   isBusy,
   isStale,
@@ -148,5 +149,16 @@ describe("shouldSkipFetch", () => {
   it("시작일이 더 늦은 기록은 건너뛰지 않음", () => {
     expect(shouldSkipFetch([{ range_from: "2026-10-22", fetched_at: "2026-10-22T03:05:00+00:00" }], range)).toBe(false);
     expect(shouldSkipFetch([], range)).toBe(false);
+  });
+});
+
+describe("fetchLogRange", () => {
+  it("수집 기록은 실제 조회 범위만 주장한다 — fetched_at 은 범위 끝(실행 시작)", () => {
+    const range = { from: new Date("2026-10-21T01:00:00Z"), to: new Date("2026-10-22T03:00:00Z") };
+    const log = fetchLogRange(range);
+    expect(log).toEqual({ range_from: "2026-10-21", range_to: "2026-10-22", fetched_at: "2026-10-22T03:00:00.000Z" });
+    // 같은 범위 끝으로 시작한 실행은 재사용, 그 뒤에 시작한 실행은 다시 받는다
+    expect(shouldSkipFetch([log], range)).toBe(true);
+    expect(shouldSkipFetch([log], { ...range, to: new Date("2026-10-22T03:00:01Z") })).toBe(false);
   });
 });

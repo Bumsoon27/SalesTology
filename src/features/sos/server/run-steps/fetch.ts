@@ -4,6 +4,7 @@ import { isKeywordHit } from "../../analysis/keywords";
 import { displayOrgName, normalizeOrgName } from "../../analysis/org";
 import { normalize, stripPersonal, type G2bOp } from "../../collectors/g2b";
 import { fetchG2bPage } from "../../collectors/g2b-fetch";
+import { todayInSeoul } from "../../lib/date";
 import { afterFetch, opLabel, shouldSkipFetch } from "../../run/steps";
 import type { NormalizedItem } from "../../types";
 import { chunk, IN_LIST, IN_LIST_NAMES, loadAllTeamsKeywords, loadKeywords, must, type Admin } from "../db";
@@ -11,8 +12,7 @@ import { cursorRange, type StepContext, type StepResult } from "./types";
 
 const ROWS = 999;
 
-// fetchedAt: 이 업무의 1쪽을 받기 직전 시각 — sos_fetch_log.fetched_at 으로 남긴다 (재사용 판단 기준)
-export type OpStats = { fetched?: number; matched?: number; pages?: number; skipped?: boolean; error?: string; fetchedAt?: string };
+export type OpStats = { fetched?: number; matched?: number; pages?: number; skipped?: boolean; error?: string };
 
 /** 나라장터 한 쪽 수집 → 원본 저장. 오류 응답이면 기록만 하고 이 업무의 남은 쪽은 건너뛴다 */
 export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Promise<StepResult> {
@@ -29,7 +29,9 @@ export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Prom
         .from("sos_fetch_log")
         .select("range_from, fetched_at")
         .eq("source", label)
+        .lte("range_from", todayInSeoul(range.from))
         .gte("fetched_at", range.to.toISOString())
+        .order("fetched_at", { ascending: false })
         .limit(20),
     );
     if (shouldSkipFetch(logs ?? [], range)) {
@@ -59,7 +61,6 @@ export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Prom
     fetched: (prev.fetched ?? 0) + items.length,
     matched: (prev.matched ?? 0) + matched,
     pages: page,
-    fetchedAt: prev.fetchedAt ?? now.toISOString(),
   };
   return { cursor: afterFetch(ctx.cursor, op, page, res.totalCount, ROWS), stats: { ...ctx.stats, [label]: stats } };
 }

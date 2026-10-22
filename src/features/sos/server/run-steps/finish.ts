@@ -1,7 +1,6 @@
 import "server-only";
 
-import { todayInSeoul } from "../../lib/date";
-import { finalStatus, opLabel, type RunStep } from "../../run/steps";
+import { fetchLogRange, finalStatus, opLabel, type RunStep } from "../../run/steps";
 import { must } from "../db";
 import type { OpStats } from "./fetch";
 import { cursorRange, type StepContext, type StepResult } from "./types";
@@ -11,7 +10,6 @@ export async function finishStep(ctx: StepContext): Promise<StepResult> {
   const { admin } = ctx;
   const status = finalStatus(ctx.stats);
   const range = cursorRange(ctx);
-  const day = { from: todayInSeoul(range.from), to: todayInSeoul(range.to) };
 
   const labels = new Set(
     ctx.cursor.steps
@@ -21,8 +19,7 @@ export async function finishStep(ctx: StepContext): Promise<StepResult> {
   const logs = [...labels].flatMap((label) => {
     const st = ctx.stats[label] as OpStats | undefined;
     if (!st || st.error || st.skipped) return [];
-    // fetched_at 은 실제로 받기 시작한 시각 — 그 뒤에 시작한 실행만 이 기록으로 원본을 재사용한다
-    return [{ source: label, range_from: day.from, range_to: day.to, item_count: st.fetched ?? 0, fetched_at: st.fetchedAt ?? ctx.now.toISOString() }];
+    return [{ source: label, ...fetchLogRange(range), item_count: st.fetched ?? 0 }];
   });
   if (logs.length > 0) must("수집 기록 저장", await admin.from("sos_fetch_log").insert(logs));
 

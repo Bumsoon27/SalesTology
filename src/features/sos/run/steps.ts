@@ -100,11 +100,19 @@ export function tooManyAttempts(cursor: RunCursor): boolean {
 
 /**
  * 다른 부문(또는 이전 실행)이 받은 원본을 재사용해도 되는지.
- * 날짜만 비교하면 같은 날 두 번째 실행부터 늘 건너뛰므로, 받은 시각이 이번 범위 끝(실행 시작) 이후여야 한다.
+ * 날짜만 비교하면 같은 날 두 번째 실행부터 늘 건너뛰므로, 기록이 덮는 범위 끝(fetched_at = 그 실행의 range.to)이 이번 범위 끝 이후여야 한다.
  */
 export function shouldSkipFetch(logs: { range_from: string; fetched_at: string }[], range: { from: Date; to: Date }): boolean {
   const fromDay = todayInSeoul(range.from);
   return logs.some((l) => l.range_from <= fromDay && Date.parse(l.fetched_at) >= range.to.getTime());
+}
+
+/**
+ * sos_fetch_log 한 행의 범위. 나라장터 조회는 range.to(실행 시작)까지만 하므로
+ * fetched_at 도 받은 시각이 아니라 range.to — 기록이 실제로 받은 범위만 주장하게 한다.
+ */
+export function fetchLogRange(range: { from: Date; to: Date }): { range_from: string; range_to: string; fetched_at: string } {
+  return { range_from: todayInSeoul(range.from), range_to: todayInSeoul(range.to), fetched_at: range.to.toISOString() };
 }
 
 export function withLease(cursor: RunCursor, now: Date): RunCursor {
