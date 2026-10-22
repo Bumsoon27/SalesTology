@@ -112,41 +112,44 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
 
   const { leads, lastRun, runningRunId, runTeam, today } = data;
   const filtered = query.status.length > 0 || !!query.minScore || !!query.deadlineWithin;
-  if (!lastRun && !runningRunId && leads.length === 0 && !filtered) {
-    return (
-      <>
-        {picker}
-        {/* 빈 상태 (시각 설계서 §5.6) */}
-        <section className="flex flex-col items-center gap-4 py-16 text-center">
-          <p className="text-sm text-[var(--sos-text-sub)]">아직 수집한 기록이 없습니다. [수집 시작]을 눌러 보세요</p>
-          <RunButton team={runTeam} runningRunId={null} />
-        </section>
-      </>
-    );
-  }
+  const neverRun = !lastRun && !runningRunId && leads.length === 0 && !filtered;
 
+  // RunButton 은 빈 상태든 목록이든 같은 자리(같은 부모·key)에 둔다 — 첫 수집 뒤 새로 그려도 진행 결과 표시가 남게
   return (
     <>
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-3">
+      <section
+        className={
+          neverRun
+            ? "flex flex-col items-center gap-4 py-16 text-center"
+            : "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+        }
+      >
+        <div className={neverRun ? "flex flex-col items-center gap-3" : "flex flex-col gap-3"}>
           {picker}
           {teamError && <p className="text-xs font-medium text-[var(--sos-yellow)]">선택한 부문을 찾을 수 없어 내 부문을 보여 줍니다.</p>}
-          <LastRunSummary run={lastRun} />
+          {neverRun ? (
+            // 빈 상태 (시각 설계서 §5.6)
+            <p className="text-sm text-[var(--sos-text-sub)]">아직 수집한 기록이 없습니다. [수집 시작]을 눌러 보세요</p>
+          ) : (
+            <LastRunSummary run={lastRun} />
+          )}
         </div>
-        <RunButton team={runTeam} runningRunId={runningRunId} />
+        <RunButton key="run" team={runTeam} runningRunId={runningRunId} />
       </section>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <ViewToggle query={query} />
-          <LeadFilters query={query} />
-        </div>
-        {leads.length === 0 ? (
-          <EmptyFiltered query={query} filtered={filtered} />
-        ) : (
-          <LeadList items={leads} view={query.view} today={today} />
-        )}
-      </section>
+      {!neverRun && (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <ViewToggle query={query} />
+            <LeadFilters query={query} />
+          </div>
+          {leads.length === 0 ? (
+            <EmptyFiltered query={query} filtered={filtered} />
+          ) : (
+            <LeadList items={leads} view={query.view} today={today} />
+          )}
+        </section>
+      )}
     </>
   );
 }

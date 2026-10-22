@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listHref, parseListQuery } from "./list-query";
+import { listHref, parseListQuery, statusCondition } from "./list-query";
 
 describe("목록 주소 조건", () => {
   it("알 수 없는 값은 버린다", () => {
@@ -26,5 +26,11 @@ describe("목록 주소 조건", () => {
     const q = parseListQuery({ team: "t1", status: ["new", "reviewing"] });
     expect(listHref(q, { view: "org" })).toBe("/sos?team=t1&view=org&status=new&status=reviewing");
     expect(listHref(parseListQuery({}), {})).toBe("/sos");
+  });
+
+  it("상태를 고르지 않으면 관심 없음은 숨긴다 (설계서 §3.3-4)", () => {
+    expect(statusCondition([])).toEqual({ exclude: "dismissed" });
+    expect(statusCondition(["dismissed"])).toEqual({ only: ["dismissed"] });
+    expect(statusCondition(["new", "on_hold"])).toEqual({ only: ["new", "on_hold"] });
   });
 });

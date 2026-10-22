@@ -2,7 +2,8 @@ import "server-only";
 
 import { connection } from "next/server";
 import { createClient } from "@/shared/supabase/server";
-import { DAY_MS } from "../lib/date";
+import { deadlineWindow, todayInSeoul } from "../lib/date";
+import { statusCondition } from "../lib/list-query";
 import type { DeadlineType, LeadListItem, LeadStatus, Stage } from "../types";
 import { SosDbError } from "./db";
 import type { RunStatus } from "./rows";
@@ -87,13 +88,13 @@ export async function getLeads(teamId: string, f: LeadFilter): Promise<LeadListI
     .eq("kind", "deal")
     .eq("hidden", false)
     .is("merged_into_id", null);
-  if (f.status && f.status.length > 0) q = q.in("status", f.status);
+  const st = statusCondition(f.status ?? []);
+  q = "only" in st ? q.in("status", st.only) : q.neq("status", st.exclude);
   if (typeof f.minScore === "number" && f.minScore > 0) q = q.gte("score", f.minScore);
   if (typeof f.deadlineWithin === "number" && f.deadlineWithin > 0) {
-    const now = Date.now();
-    q = q
-      .gte("next_deadline_at", new Date(now).toISOString())
-      .lte("next_deadline_at", new Date(now + f.deadlineWithin * DAY_MS).toISOString());
+    // KST 달력 기준 — 목록의 D-n 표시와 같은 날짜 경계
+    const w = deadlineWindow(todayInSeoul(new Date()), f.deadlineWithin);
+    q = q.gte("next_deadline_at", w.from).lt("next_deadline_at", w.before);
   }
   const { data, error } = await q
     .order("score", { ascending: false })

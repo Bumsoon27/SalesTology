@@ -28,16 +28,16 @@ export function RunButton({ team, runningRunId }: { team: string | null; running
   const alive = useRef(true);
   const looping = useRef(false);
 
-  const loop = useCallback(
+  // 단계 반복 — 호출 전에 looping 을 잡아 둔 상태여야 한다 (한 화면에 반복은 하나만)
+  const runLoop = useCallback(
     async (runId: string) => {
-      if (looping.current) return;
-      looping.current = true;
+      setRunning(true);
+      setMessage(null);
       let last = -1;
       try {
         while (alive.current) {
           const r = await advanceRun(runId, team);
           if (!alive.current) return;
-          setRunning(true);
           setProgress(r.progress);
           setStats(r.stats ?? {});
           if (r.error) {
@@ -67,36 +67,49 @@ export function RunButton({ team, runningRunId }: { team: string | null; running
     [router, team],
   );
 
+  // 진행 중 실행이 있으면 (처음 들어올 때든 새로 그린 뒤든) 이어서 진행. 이미 반복 중이면 무시
   useEffect(() => {
     alive.current = true;
-    // 렌더가 끝난 뒤 이어서 진행 (개발 모드의 effect 두 번 실행도 타이머 취소로 한 번만)
-    const t = runningRunId ? setTimeout(() => void loop(runningRunId), 0) : undefined;
+    // 렌더가 끝난 뒤 시작 (개발 모드의 effect 두 번 실행도 타이머 취소로 한 번만)
+    const t = runningRunId
+      ? setTimeout(() => {
+          if (looping.current) return;
+          looping.current = true;
+          void runLoop(runningRunId);
+        }, 0)
+      : undefined;
     return () => {
       alive.current = false;
       clearTimeout(t);
     };
-  }, [runningRunId, loop]);
+  }, [runningRunId, runLoop]);
 
   async function onStart() {
-    if (running) return;
+    // 상태값은 다음 렌더에야 바뀌므로 ref 로 바로 막는다 (두 번 눌러 내 실행에 "진행 중" 거절이 뜨지 않게)
+    if (looping.current) return;
+    looping.current = true;
     setRunning(true);
     setMessage(null);
     setProgress(null);
     setStats({});
+    let runId: string | null = null;
     try {
       const r = await startRun("collect", team);
-      if (!r.ok) {
+      if (r.ok) runId = r.runId;
+      else {
         setMessage({ tone: "error", text: r.error });
-        setRunning(false);
         // 다른 사람이 진행 중이면 새로 그려서 그 실행을 이어 보여 준다
         router.refresh();
-        return;
       }
-      await loop(r.runId);
     } catch {
       setMessage({ tone: "error", text: "수집을 시작하지 못했습니다. 잠시 뒤 다시 눌러 주세요." });
-      setRunning(false);
     }
+    if (runId) {
+      await runLoop(runId);
+      return;
+    }
+    looping.current = false;
+    setRunning(false);
   }
 
   const ratio = progress ? progressRatio(progress) : 0;

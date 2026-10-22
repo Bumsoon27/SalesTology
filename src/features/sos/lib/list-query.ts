@@ -46,3 +46,8 @@ export function listHref(q: ListQuery, patch: Partial<ListQuery>): string {
   const s = sp.toString();
   return s ? `/sos?${s}` : "/sos";
 }
+
+/** 상태 조건 — 고르지 않으면 관심 없음은 숨긴다 (설계서 §3.3-4). 관심 없음을 직접 고르면 보인다 */
+export function statusCondition(status: LeadStatus[]): { only: LeadStatus[] } | { exclude: LeadStatus } {
+  return status.length > 0 ? { only: status } : { exclude: "dismissed" };
+}

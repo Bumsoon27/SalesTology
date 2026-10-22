@@ -42,3 +42,12 @@ export function quarterOf(month: string): string {
   const [y, m] = month.split("-");
   return `${y}-Q${Math.ceil(Number(m) / 3)}`;
 }
+
+/**
+ * "마감 n일 안" 조회 범위 (ISO). 오늘(KST) 0시 이상, 오늘+n+1일 0시 미만 —
+ * daysUntil 이 0~n 인 마감과 같다 (목록의 D-n 표시와 기준을 맞춘다).
+ */
+export function deadlineWindow(today: string, days: number): { from: string; before: string } {
+  const start = Date.parse(`${today}T00:00:00Z`) - KST_OFFSET_MS;
+  return { from: new Date(start).toISOString(), before: new Date(start + (days + 1) * DAY_MS).toISOString() };
+}
