@@ -23,6 +23,7 @@ import { LeadDetailPanel } from "@/features/sos/ui/lead-detail";
 import { LeadFilters, TeamPicker } from "@/features/sos/ui/list-controls";
 import { LeadList } from "@/features/sos/ui/lead-list";
 import { RunButton } from "@/features/sos/ui/run-button";
+import { SosNav } from "@/features/sos/ui/sos-nav";
 import { ViewToggle } from "@/features/sos/ui/view-toggle";
 
 // B 영역(SOS) 리드 목록 (설계서 §5.1). 세션·DB 를 읽는 부분은 <Suspense> 안에서만.
@@ -122,6 +123,7 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
   if (data.kind === "notice") {
     return (
       <section className="flex flex-col gap-4">
+        <SosNav current="/sos" team={null} />
         {picker}
         <Notice text={data.text} />
       </section>
@@ -135,6 +137,7 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
   // RunButton 은 빈 상태든 목록이든 같은 자리(같은 부모·key)에 둔다 — 첫 수집 뒤 새로 그려도 진행 결과 표시가 남게
   return (
     <>
+      <SosNav current="/sos" team={runTeam} />
       <section
         className={
           neverRun

@@ -42,7 +42,7 @@ export class SosNotReadyError extends Error {
 type PgError = { message: string; code?: string };
 
 // PGRST205: 스키마 캐시에 테이블 없음, 42P01: 테이블 없음
-function check(where: string, error: PgError | null) {
+export function check(where: string, error: PgError | null) {
   if (!error) return;
   if (error.code === "PGRST205" || error.code === "42P01") throw new SosNotReadyError();
   throw new SosDbError(where, error);

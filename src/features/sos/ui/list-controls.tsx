@@ -47,10 +47,21 @@ export function LeadFilters({ query }: { query: ListQuery }) {
   );
 }
 
-export function TeamPicker({ teams, current, view }: { teams: { id: string; name: string }[]; current: string | null; view: ListQuery["view"] }) {
+// action: 부문을 고른 뒤 돌아갈 SOS 화면 (설정·실행 기록에서도 쓴다)
+export function TeamPicker({
+  teams,
+  current,
+  view,
+  action = "/sos",
+}: {
+  teams: { id: string; name: string }[];
+  current: string | null;
+  view?: ListQuery["view"];
+  action?: "/sos" | "/sos/settings" | "/sos/runs";
+}) {
   return (
-    <form action="/sos" className="flex items-center gap-2">
-      {view !== "deal" && <input type="hidden" name="view" value={view} />}
+    <form action={action} className="flex items-center gap-2">
+      {view && view !== "deal" && <input type="hidden" name="view" value={view} />}
       <label htmlFor="sos-team" className="text-xs font-medium text-[var(--sos-text-sub)]">
         부문
       </label>

@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { createAdminClient } from "@/shared/supabase/admin";
+import { DEFAULT_TEAM_SETTINGS } from "../lib/keyword-edit";
 import { g2bKeywords } from "../run/convert";
 import type { Keyword } from "../types";
 import type { KeywordRow, LeadRow, TeamSettings } from "./rows";
@@ -50,7 +51,7 @@ export function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-const DEFAULT_SETTINGS: TeamSettings = { prespecAlertDays: 3, aiSummaryTopN: 5, firstRunDays: 30 };
+const DEFAULT_SETTINGS: TeamSettings = DEFAULT_TEAM_SETTINGS;
 
 /** 부문 설정 — 행이 없으면 기본값 */
 export async function loadSettings(admin: Admin, teamId: string): Promise<TeamSettings> {
