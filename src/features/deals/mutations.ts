@@ -112,3 +112,37 @@ export async function resolveIssue(issueId: string): Promise<MutationResult> {
   const { error } = await supabase.from("issues").update({ status: "resolved", resolved_at: new Date().toISOString() }).eq("id", issueId);
   return done(error);
 }
+
+/** 고객사 바꾸기 — 이름으로 찾고 없으면 만든다 */
+export async function setDealCustomer(dealId: string, name: string, expectedUpdatedAt: string): Promise<MutationResult> {
+  if (!name?.trim()) return { ok: false, error: "고객사명을 입력하세요." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("set_deal_customer", { p_deal_id: dealId, p_name: name.trim(), p_expected_updated_at: expectedUpdatedAt });
+  if (error) return { ok: false, error: error.message };
+  if (data === false) return { ok: false, error: "다른 사람이 먼저 수정했습니다. 새 값을 확인한 뒤 다시 적용해 주세요.", conflict: true };
+  refresh();
+  return { ok: true };
+}
+
+/** SI·매입처 추가 */
+export async function addDealParty(dealId: string, name: string, role: "si" | "supplier"): Promise<MutationResult> {
+  if (!name?.trim()) return { ok: false, error: "회사명을 입력하세요." };
+  if (role !== "si" && role !== "supplier") return { ok: false, error: "알 수 없는 역할입니다." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("add_deal_party", { p_deal_id: dealId, p_name: name.trim(), p_role: role });
+  return done(error);
+}
+
+/** SI·매입처 빼기 */
+export async function removeDealParty(partyId: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("remove_deal_party", { p_party_id: partyId });
+  return done(error);
+}
+
+/** 회사 이름 자동완성 후보 (내 부문) */
+export async function listCompanyOptions(): Promise<{ name: string; roles: string[] }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("companies").select("name, partner_roles").is("deleted_at", null).order("name").limit(500);
+  return ((data ?? []) as { name: string; partner_roles: string[] | null }[]).map((c) => ({ name: c.name, roles: c.partner_roles ?? [] }));
+}
