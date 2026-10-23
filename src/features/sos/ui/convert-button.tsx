@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { dealHref, orderMonthOf, toLeadToDealInput } from "../convert";
 import { formatOrderMonth } from "../lib/lead-view";
-import { convertLead } from "../server/convert-action";
+import { convertLead, unlinkDeletedDeal } from "../server/convert-action";
 import { formatWon } from "../summary/template";
 import type { LeadDetail } from "../types";
 import { secondaryButton } from "./sos-styles";
@@ -20,7 +20,18 @@ const ADMIN_REASON = "관리자 보기에서는 사업으로 전환할 수 없�
 
 type Lead = Pick<
   LeadDetail,
-  "id" | "title" | "orgName" | "companyId" | "budget" | "expectedOrderMonth" | "stage" | "status" | "assigneeId" | "convertedDealId" | "members"
+  | "id"
+  | "title"
+  | "orgName"
+  | "companyId"
+  | "budget"
+  | "expectedOrderMonth"
+  | "stage"
+  | "status"
+  | "assigneeId"
+  | "convertedDealId"
+  | "convertedDealMissing"
+  | "members"
 >;
 
 export function ConvertButton({ lead, team, adminView }: { lead: Lead; team: string | null; adminView: boolean }) {
@@ -30,13 +41,44 @@ export function ConvertButton({ lead, team, adminView }: { lead: Lead; team: str
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const closeToast = useCallback(() => setToast(null), []);
   const reasonId = useId();
+  const cancel = useCallback(() => setOpen(false), []);
 
-  const doneHref = lead.status === "converted" && lead.convertedDealId ? dealHref(lead.convertedDealId) : href;
-  if (doneHref) {
+  async function unlink() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await unlinkDeletedDeal(lead.id, team);
+      setToast(r.ok ? { tone: "ok", text: "연결을 해제했습니다. 리드는 검토 중으로 돌아갑니다." } : { tone: "error", text: r.error });
+    } catch {
+      setToast({ tone: "error", text: "서버와 연결이 끊겼습니다. 잠시 뒤 다시 시도해 주세요." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 연결된 사업이 A 에서 삭제됨 — 연결을 끊어야 다시 편집할 수 있다
+  if (lead.convertedDealMissing && !href) {
     return (
-      <Link href={doneHref} className={linkStyle}>
-        대시보드에서 보기 →
-      </Link>
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-[var(--sos-yellow)]">연결된 사업이 삭제되었습니다.</span>
+        <button type="button" className={secondaryButton} disabled={busy} onClick={unlink}>
+          연결 해제
+        </button>
+        <Toast message={toast} onClose={closeToast} />
+      </span>
+    );
+  }
+
+  const doneHref = href ?? (lead.status === "converted" && lead.convertedDealId ? dealHref(lead.convertedDealId) : null);
+  if (doneHref) {
+    // 성공 토스트가 링크로 바뀌면서 사라지지 않게 함께 그린다
+    return (
+      <>
+        <Link href={doneHref} className={linkStyle}>
+          대시보드에서 보기 →
+        </Link>
+        <Toast message={toast} onClose={closeToast} />
+      </>
     );
   }
 
@@ -74,7 +116,7 @@ export function ConvertButton({ lead, team, adminView }: { lead: Lead; team: str
           사업으로 전환
         </button>
       )}
-      {open && <ConfirmDialog lead={lead} busy={busy} onCancel={() => setOpen(false)} onConfirm={submit} />}
+      {open && <ConfirmDialog lead={lead} busy={busy} onCancel={cancel} onConfirm={submit} />}
       <Toast message={toast} onClose={closeToast} />
     </>
   );
@@ -104,12 +146,20 @@ function ConfirmDialog({ lead, busy, onCancel, onConfirm }: { lead: Lead; busy: 
     ["담당 영업대표", owner],
   ];
 
+  // 처음 열 때 한 번만 초점을 옮긴다 (다시 그려질 때마다 초점을 빼앗지 않게)
   useEffect(() => {
     confirmRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !busy && onCancel();
+  }, []);
+  // 최신 busy·onCancel 은 ref 로 읽어 키 처리기를 한 번만 단다
+  const latest = useRef({ busy, onCancel });
+  useEffect(() => {
+    latest.current = { busy, onCancel };
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !latest.current.busy && latest.current.onCancel();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [busy, onCancel]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onMouseDown={(e) => e.target === e.currentTarget && !busy && onCancel()}>

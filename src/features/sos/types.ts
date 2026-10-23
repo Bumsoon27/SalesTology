@@ -82,8 +82,10 @@ export type LeadDetail = {
   keywordMismatch: boolean;
   assigneeId: string | null;
   memo: string | null;
-  // 사업으로 전환된 A 사업 id (사업이 지워지면 null)
+  // 사업으로 전환된 A 사업 id
   convertedDealId: string | null;
+  // 연결된 사업이 삭제돼(A 는 soft delete) 보이지 않는다 — [연결 해제] 대상
+  convertedDealMissing: boolean;
   updatedAt: string;
   keywords: { id: string; term: string; tier: Tier }[];
   products: { id: string; name: string; vendor: string | null; terms: string[] }[];

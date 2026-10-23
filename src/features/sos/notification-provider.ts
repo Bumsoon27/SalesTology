@@ -33,6 +33,8 @@ export const sosNotificationProvider: NotificationProvider = {
         .from("sos_leads")
         .select("id, title, budget, next_deadline_at, assignee_id, sos_orgs(name)")
         .eq("team_id", ctx.teamId)
+        .eq("kind", "deal")
+        .is("merged_into_id", null)
         .eq("stage", "prespec")
         .not("status", "in", "(dismissed,on_hold,converted)")
         .eq("hidden", false)

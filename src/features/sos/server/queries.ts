@@ -214,7 +214,7 @@ export async function getLeadDetail(teamId: string, leadId: string): Promise<Lea
   // in() 목록은 주소에 실리므로 길이를 제한한다
   const kwIds = (r.matched_keyword_ids ?? []).slice(0, 100);
 
-  const [kw, links, sig, mem] = await Promise.all([
+  const [kw, links, sig, mem, deal] = await Promise.all([
     kwIds.length
       ? supabase.from("sos_keywords").select("id, term, tier").eq("team_id", teamId).in("id", kwIds)
       : Promise.resolve({ data: [], error: null }),
@@ -233,11 +233,16 @@ export async function getLeadDetail(teamId: string, leadId: string): Promise<Lea
       .order("created_at", { ascending: false })
       .limit(SIGNAL_LIMIT),
     supabase.from("profiles").select("id, name").eq("team_id", teamId).eq("is_active", true).order("name"),
+    // A 는 사업을 soft delete 하고 deals RLS 가 지운 행을 숨긴다 — 보이는지만 확인 (읽기 전용)
+    r.converted_deal_id
+      ? supabase.from("deals").select("id").eq("id", r.converted_deal_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
   check("일치 키워드 조회", kw.error);
   check("제안 제품 조회", links.error);
   check("근거 시그널 조회", sig.error);
   check("담당자 후보 조회", mem.error);
+  check("전환 사업 확인", deal.error);
 
   const keywords = (kw.data ?? []) as { id: string; term: string; tier: Tier }[];
   const productLinks: ProductLink[] = (
@@ -281,6 +286,7 @@ export async function getLeadDetail(teamId: string, leadId: string): Promise<Lea
     assigneeId: r.assignee_id,
     memo: r.memo,
     convertedDealId: r.converted_deal_id,
+    convertedDealMissing: !!r.converted_deal_id && !deal.data,
     updatedAt: r.updated_at,
     keywords,
     products: groupProducts(productLinks, keywords),
