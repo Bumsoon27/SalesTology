@@ -101,18 +101,28 @@ export function suggestDirections(deal: Deal, today: string, limit = 3): Directi
 
 export type DealDirection = Direction & { dealId: string; dealName: string; customer: string };
 
-/** 대시보드 '오늘의 디렉션' — 내 사업 전체에서 가장 급한 것부터. 단계 기본 제안(stage)은 사업마다 1개라 섞지 않는다 */
+/**
+ * 대시보드 '오늘 할 일' — 내 사업 전체에서 급한 것(신호)부터 채우고, 자리가 남으면 사업별 단계 플레이북으로 채운다.
+ * 단계 제안은 급한 일이 없는 사업만, 규모가 큰 사업부터 (빈 목록보다 다음 한 걸음을 보여준다)
+ */
 export function topDirections(
   deals: (Deal & Pick<DealRow, "id" | "name" | "customer">)[],
   today: string,
   limit = 6,
 ): DealDirection[] {
-  return deals
-    .flatMap((d) =>
-      suggestDirections(d, today, 5)
-        .filter((x) => x.kind !== "stage")
-        .map((x) => ({ ...x, dealId: d.id, dealName: d.name, customer: d.customer.name })),
-    )
-    .sort((a, b) => b.priority - a.priority)
-    .slice(0, limit);
+  const withDeal = (d: (typeof deals)[number], x: Direction): DealDirection => ({ ...x, dealId: d.id, dealName: d.name, customer: d.customer.name });
+  const urgent: DealDirection[] = [];
+  const plays: { amount: number; item: DealDirection }[] = [];
+
+  for (const d of deals) {
+    const items = suggestDirections(d, today, 5);
+    const signals = items.filter((x) => x.kind !== "stage");
+    urgent.push(...signals.map((x) => withDeal(d, x)));
+    const play = items.find((x) => x.kind === "stage");
+    if (signals.length === 0 && play) plays.push({ amount: Number(d.amount ?? 0), item: withDeal(d, play) });
+  }
+
+  urgent.sort((a, b) => b.priority - a.priority);
+  plays.sort((a, b) => b.amount - a.amount);
+  return [...urgent, ...plays.map((p) => p.item)].slice(0, limit);
 }
