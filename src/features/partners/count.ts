@@ -12,6 +12,18 @@ export type DealCounts = {
   sosDealCount: number;
 };
 
+/** 파트너사 보기 범위: 부문 전체 | 내 사업에 연결된 회사 | SOS 리드에서 전환된 사업(인바운드)에 연결된 회사 */
+export type PartnerScope = "all" | "mine" | "sos";
+export const PARTNER_SCOPES: PartnerScope[] = ["all", "mine", "sos"];
+
+export const toScope = (v: string | null | undefined): PartnerScope => (v === "mine" || v === "sos" ? v : "all");
+
+export function inScope(p: DealCounts, scope: PartnerScope): boolean {
+  if (scope === "mine") return p.myDealCount > 0;
+  if (scope === "sos") return p.sosDealCount > 0;
+  return true;
+}
+
 export function countDeals(asCustomer: DealRef[], asParty: (DealRef | null)[], userId: string): DealCounts {
   const live = new Map<string, DealRef>();
   for (const d of [...asCustomer, ...asParty]) if (d && !d.deleted_at) live.set(d.id, d);
