@@ -19,6 +19,7 @@ import {
   type LeadListItem,
   type TeamOption,
 } from "@/features/sos/server/queries";
+import { ConvertButton } from "@/features/sos/ui/convert-button";
 import { LeadDetailPanel } from "@/features/sos/ui/lead-detail";
 import { LeadFilters, TeamPicker } from "@/features/sos/ui/list-controls";
 import { LeadList } from "@/features/sos/ui/lead-list";
@@ -60,6 +61,8 @@ type PageData =
       kind: "list";
       teams: TeamOption[];
       runTeam: string | null;
+      // 관리자가 고른 부문을 보는 중 — [사업으로 전환]을 끈다 (설계서 §6.1)
+      adminView: boolean;
       today: string;
       leads: LeadListItem[];
       // ?lead= 가 있을 때만. 없는 리드·다른 부문 리드는 null
@@ -96,6 +99,7 @@ async function loadPage(query: ListQuery, leadId: string | null, teamError: bool
       kind: "list",
       teams,
       runTeam: isAdminView ? teamId : null,
+      adminView: isAdminView,
       today,
       leads,
       detail: leadId ? { lead } : null,
@@ -130,7 +134,7 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
     );
   }
 
-  const { leads, lastRun, runningRunId, runTeam, today, detail } = data;
+  const { leads, lastRun, runningRunId, runTeam, adminView, today, detail } = data;
   const filtered = query.status.length > 0 || !!query.minScore || !!query.deadlineWithin;
   const neverRun = !lastRun && !runningRunId && leads.length === 0 && !filtered;
 
@@ -180,8 +184,13 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
           {detail && (
             // 좁은 화면에서는 목록 위에 둔다
             <div className="order-first min-w-0 min-[1000px]:order-none">
-              {/* [사업으로 전환] 자리는 Task 14 에서 convertSlot 으로 채운다 */}
-              <LeadDetailPanel lead={detail.lead} today={today} team={runTeam} closeHref={leadHref(query, null)} />
+              <LeadDetailPanel
+                lead={detail.lead}
+                today={today}
+                team={runTeam}
+                closeHref={leadHref(query, null)}
+                convertSlot={detail.lead && <ConvertButton key={detail.lead.id} lead={detail.lead} team={runTeam} adminView={adminView} />}
+              />
             </div>
           )}
         </div>

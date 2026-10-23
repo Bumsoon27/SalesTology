@@ -7,7 +7,7 @@ import { updateLead } from "../server/lead-actions";
 import type { LeadDetail } from "../types";
 import { Toast, type ToastMessage } from "./toast";
 
-// 카드 버튼: [사업으로 전환](자리만 — Task 14), 담당 지정, 보류, 관심 없음, 메모 (시각 설계서 §5.1)
+// 카드 버튼: [사업으로 전환](convertSlot), 담당 지정, 보류, 관심 없음, 메모 (시각 설계서 §5.1)
 // 저장 성공 시 서버가 화면을 새로 그려 새 updatedAt 이 props 로 온다 (다음 저장의 비교 기준).
 const secondary =
   "relative h-8 rounded-[6px] border border-[var(--sos-divider)] px-3 text-sm text-[var(--sos-text)] transition-colors duration-200 hover:text-[var(--sos-accent)] disabled:cursor-not-allowed disabled:text-[var(--sos-disabled)] " +
@@ -75,26 +75,31 @@ export function LeadActions({ lead, team, convertSlot }: { lead: Lead; team: str
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          className={secondary}
-          disabled={busy || converted}
-          aria-pressed={onHold}
-          onClick={() => save({ status: onHold ? "reviewing" : "on_hold" }, onHold ? "보류를 풀었습니다." : "보류했습니다.")}
-        >
-          {onHold ? "보류 해제" : "보류"}
-        </button>
-        <button
-          type="button"
-          className={secondary}
-          disabled={busy || converted}
-          aria-pressed={dismissed}
-          onClick={() =>
-            save({ status: dismissed ? "reviewing" : "dismissed" }, dismissed ? "관심 없음을 풀었습니다." : "관심 없음으로 표시했습니다. 목록에서 숨겨집니다.")
-          }
-        >
-          {dismissed ? "관심 없음 해제" : "관심 없음"}
-        </button>
+        {/* 전환된 리드는 사업 쪽과 어긋나지 않게 상태 버튼을 두지 않는다 (서버도 거절한다) */}
+        {!converted && (
+          <>
+            <button
+              type="button"
+              className={secondary}
+              disabled={busy}
+              aria-pressed={onHold}
+              onClick={() => save({ status: onHold ? "reviewing" : "on_hold" }, onHold ? "보류를 풀었습니다." : "보류했습니다.")}
+            >
+              {onHold ? "보류 해제" : "보류"}
+            </button>
+            <button
+              type="button"
+              className={secondary}
+              disabled={busy}
+              aria-pressed={dismissed}
+              onClick={() =>
+                save({ status: dismissed ? "reviewing" : "dismissed" }, dismissed ? "관심 없음을 풀었습니다." : "관심 없음으로 표시했습니다. 목록에서 숨겨집니다.")
+              }
+            >
+              {dismissed ? "관심 없음 해제" : "관심 없음"}
+            </button>
+          </>
+        )}
         <button type="button" className={secondary} aria-expanded={memoOpen} onClick={() => setMemoOpen((v) => !v)}>
           메모
         </button>

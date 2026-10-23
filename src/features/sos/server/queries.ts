@@ -190,6 +190,7 @@ type LeadDetailRow = Omit<LeadListRow, "assignee"> & {
   matched_keyword_ids: string[] | null;
   assignee_id: string | null;
   memo: string | null;
+  converted_deal_id: string | null;
   assignee: One<{ name: string }>;
 };
 
@@ -202,7 +203,7 @@ export async function getLeadDetail(teamId: string, leadId: string): Promise<Lea
   const { data, error } = await supabase
     .from("sos_leads")
     .select(
-      "id, title, org_id, company_id, stage, status, score, budget, expected_order_month, next_deadline_at, next_deadline_type, matched_keyword_ids, summary, summary_source, has_new_progress, keyword_mismatch, assignee_id, memo, updated_at, sos_orgs(name), assignee:profiles!assignee_id(name)",
+      "id, title, org_id, company_id, stage, status, score, budget, expected_order_month, next_deadline_at, next_deadline_type, matched_keyword_ids, summary, summary_source, has_new_progress, keyword_mismatch, assignee_id, memo, converted_deal_id, updated_at, sos_orgs(name), assignee:profiles!assignee_id(name)",
     )
     .eq("team_id", teamId)
     .eq("id", leadId)
@@ -279,6 +280,7 @@ export async function getLeadDetail(teamId: string, leadId: string): Promise<Lea
     keywordMismatch: r.keyword_mismatch,
     assigneeId: r.assignee_id,
     memo: r.memo,
+    convertedDealId: r.converted_deal_id,
     updatedAt: r.updated_at,
     keywords,
     products: groupProducts(productLinks, keywords),

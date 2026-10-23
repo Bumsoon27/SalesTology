@@ -82,6 +82,8 @@ export type LeadDetail = {
   keywordMismatch: boolean;
   assigneeId: string | null;
   memo: string | null;
+  // 사업으로 전환된 A 사업 id (사업이 지워지면 null)
+  convertedDealId: string | null;
   updatedAt: string;
   keywords: { id: string; term: string; tier: Tier }[];
   products: { id: string; name: string; vendor: string | null; terms: string[] }[];
