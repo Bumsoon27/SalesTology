@@ -1,5 +1,6 @@
 // 시간대는 항상 Asia/Seoul. 외부 의존성 없이 Intl 로 계산한다.
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 const seoulDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",
@@ -40,4 +41,13 @@ export function toG2bDateTime(d: Date): string {
 export function quarterOf(month: string): string {
   const [y, m] = month.split("-");
   return `${y}-Q${Math.ceil(Number(m) / 3)}`;
+}
+
+/**
+ * "마감 n일 안" 조회 범위 (ISO). 오늘(KST) 0시 이상, 오늘+n+1일 0시 미만 —
+ * daysUntil 이 0~n 인 마감과 같다 (목록의 D-n 표시와 기준을 맞춘다).
+ */
+export function deadlineWindow(today: string, days: number): { from: string; before: string } {
+  const start = Date.parse(`${today}T00:00:00Z`) - KST_OFFSET_MS;
+  return { from: new Date(start).toISOString(), before: new Date(start + (days + 1) * DAY_MS).toISOString() };
 }

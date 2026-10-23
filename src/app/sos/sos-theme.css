@@ -1,0 +1,68 @@
+/* SOS 전용 다크 테마 (시각 설계서 §2~4). .sos-theme 안에서만 적용 — 전역·A 화면에는 영향 없음 */
+.sos-theme {
+  /* 표면·글자·선 */
+  --sos-bg-page: #000000;
+  --sos-bg-surface: #1a1a1a;
+  --sos-bg-modal: #2e2e2e;
+  --sos-bg-modal-2: #424242;
+  --sos-bg-input: #000000;
+  --sos-bg-highlight: #383015;
+  --sos-text-strong: #ffffff;
+  --sos-text: #ebebeb;
+  --sos-text-sub: #d4d4d4;
+  --sos-text-hint: #808080;
+  --sos-text-on-primary: #000000;
+  --sos-divider: #424242;
+  --sos-divider-lite: #2e2e2e;
+  --sos-disabled: #808080;
+
+  /* 액센트 (테마 불변) */
+  --sos-accent: #ff6a0d;
+  --sos-accent-bg: #331d0f;
+
+  /* 상태 */
+  --sos-red: #eb3838;
+  --sos-red-bg: #521d1d;
+  --sos-yellow: #d1ad36;
+  --sos-yellow-bg: #383015;
+  --sos-green: #21c798;
+  --sos-green-bg: #1a4d3e;
+  --sos-blue: #418af0;
+  --sos-blue-bg: #002861;
+  --sos-ai: #a770ff;
+  --sos-ai-bg: #291e3c;
+  --sos-ai-gradient: linear-gradient(225deg, oklch(0.54 0.255 314) 0%, oklch(0.69 0.123 220) 100%);
+
+  /* 움직임 */
+  --sos-ease-hover: 200ms ease-in-out;
+  --sos-ease-panel: 450ms cubic-bezier(0.165, 0.84, 0.44, 1);
+
+  background: var(--sos-bg-page);
+  color: var(--sos-text);
+  font-family:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI",
+    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  /* 긴 사업명·주소가 좁은 화면 폭을 밀어내지 않게 */
+  overflow-wrap: break-word;
+  color-scheme: dark;
+}
+
+/* 예산·D-n·점수 */
+.sos-theme .sos-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.sos-theme ::selection {
+  background: var(--sos-accent-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sos-theme *,
+  .sos-theme *::before,
+  .sos-theme *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
