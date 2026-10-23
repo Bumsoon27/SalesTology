@@ -250,6 +250,15 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         )}
       </Section>
 
+      {/* 고객사·매출처(SI)·매입처 — 핵심 정보 바로 아래에서 수정 */}
+      <DealPartiesSection
+        d={d}
+        onChanged={() => {
+          onChanged();
+          router.refresh();
+        }}
+      />
+
       <Section title={`추적 업무 ${d.tasks.length}`}>
         {d.tasks.length === 0 && <p className="text-xs text-muted">등록된 업무가 없습니다.</p>}
         <ul className="space-y-2.5">
@@ -411,14 +420,6 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
           </button>
         </form>
       </Section>
-
-      <DealPartiesSection
-        d={d}
-        onChanged={() => {
-          onChanged();
-          router.refresh();
-        }}
-      />
 
       <Section title="SOS 시그널" right={<span className="text-[10px] text-muted">B 영역 연동 예정</span>}>
         <p className="rounded-xl border border-dashed border-line p-3 text-xs text-muted">

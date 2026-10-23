@@ -7,6 +7,13 @@ const UNIT: Record<string, number> = { 억: 100_000_000, 만: 10_000 };
 
 export type MoneyResult = { ok: true; value: number | null } | { ok: false };
 
+/** GP 는 사업 규모를 넘을 수 없다 (GP율 100% 초과 방지). 둘 중 하나라도 비었으면 검사하지 않는다 */
+export function checkGp(amount: number | null, gp: number | null): string | null {
+  if (amount == null || gp == null) return null;
+  if (gp > amount) return "GP가 사업 규모보다 큽니다. 금액을 확인해 주세요.";
+  return null;
+}
+
 export function parseWon(raw: string | null | undefined, opts: { allowNegative?: boolean } = {}): MoneyResult {
   let s = String(raw ?? "")
     .replace(/[,\s₩]/g, "")

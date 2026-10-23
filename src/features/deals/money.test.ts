@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { parseWon } from "./money";
+import { checkGp, parseWon } from "./money";
+
+describe("checkGp", () => {
+  it("GP 가 규모보다 크면 오류, 같거나 작거나 비었으면 통과", () => {
+    expect(checkGp(100, 101)).toMatch(/GP/);
+    expect(checkGp(100, 100)).toBeNull();
+    expect(checkGp(100, -5)).toBeNull();
+    expect(checkGp(null, 5)).toBeNull();
+    expect(checkGp(100, null)).toBeNull();
+  });
+});
 
 describe("parseWon", () => {
   it.each([
