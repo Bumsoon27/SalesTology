@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/shared/supabase/server";
+import { fromSettingsRow, type PipelineSettings } from "@/features/deals/pipeline-settings";
 
 export type AdminTeam = { id: string; name: string; joinCode: string; memberCount: number };
 export type AdminUser = { id: string; loginId: string; name: string; role: "admin" | "member"; isActive: boolean; teamName: string | null; createdAt: string };
@@ -45,4 +46,12 @@ export async function getAdminData() {
       ...(companies.data ?? []).map((c) => ({ id: c.id, kind: "company" as const, name: c.name, deletedAt: c.deleted_at as string, extra: null })),
     ] as DeletedItem[],
   };
+}
+
+/** 부문별 파이프라인 설정 (행이 없는 부문은 기본값) */
+export async function getTeamPipelineSettings(teamIds: string[]): Promise<Record<string, PipelineSettings>> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("team_pipeline_settings").select("team_id, stage_probabilities, stale_after_days").in("team_id", teamIds);
+  const rows = new Map((data ?? []).map((r) => [r.team_id as string, r]));
+  return Object.fromEntries(teamIds.map((id) => [id, fromSettingsRow(rows.get(id) ?? null)]));
 }
