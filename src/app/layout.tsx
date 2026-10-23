@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import localFont from "next/font/local";
 import { InstallPrompt } from "@/shared/ui/install-prompt";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// 나눔스퀘어라운드 (NAVER, SIL OFL 1.1) — 둥근 기하학 고딕 (fonts/README.md)
+const nanumRound = localFont({
+  variable: "--font-nanum-round",
+  display: "swap",
+  src: [
+    { path: "./fonts/NanumSquareRoundR.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/NanumSquareRoundB.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/NanumSquareRoundEB.woff2", weight: "800", style: "normal" },
+  ],
 });
 
 export const metadata: Metadata = {
@@ -30,7 +36,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="ko" className={`${nanumRound.variable} h-full antialiased`}>
       {/* dvh: 모바일 주소창이 나타나고 사라져도 높이가 튀지 않게 */}
       <body className="flex h-dvh flex-col bg-bg text-fg">
         {children}

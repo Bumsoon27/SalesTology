@@ -4,8 +4,9 @@
 import { refresh } from "next/cache";
 import { createClient } from "@/shared/supabase/server";
 import type { DealStage, DealStatus, TaskType } from "./types";
+import { toDealInfoPatch, type DealInfoInput } from "./edit";
 
-export type MutationResult = { ok: true } | { ok: false; error: string; conflict?: boolean };
+export type MutationResult = { ok: true } | { ok: false; error: string; conflict?: boolean; fieldErrors?: Record<string, string> };
 
 const STAGES: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
 const STATUSES: DealStatus[] = ["active", "on_hold", "lost", "closed"];
@@ -31,6 +32,22 @@ export async function updateDeal(
   const { data, error } = await supabase
     .from("deals")
     .update(patch)
+    .eq("id", dealId)
+    .eq("updated_at", expectedUpdatedAt)
+    .select("id");
+  return done(error, data);
+}
+
+/** 핵심 정보(사업명·규모·GP·계약 방식·기간·물품) 수정. 단계는 서버에서 다시 읽어 입찰 규칙을 검사한다 */
+export async function updateDealInfo(dealId: string, input: DealInfoInput, expectedUpdatedAt: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: cur, error: readError } = await supabase.from("deals").select("stage").eq("id", dealId).maybeSingle();
+  if (readError || !cur) return { ok: false, error: readError?.message ?? "사업을 찾을 수 없습니다." };
+  const mapped = toDealInfoPatch(input, cur.stage as DealStage);
+  if (!mapped.ok) return { ok: false, error: "입력값을 확인해 주세요.", fieldErrors: mapped.fieldErrors };
+  const { data, error } = await supabase
+    .from("deals")
+    .update(mapped.patch)
     .eq("id", dealId)
     .eq("updated_at", expectedUpdatedAt)
     .select("id");

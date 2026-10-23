@@ -1,0 +1,28 @@
+name: DB 검증
+
+# 마이그레이션·seed 가 바뀐 PR 에서만 돈다 (로컬 Supabase 를 띄우느라 3~5분 걸린다)
+on:
+  pull_request:
+    paths: ["supabase/**"]
+
+concurrency:
+  group: db-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db:
+    name: 마이그레이션 적용 검증 (로컬 Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # 빈 DB에 모든 마이그레이션 + seed.sql 을 처음부터 적용해 본다. SQL 오류가 있으면 여기서 실패.
+      - run: npx supabase start -x realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - run: npx supabase db lint --local --level error --fail-on error
+      - run: npx supabase stop --no-backup
+        if: always()
