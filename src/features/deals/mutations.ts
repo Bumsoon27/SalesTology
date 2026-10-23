@@ -5,6 +5,8 @@ import { refresh } from "next/cache";
 import { createClient } from "@/shared/supabase/server";
 import type { DealStage, DealStatus, TaskType } from "./types";
 import { toDealInfoPatch, type DealInfoInput } from "./edit";
+import { toNoteRow, type NoteInput } from "./notes";
+import { todayInSeoul } from "./status";
 
 export type MutationResult = { ok: true } | { ok: false; error: string; conflict?: boolean; fieldErrors?: Record<string, string> };
 
@@ -145,4 +147,36 @@ export async function listCompanyOptions(): Promise<{ name: string; roles: strin
   const supabase = await createClient();
   const { data } = await supabase.from("companies").select("name, partner_roles").is("deleted_at", null).order("name").limit(500);
   return ((data ?? []) as { name: string; partner_roles: string[] | null }[]).map((c) => ({ name: c.name, roles: c.partner_roles ?? [] }));
+}
+
+/** 활동 기록 추가 (통화·미팅·메일·메모). 기록자는 DB 정책상 본인으로만 들어간다 */
+export async function addDealNote(dealId: string, input: NoteInput): Promise<MutationResult> {
+  const mapped = toNoteRow(input, todayInSeoul());
+  if (!mapped.ok) return { ok: false, error: mapped.error };
+  const supabase = await createClient();
+  const { error } = await supabase.from("deal_notes").insert({ deal_id: dealId, ...mapped.row });
+  return done(error);
+}
+
+/** 활동 기록 지우기 — 쓴 사람만 (RLS). 지워진 행이 없으면 권한이 없거나 이미 지워진 것 */
+export async function deleteDealNote(noteId: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("deal_notes").delete().eq("id", noteId).select("id");
+  if (!error && (!data || data.length === 0)) return { ok: false, error: "직접 쓴 기록만 지울 수 있습니다." };
+  return done(error);
+}
+
+/** 사업 삭제 (소프트 삭제). 담당자 또는 관리자만 — DB 트리거가 한 번 더 막는다. 복구는 관리자 화면에서 */
+export async function deleteDeal(dealId: string, expectedUpdatedAt: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  // 삭제된 사업은 일반 사용자에게 조회되지 않으므로(RLS) 행을 돌려받지 않고 바뀐 개수로 확인한다
+  const { error, count } = await supabase
+    .from("deals")
+    .update({ deleted_at: new Date().toISOString() }, { count: "exact" })
+    .eq("id", dealId)
+    .eq("updated_at", expectedUpdatedAt);
+  if (error) return { ok: false, error: error.message };
+  if (!count) return { ok: false, error: "다른 사람이 먼저 수정했습니다. 새 값을 확인한 뒤 다시 시도해 주세요.", conflict: true };
+  refresh();
+  return { ok: true };
 }

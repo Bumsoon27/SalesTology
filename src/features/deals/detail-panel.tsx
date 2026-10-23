@@ -5,8 +5,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { loadNodeDetail, type CompanyDetail, type DealDetail, type NodeDetail } from "./detail";
 import {
-  addIssue, addTask, completeTask, excludeTask, reopenTask, rescheduleTask, resolveIssue, updateDeal, type MutationResult,
+  addIssue, addTask, completeTask, deleteDeal, excludeTask, reopenTask, rescheduleTask, resolveIssue, updateDeal, type MutationResult,
 } from "./mutations";
+import { NotesSection } from "./notes-section";
 import type { DealStatus, TaskType } from "./types";
 import { computeTaskState, daysUntil } from "./status";
 import { STAGE_LABEL, TASK_LABEL, type DealStage } from "./types";
@@ -265,6 +266,14 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         }}
       />
 
+      <NotesSection
+        d={d}
+        onChanged={() => {
+          onChanged();
+          router.refresh();
+        }}
+      />
+
       <Section title={`추적 업무 ${d.tasks.length}`}>
         {d.tasks.length === 0 && <p className="text-xs text-muted">등록된 업무가 없습니다.</p>}
         <ul className="space-y-2.5">
@@ -451,6 +460,24 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
           </ul>
         )}
       </Section>
+
+      {d.canDelete && (
+        <div className="border-t border-line px-5 py-4">
+          <button
+            type="button"
+            onClick={() => {
+              if (!window.confirm(`'${d.name}' 사업을 삭제할까요?\n대시보드에서 사라지고, 관리자가 관리자 화면에서 복구할 수 있습니다.`)) return;
+              act(
+                () => deleteDeal(d.id, d.updatedAt),
+                () => router.push("/dashboard"),
+              );
+            }}
+            className="w-full rounded-lg border border-st-red/30 px-3 py-2 text-xs text-st-red/90 hover:bg-st-red/10"
+          >
+            사업 삭제
+          </button>
+        </div>
+      )}
     </div>
   );
 }
