@@ -33,9 +33,14 @@ export type NotificationProvider = {
   load: (ctx: NotificationContext) => Promise<ExternalNotification[]>;
 };
 
-export const notificationProviders: NotificationProvider[] = [
-  // B: sosNotificationProvider,
-];
+// SOS 공급자는 "server-only" 라 정적 import 하면 이 모듈을 가져오는 테스트·클라이언트 쪽에서 바로 실패한다.
+// 실제로 load 가 호출될 때만 불러온다.
+const sosProvider: NotificationProvider = {
+  id: "sos",
+  load: async (ctx) => (await import("@/features/sos/notification-provider")).sosNotificationProvider.load(ctx),
+};
+
+export const notificationProviders: NotificationProvider[] = [sosProvider];
 
 /** 공급자 알림을 모은다. 한 공급자가 실패하거나 느려도 나머지는 보여준다 */
 export async function loadExternalNotifications(ctx: NotificationContext, providers = notificationProviders, timeoutMs = 1500) {
