@@ -12,6 +12,7 @@ import { computeTaskState, daysUntil } from "./status";
 import { STAGE_LABEL, TASK_LABEL, type DealStage } from "./types";
 import type { UniverseNode } from "@/features/topology/types";
 import { DealInfoEditor } from "./deal-info-editor";
+import { DealPartiesSection } from "./deal-parties-section";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
 const STATUS_TONE: Record<string, string> = {
@@ -132,7 +133,6 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
   const flow = FLOW.filter((s) => s !== "bidding" || d.contractType === "competitive");
   const cur = flow.indexOf(d.stage);
   const si = d.parties.filter((p) => p.role === "si");
-  const sup = d.parties.filter((p) => p.role === "supplier");
 
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -412,19 +412,13 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         </form>
       </Section>
 
-      <Section title="관계사">
-        {d.parties.length === 0 ? (
-          <p className="text-xs text-muted">SI·매입처 없이 직접 진행</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {[...si, ...sup].map((p) => (
-              <span key={p.id} className="rounded-full border border-line px-2.5 py-1 text-xs">
-                {p.company.name} <span className="text-muted">· {p.role === "si" ? "SI" : "매입"}</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </Section>
+      <DealPartiesSection
+        d={d}
+        onChanged={() => {
+          onChanged();
+          router.refresh();
+        }}
+      />
 
       <Section title="SOS 시그널" right={<span className="text-[10px] text-muted">B 영역 연동 예정</span>}>
         <p className="rounded-xl border border-dashed border-line p-3 text-xs text-muted">
