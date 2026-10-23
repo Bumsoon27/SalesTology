@@ -9,7 +9,8 @@ export function ViewToggle({ query }: { query: ListQuery }) {
       <Link
         href={listHref(query, { view })}
         aria-current={on ? "page" : undefined}
-        className={`rounded-[30px] px-4 py-1.5 text-sm font-medium transition-colors duration-200 ${
+        // 알약(32px)의 누르는 영역을 44px 로
+        className={`relative rounded-[30px] px-4 py-1.5 text-sm before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] font-medium transition-colors duration-200 ${
           on
             ? "bg-[var(--sos-text-strong)] text-[var(--sos-text-on-primary)]"
             : "text-[var(--sos-text-sub)] hover:text-[var(--sos-accent)]"

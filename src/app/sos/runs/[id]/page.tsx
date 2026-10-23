@@ -10,11 +10,12 @@ import { getRunWithLeads, type RunLead } from "@/features/sos/server/settings-qu
 import { Notice } from "@/features/sos/ui/notice";
 import { RunSummary } from "@/features/sos/ui/runs-table";
 import { SosNav } from "@/features/sos/ui/sos-nav";
+import { touchArea } from "@/features/sos/ui/sos-styles";
 
 // 한 실행에서 나온 리드 (설계서 §5.6) — 그 실행의 sos_signals 가 가리키는 리드. 다른 부문의 실행은 404
 export default function SosRunPage({ params, searchParams }: PageProps<"/sos/runs/[id]">) {
   return (
-    <main className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-4 py-6 sm:px-6">
+    <main className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-4 py-6 min-[1000px]:px-6">
       <h1 className="text-xl font-semibold text-[var(--sos-text-strong)]">실행 결과</h1>
       <Suspense fallback={<p className="text-sm text-[var(--sos-text-hint)]">실행 결과를 불러오는 중…</p>}>
         <RunDetail params={params} searchParams={searchParams} />
@@ -67,7 +68,7 @@ async function RunDetail({
       <SosNav current="/sos/runs" team={team} />
       <section className="flex flex-col gap-3 rounded-[6px] border border-[var(--sos-divider)] bg-[var(--sos-bg-surface)] p-5">
         <RunSummary run={data.run} />
-        <Link href={back} className="self-start text-xs font-medium text-[var(--sos-text-sub)] hover:text-[var(--sos-accent)]">
+        <Link href={back} className={`${touchArea} self-start text-xs font-medium text-[var(--sos-text-sub)] hover:text-[var(--sos-accent)]`}>
           ← 실행 기록
         </Link>
       </section>

@@ -19,7 +19,8 @@ export function SosNav({ current, team }: { current: SosTab; team: string | null
             key={t.href}
             href={team ? `${t.href}?team=${encodeURIComponent(team)}` : t.href}
             aria-current={active ? "page" : undefined}
-            className={`-mb-px border-b-2 pb-2 text-sm font-medium transition-colors duration-200 ${
+            // 글자 탭(28px)의 누르는 영역을 위로 넓혀 44px
+            className={`relative -mb-px border-b-2 pb-2 text-sm before:absolute before:inset-x-0 before:-top-4 before:bottom-0 before:content-[''] font-medium transition-colors duration-200 ${
               active
                 ? "border-[var(--sos-text-strong)] text-[var(--sos-text-strong)]"
                 : "border-transparent text-[var(--sos-text-sub)] hover:text-[var(--sos-accent)]"

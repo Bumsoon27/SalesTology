@@ -4,6 +4,7 @@ import { HighlightTitle } from "./highlight-title";
 import { KeyNumbers } from "./key-numbers";
 import { LeadActions } from "./lead-actions";
 import { Badges } from "./lead-list";
+import { touchArea } from "./sos-styles";
 import { StageBar } from "./stage-bar";
 
 // 리드 카드 전체 (설계서 §5.2, 시각 설계서 §5.3). 맨 위는 "어떤 신규 영업기회인지" 요약
@@ -83,7 +84,7 @@ export function LeadCard({ lead, today, team, convertSlot }: Props) {
                       href={s.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ml-2 text-xs font-medium text-[var(--sos-text-sub)] transition-colors duration-200 hover:text-[var(--sos-accent)]"
+                      className={`${touchArea} ml-2 text-xs font-medium text-[var(--sos-text-sub)] transition-colors duration-200 hover:text-[var(--sos-accent)]`}
                     >
                       나라장터 원문<span className="sr-only"> (새 창)</span> ↗
                     </a>

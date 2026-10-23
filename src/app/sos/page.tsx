@@ -25,12 +25,13 @@ import { LeadFilters, TeamPicker } from "@/features/sos/ui/list-controls";
 import { LeadList } from "@/features/sos/ui/lead-list";
 import { RunButton } from "@/features/sos/ui/run-button";
 import { SosNav } from "@/features/sos/ui/sos-nav";
+import { touchArea } from "@/features/sos/ui/sos-styles";
 import { ViewToggle } from "@/features/sos/ui/view-toggle";
 
 // B 영역(SOS) 리드 목록 (설계서 §5.1). 세션·DB 를 읽는 부분은 <Suspense> 안에서만.
 export default function SosPage({ searchParams }: PageProps<"/sos">) {
   return (
-    <main className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-4 py-6 sm:px-6">
+    <main className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-4 py-6 min-[1000px]:px-6">
       <h1 className="text-xl font-semibold text-[var(--sos-text-strong)]">사업 리드</h1>
       <Suspense fallback={<p className="text-sm text-[var(--sos-text-hint)]">리드를 불러오는 중…</p>}>
         <SosLeads searchParams={searchParams} />
@@ -239,7 +240,7 @@ function EmptyFiltered({ query, filtered }: { query: ListQuery; filtered: boolea
     <div className="flex flex-col items-center gap-2 py-12 text-center text-sm text-[var(--sos-text-sub)]">
       <p>{filtered ? "조건에 맞는 리드가 없습니다." : "키워드에 맞는 리드가 아직 없습니다."}</p>
       {filtered && (
-        <Link href={listHref(query, { status: [], minScore: undefined, deadlineWithin: undefined })} className="text-[var(--sos-text)] hover:text-[var(--sos-accent)]">
+        <Link href={listHref(query, { status: [], minScore: undefined, deadlineWithin: undefined })} className={`${touchArea} text-[var(--sos-text)] hover:text-[var(--sos-accent)]`}>
           조건 지우기
         </Link>
       )}

@@ -7,7 +7,7 @@ import { formatOrderMonth } from "../lib/lead-view";
 import { convertLead, unlinkDeletedDeal } from "../server/convert-action";
 import { formatWon } from "../summary/template";
 import type { LeadDetail } from "../types";
-import { secondaryButton } from "./sos-styles";
+import { secondaryButton, touchArea } from "./sos-styles";
 import { Toast, type ToastMessage } from "./toast";
 
 // [사업으로 전환] (설계서 §6.1): 확인 창에서 A 로 넘길 값을 보여 주고 저장한다.
@@ -15,7 +15,7 @@ import { Toast, type ToastMessage } from "./toast";
 const primary =
   "relative h-8 rounded-[6px] bg-[var(--sos-text-strong)] px-3 text-sm font-semibold text-[var(--sos-text-on-primary)] transition-colors duration-200 disabled:cursor-not-allowed disabled:bg-[var(--sos-disabled)] " +
   "before:absolute before:-inset-x-0 before:-inset-y-1.5 before:content-['']";
-const linkStyle = "text-sm font-medium text-[var(--sos-green)] underline-offset-2 transition-colors duration-200 hover:text-[var(--sos-accent)] hover:underline";
+const linkStyle = `${touchArea} text-sm font-medium text-[var(--sos-green)] underline-offset-2 transition-colors duration-200 hover:text-[var(--sos-accent)] hover:underline`;
 const ADMIN_REASON = "관리자 보기에서는 사업으로 전환할 수 없습니다. 부문 담당자가 전환해 주세요.";
 
 type Lead = Pick<

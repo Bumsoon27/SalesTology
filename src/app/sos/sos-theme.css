@@ -44,6 +44,8 @@
     "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
   font-size: 14px;
   line-height: 1.45;
+  /* 긴 사업명·주소가 좁은 화면 폭을 밀어내지 않게 */
+  overflow-wrap: break-word;
   color-scheme: dark;
 }
 

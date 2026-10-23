@@ -11,7 +11,8 @@ export default function SosLayout({ children }: LayoutProps<"/sos">) {
       {/* React 19 가 <head> 로 올린다. SOS 화면에서만 불러온다 */}
       <link rel="stylesheet" href={PRETENDARD} precedence="default" />
       <AppHeader active="sos" />
-      <div className="sos-theme min-h-0 flex-1 overflow-y-auto">{children}</div>
+      {/* 페이지 가로 스크롤은 없다 (시각 설계서 §6) — 넘치는 것은 각 화면에서 줄바꿈·시트로 처리하고, 여기는 안전망 */}
+      <div className="sos-theme min-h-0 flex-1 overflow-x-hidden overflow-y-auto">{children}</div>
     </>
   );
 }

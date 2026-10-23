@@ -15,6 +15,8 @@ const MENU: { tier: Tier; label: string }[] = [
 ];
 
 type Menu = { term: string; x: number; y: number };
+// 메뉴 폭의 절반 + 여백 — 화면 가장자리에서 메뉴가 잘리지 않게 가운데 위치를 이만큼 안쪽으로 둔다
+const MENU_HALF = 120;
 
 export function HighlightTitle({ title, terms, team }: { title: string; terms: string[]; team: string | null }) {
   const ref = useRef<HTMLHeadingElement>(null);
@@ -33,7 +35,9 @@ export function HighlightTitle({ title, terms, team }: { title: string; terms: s
     const term = sel.toString().trim().replace(/\s+/g, " ");
     if (term === "") return setMenu(null);
     const rect = range.getBoundingClientRect();
-    setMenu({ term, x: rect.left + rect.width / 2, y: rect.bottom + 8 });
+    const mid = rect.left + rect.width / 2;
+    const x = Math.min(Math.max(mid, MENU_HALF), Math.max(MENU_HALF, window.innerWidth - MENU_HALF));
+    setMenu({ term, x, y: rect.bottom + 8 });
   }, []);
 
   useEffect(() => {
@@ -114,7 +118,7 @@ export function HighlightTitle({ title, terms, team }: { title: string; terms: s
               role="menuitem"
               disabled={busy}
               onClick={() => add(m.tier)}
-              className={`h-8 rounded-[4px] px-3 text-xs font-medium transition-colors duration-200 hover:bg-[var(--sos-bg-modal-2)] disabled:text-[var(--sos-disabled)] ${
+              className={`relative h-8 rounded-[4px] px-3 text-xs font-medium transition-colors before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] duration-200 hover:bg-[var(--sos-bg-modal-2)] disabled:text-[var(--sos-disabled)] ${
                 m.tier === "exclude" ? "text-[var(--sos-red)]" : "text-[var(--sos-text)]"
               }`}
             >

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { MEMO_MAX, type EditableStatus } from "../lib/lead-input";
 import { markLeadSeen, updateLead } from "../server/lead-actions";
 import type { LeadDetail } from "../types";
-import { secondaryButton as secondary } from "./sos-styles";
+import { secondaryButton as secondary, touchArea } from "./sos-styles";
 import { Toast, type ToastMessage } from "./toast";
 
 // 카드 버튼: [사업으로 전환](convertSlot), 담당 지정, 보류, 관심 없음, 메모 (시각 설계서 §5.1)
@@ -82,7 +82,8 @@ export function LeadActions({ lead, markSeen, team, convertSlot }: Props) {
           value={lead.assigneeId ?? ""}
           disabled={locked}
           onChange={(e) => save({ assigneeId: e.target.value || null }, e.target.value ? "담당자를 지정했습니다." : "담당자를 비웠습니다.")}
-          className="h-8 rounded-[6px] border border-[var(--sos-divider)] bg-[var(--sos-bg-surface)] px-3 text-sm text-[var(--sos-text)] disabled:text-[var(--sos-disabled)]"
+          // 고르기 칸은 의사요소를 못 쓰므로 터치 화면에서 높이를 44px 로
+          className="h-8 pointer-coarse:h-11 rounded-[6px] border border-[var(--sos-divider)] bg-[var(--sos-bg-surface)] px-3 text-sm text-[var(--sos-text)] disabled:text-[var(--sos-disabled)]"
         >
           <option value="">담당 지정</option>
           {lead.members.map((m) => (
@@ -153,7 +154,7 @@ export function LeadActions({ lead, markSeen, team, convertSlot }: Props) {
       {conflict && (
         <p className="text-xs font-medium text-[var(--sos-yellow)]">
           다른 사람이 먼저 수정했습니다.{" "}
-          <button type="button" className="underline hover:text-[var(--sos-accent)]" onClick={() => router.refresh()}>
+          <button type="button" className={`${touchArea} underline hover:text-[var(--sos-accent)]`} onClick={() => router.refresh()}>
             최신 내용 불러오기
           </button>
           {memoOpen && " (쓰던 메모는 새로 불러오면 사라집니다)"}

@@ -10,7 +10,7 @@ import { SosNav } from "@/features/sos/ui/sos-nav";
 // 과거 실행 기록 (설계서 §5.6). 세션·DB 를 읽는 부분은 <Suspense> 안에서만.
 export default function SosRunsPage({ searchParams }: PageProps<"/sos/runs">) {
   return (
-    <main className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-4 py-6 sm:px-6">
+    <main className="mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-4 py-6 min-[1000px]:px-6">
       <h1 className="text-xl font-semibold text-[var(--sos-text-strong)]">실행 기록</h1>
       <Suspense fallback={<p className="text-sm text-[var(--sos-text-hint)]">실행 기록을 불러오는 중…</p>}>
         <Runs searchParams={searchParams} />

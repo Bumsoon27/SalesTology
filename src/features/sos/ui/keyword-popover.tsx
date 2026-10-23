@@ -88,7 +88,8 @@ export function KeywordPopover({
       ref={ref}
       role="dialog"
       aria-label={`${keyword.term} 설정`}
-      className="absolute top-full left-0 z-40 mt-2 flex w-[min(320px,calc(100vw-32px))] flex-col gap-4 rounded-[6px] bg-[var(--sos-bg-modal)] p-4 text-sm text-[var(--sos-text)] shadow-[0_0_16px_rgba(0,0,0,0.2)]"
+      // 넓은 화면은 칩 아래, 좁은 화면(<1000px)은 칩이 오른쪽 끝에 있어도 넘치지 않게 아래 시트로 띄운다
+      className="fixed inset-x-4 bottom-4 z-40 flex max-h-[80vh] flex-col gap-4 overflow-y-auto rounded-[6px] bg-[var(--sos-bg-modal)] p-4 text-sm text-[var(--sos-text)] shadow-[0_0_16px_rgba(0,0,0,0.2)] min-[1000px]:absolute min-[1000px]:inset-x-auto min-[1000px]:top-full min-[1000px]:bottom-auto min-[1000px]:left-0 min-[1000px]:mt-2 min-[1000px]:max-h-none min-[1000px]:w-80 min-[1000px]:overflow-visible"
     >
       <p className="text-base font-semibold text-[var(--sos-text-strong)]">{keyword.term}</p>
 
@@ -119,7 +120,7 @@ export function KeywordPopover({
         />
       </label>
 
-      <label className="flex items-center justify-between gap-3">
+      <label className="flex items-center justify-between gap-3 pointer-coarse:min-h-11">
         <span className="text-xs font-medium text-[var(--sos-text-sub)]">켜기</span>
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 accent-[var(--sos-text-strong)]" />
       </label>
@@ -132,7 +133,7 @@ export function KeywordPopover({
           <ul className="flex max-h-40 flex-col gap-1.5 overflow-y-auto">
             {products.map((p) => (
               <li key={p.id}>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 pointer-coarse:min-h-11">
                   <input type="checkbox" checked={picked.has(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 accent-[var(--sos-text-strong)]" />
                   <span>{p.name}</span>
                   {p.vendor && <span className="text-xs text-[var(--sos-text-hint)]">{p.vendor}</span>}
