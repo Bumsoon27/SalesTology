@@ -19,7 +19,14 @@ export default function DashboardPage() {
     <>
       <AppHeader active="core" />
       <main className="relative flex-1 overflow-hidden">
-        <Suspense fallback={<p className="p-6 text-sm text-muted">대시보드를 불러오는 중…</p>}>
+        <Suspense
+          fallback={
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-sm text-muted">
+              <span aria-hidden className="h-6 w-6 animate-spin rounded-full border-2 border-accent/60 border-t-transparent" />
+              대시보드를 불러오는 중…
+            </div>
+          }
+        >
           <DashboardUniverse />
         </Suspense>
       </main>
