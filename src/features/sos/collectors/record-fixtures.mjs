@@ -7,8 +7,15 @@ import { fileURLToPath } from "node:url";
 const KEY = process.env.DATA_GO_KR_SERVICE_KEY;
 if (!KEY) throw new Error("DATA_GO_KR_SERVICE_KEY 없음");
 const BASE = "https://apis.data.go.kr/1230000";
+// 키는 원문·URL 인코딩형 모두 가린다 (오류 본문에 요청 URL 이 그대로 실릴 수 있음)
+const mask = (t) =>
+  [KEY, encodeURIComponent(KEY), new URLSearchParams({ k: KEY }).toString().slice(2)].reduce(
+    (acc, k) => acc.replaceAll(k, "***"),
+    t,
+  );
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "__fixtures__");
-const PERSONAL = /ofcl|TelNo|EmailAdrs/i;
+// 공무원 이름·연락처, 집행관명(exctvNm)
+const PERSONAL = /ofcl|TelNo|EmailAdrs|exctvNm/i;
 
 function strip(v) {
   if (Array.isArray(v)) return v.map(strip);
@@ -39,10 +46,10 @@ async function call(path, params) {
   try {
     return { status: res.status, json: JSON.parse(text) };
   } catch {
-    return { status: res.status, json: null, text: text.slice(0, 200).replace(KEY, "***") };
+    return { status: res.status, json: null, text: mask(text).slice(0, 200) };
   }
 }
-const save = (name, json) => writeFileSync(join(OUT, name), JSON.stringify(strip(json), null, 2) + "\n");
+const save = (name, json) => writeFileSync(join(OUT, name), mask(JSON.stringify(strip(json), null, 2)) + "\n");
 const range = { inqryDiv: "1", inqryBgnDt: fmt(from), inqryEndDt: fmt(to) };
 
 const plan = await call("/ao/OrderPlanSttusService/getOrderPlanSttusListThng", { inqryDiv: "1", orderBgnYm: ym, orderEndYm: endYm, numOfRows: "5" });
