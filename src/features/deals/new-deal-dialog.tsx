@@ -35,6 +35,8 @@ export function NewDealDialog({
     if (n.length < 2 || companyNames.includes(customer.trim())) return null;
     return companyNames.find((c) => norm(c).includes(n) || n.includes(norm(c))) ?? null;
   }, [customer, companyNames]);
+  // 목록에 없는 이름이면 저장할 때 새 고객사로 만들어진다 → SI·매입처와 같은 노란 표시
+  const newCustomer = customer.trim() && !companyNames.includes(customer.trim()) ? customer.trim() : null;
 
   useEffect(() => {
     if (autoOpen) dialogRef.current?.showModal();
@@ -119,7 +121,26 @@ export function NewDealDialog({
                   ))}
                 </div>
               )}
-              {similar && <p className="mt-1 text-xs text-st-yellow">비슷한 회사가 있습니다: {similar}</p>}
+              {newCustomer && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full border border-st-yellow/50 px-2.5 py-1 text-xs text-st-yellow">+ {newCustomer} (새 고객사)</span>
+                  {similar ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById("nd-customer") as HTMLInputElement | null;
+                        if (el) el.value = similar;
+                        setCustomer(similar);
+                      }}
+                      className="text-xs text-st-yellow underline-offset-4 hover:underline"
+                    >
+                      혹시 &lsquo;{similar}&rsquo;? 눌러서 기존 회사로
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-muted">저장하면 고객사로 자동 등록됩니다</span>
+                  )}
+                </div>
+              )}
               {err("customer")}
             </div>
             <div>

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/shared/ui/app-header";
+import { BackToDashboard } from "@/shared/ui/back-to-dashboard";
 import { requireUser } from "@/shared/auth/current-user";
 import { getAdminData } from "@/features/admin/queries";
 import { DeletedPanel, TeamsPanel, UsersPanel } from "@/features/admin/admin-panels";
@@ -11,6 +12,7 @@ export default function AdminPage() {
     <>
       <AppHeader active="core" />
       <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 p-6">
+        <BackToDashboard />
         <h1 className="text-lg font-semibold">관리자</h1>
         <Suspense fallback={<p className="text-sm text-muted">불러오는 중…</p>}>
           <AdminBody />

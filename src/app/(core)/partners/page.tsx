@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { AppHeader } from "@/shared/ui/app-header";
+import { BackToDashboard } from "@/shared/ui/back-to-dashboard";
 import { getPartners, type Partner } from "@/features/partners/queries";
 import { PartnerForm } from "@/features/partners/partner-form";
 
@@ -8,7 +9,10 @@ export default function PartnersPage() {
   return (
     <>
       <AppHeader active="core" />
-      <main className="mx-auto grid w-full max-w-6xl flex-1 gap-6 p-6 lg:grid-cols-[360px_1fr]">
+      <main className="mx-auto grid w-full max-w-6xl flex-1 content-start gap-6 p-6 lg:grid-cols-[360px_1fr]">
+        <div className="lg:col-span-2">
+          <BackToDashboard />
+        </div>
         <div className="lg:sticky lg:top-6 lg:self-start">
           <PartnerForm />
         </div>
