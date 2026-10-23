@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/shared/supabase/admin";
 import { todayInSeoul } from "../lib/date";
+import { runProgress, type RunProgress } from "../run/progress";
 import {
   advance,
   currentStep,
@@ -40,7 +41,7 @@ export type StartRunResult = { ok: true; runId: string } | { ok: false; error: s
 export type AdvanceRunResult = {
   done: boolean;
   status: RunStatus;
-  progress: { index: number; total: number; label: string };
+  progress: RunProgress;
   stats: Record<string, unknown>;
   error?: string;
 };
@@ -294,17 +295,7 @@ async function currentState(admin: Admin, teamId: string, runId: string): Promis
 }
 
 function snapshot(status: RunStatus, cursor: RunCursor | null, stats: Record<string, unknown>): AdvanceRunResult {
-  const index = cursor ? Math.min(cursor.index, cursor.steps.length) : 0;
-  return {
-    done: status !== "running",
-    status,
-    progress: {
-      index,
-      total: cursor?.steps.length ?? 0,
-      label: status === "running" && cursor ? stepLabel(currentStep(cursor)) : "완료",
-    },
-    stats: stats ?? {},
-  };
+  return { done: status !== "running", status, progress: runProgress(status === "running", cursor), stats: stats ?? {} };
 }
 
 function rejected(error: string): AdvanceRunResult {

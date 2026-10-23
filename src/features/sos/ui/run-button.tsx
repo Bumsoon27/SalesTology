@@ -2,14 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RunMode } from "../lib/run-view";
-import { progressRatio, sourceLines } from "../run/progress";
+import type { RunMode, RunningRun } from "../lib/run-view";
+import { progressRatio, sourceLines, type RunProgress } from "../run/progress";
 import { advanceRun, startRun } from "../server/actions";
 import { STATE_COLOR } from "./sos-styles";
 
 // [수집 시작]·[재분석] — 실행을 만들고 끝날 때까지 단계를 하나씩 진행한다. 탭을 다시 열면 진행 중 실행을 이어 간다.
-type Progress = { index: number; total: number; label: string };
-
 // 다른 탭이 같은 단계를 처리 중이면 같은 진행이 돌아온다 — 잠깐 쉬었다 다시 묻는다
 const WAIT_MS = 2000;
 
@@ -27,22 +25,22 @@ const BUTTON = {
 
 export function RunButton({
   team,
-  runningRunId,
-  runningMode,
+  running: resume,
   mode = "collect",
 }: {
   team: string | null;
-  runningRunId: string | null;
-  // 이어 가는 실행의 종류 — 설정 화면의 [재분석]이 진행 중인 수집을 이어 갈 수 있다 (없으면 mode)
-  runningMode?: RunMode;
+  // 진행 중 실행 — 종류는 설정 화면의 [재분석]이 진행 중인 수집을 이어 갈 수 있어 mode 와 다를 수 있다
+  running: RunningRun | null;
   mode?: RunMode;
 }) {
   const text = TEXT[mode];
   const router = useRouter();
-  // 진행 중 실행을 이어 갈 때는 처음부터 "수집 중"으로 그린다
-  const [running, setRunning] = useState(runningRunId !== null);
-  const [progress, setProgress] = useState<Progress | null>(null);
-  const [stats, setStats] = useState<Record<string, unknown>>({});
+  const runningRunId = resume?.id ?? null;
+  const runningMode = resume?.mode;
+  // 진행 중 실행을 이어 갈 때는 처음부터 "수집 중"과 지금까지의 진행·출처 줄을 그린다 (첫 단계 응답까지 "대기"로 보이지 않게)
+  const [running, setRunning] = useState(resume !== null);
+  const [progress, setProgress] = useState<RunProgress | null>(resume?.progress ?? null);
+  const [stats, setStats] = useState<Record<string, unknown>>(resume?.stats ?? {});
   const [message, setMessage] = useState<{ tone: "error" | "warn" | "ok"; text: string } | null>(null);
   // 지금 진행 중인(또는 마지막으로 진행한) 실행의 종류 — 끝 문구·출처 줄은 이것을 따른다
   const [activeMode, setActiveMode] = useState<RunMode>(runningMode ?? mode);

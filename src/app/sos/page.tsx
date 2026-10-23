@@ -5,6 +5,7 @@ import { requireUser } from "@/shared/auth/current-user";
 import { todayInSeoul } from "@/features/sos/lib/date";
 import { leadHref, parseLeadId } from "@/features/sos/lib/lead-view";
 import { listHref, parseListQuery, type ListQuery } from "@/features/sos/lib/list-query";
+import type { RunningRun } from "@/features/sos/lib/run-view";
 import { SosDbError } from "@/features/sos/server/db";
 import { requireSosTeam } from "@/features/sos/server/context";
 import {
@@ -69,7 +70,7 @@ type PageData =
       // ?lead= 가 있을 때만. 없는 리드·다른 부문 리드는 null
       detail: { lead: LeadDetail | null } | null;
       lastRun: LastRun | null;
-      runningRunId: string | null;
+      running: RunningRun | null;
     };
 
 /** 화면에 필요한 값을 모은다. DB 가 준비되지 않았거나 조회가 실패하면 안내 문구로 바꾼다 */
@@ -88,7 +89,7 @@ async function loadPage(query: ListQuery, leadId: string | null, teamError: bool
     const { teamId, isAdminView } = await requireSosTeam(query.team);
     await connection();
     const today = todayInSeoul(new Date());
-    const [leads, lastRun, runningRunId, lead] = await Promise.all([
+    const [leads, lastRun, running, lead] = await Promise.all([
       getLeads(teamId, { view: query.view, status: query.status, minScore: query.minScore, deadlineWithin: query.deadlineWithin }),
       getLastRun(teamId),
       getRunningRun(teamId),
@@ -105,7 +106,7 @@ async function loadPage(query: ListQuery, leadId: string | null, teamError: bool
       leads,
       detail: leadId ? { lead } : null,
       lastRun,
-      runningRunId,
+      running,
     };
   } catch (e) {
     if (e instanceof SosNotReadyError) return { kind: "notice", text: "SOS 데이터베이스가 아직 준비되지 않았습니다", teams };
@@ -135,9 +136,9 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
     );
   }
 
-  const { leads, lastRun, runningRunId, runTeam, adminView, today, detail } = data;
+  const { leads, lastRun, running, runTeam, adminView, today, detail } = data;
   const filtered = query.status.length > 0 || !!query.minScore || !!query.deadlineWithin;
-  const neverRun = !lastRun && !runningRunId && leads.length === 0 && !filtered;
+  const neverRun = !lastRun && !running && leads.length === 0 && !filtered;
 
   // RunButton 은 빈 상태든 목록이든 같은 자리(같은 부모·key)에 둔다 — 첫 수집 뒤 새로 그려도 진행 결과 표시가 남게
   return (
@@ -160,7 +161,7 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
             <LastRunSummary run={lastRun} />
           )}
         </div>
-        <RunButton key="run" team={runTeam} runningRunId={runningRunId} />
+        <RunButton key="run" team={runTeam} running={running} />
       </section>
 
       {!neverRun && (

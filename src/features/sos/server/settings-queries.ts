@@ -138,14 +138,6 @@ export async function getRuns(teamId: string): Promise<RunHistoryItem[]> {
   return ((data ?? []) as unknown as RunRow[]).map(toRun);
 }
 
-/** 진행 중 실행 — [재분석] 버튼이 이어서 진행한다 */
-export async function getRunningRunMode(teamId: string): Promise<{ id: string; mode: RunMode } | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("sos_runs").select("id, mode").eq("team_id", teamId).eq("status", "running").limit(1).maybeSingle();
-  check("진행 중 실행 조회", error);
-  return (data as { id: string; mode: RunMode } | null) ?? null;
-}
-
 export type RunLead = {
   id: string;
   title: string;

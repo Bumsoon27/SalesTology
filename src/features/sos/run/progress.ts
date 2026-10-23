@@ -1,6 +1,6 @@
 // 수집 진행 화면용 계산 — 순수 함수 (실행 stats → 출처별 상태 줄)
 import { G2B_OPS } from "../collectors/g2b";
-import { opDisplayName, opLabel } from "./steps";
+import { currentStep, opDisplayName, opLabel, stepLabel, type RunCursor } from "./steps";
 
 export type SourceLineState = "waiting" | "active" | "done" | "failed";
 export type SourceLine = { key: string; label: string; state: SourceLineState; text: string };
@@ -27,4 +27,15 @@ export function sourceLines(stats: Record<string, unknown>, currentLabel: string
 export function progressRatio(p: { index: number; total: number }): number {
   if (!p.total) return 0;
   return Math.min(1, Math.max(0, p.index / p.total));
+}
+
+export type RunProgress = { index: number; total: number; label: string };
+
+/** 저장된 커서 → 진행 위치·현재 단계 이름 (advanceRun 응답과 이어 가는 화면의 첫 표시가 같은 값을 쓴다) */
+export function runProgress(running: boolean, cursor: RunCursor | null): RunProgress {
+  return {
+    index: cursor ? Math.min(cursor.index, cursor.steps.length) : 0,
+    total: cursor?.steps.length ?? 0,
+    label: running && cursor ? stepLabel(currentStep(cursor)) : "완료",
+  };
 }
