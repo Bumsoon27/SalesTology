@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { summarizePipeline } from "./pipeline";
+import { summarizeByOwner, summarizePipeline } from "./pipeline";
+
+describe("summarizeByOwner", () => {
+  it("영업대표별 건수·규모·가중 예상, 가중 큰 순, 나 표시, 진행 중만", () => {
+    const base = { name: "x", last_activity_at: "2026-10-22T00:00:00Z", customer: { id: "c", name: "A" }, gp: null };
+    const r = summarizeByOwner(
+      [
+        { ...base, id: "1", stage: "proposal", status: "active", amount: 100, owner_id: "me", owner: "나" }, // 40
+        { ...base, id: "2", stage: "won", status: "active", amount: 100, owner_id: "dj", owner: "DJ" }, // 100
+        { ...base, id: "3", stage: "discovery", status: "active", amount: null, owner_id: "me", owner: "나" },
+        { ...base, id: "4", stage: "won", status: "lost", amount: 999, owner_id: "dj", owner: "DJ" },
+      ],
+      "me",
+    );
+    expect(r.map((x) => [x.owner, x.count, x.total, x.weighted, x.isMe])).toEqual([
+      ["DJ", 1, 100, 100, false],
+      ["나", 2, 100, 40, true],
+    ]);
+  });
+});
 
 const deal = (o: Partial<Parameters<typeof summarizePipeline>[0][number]>) => ({
   id: "d",

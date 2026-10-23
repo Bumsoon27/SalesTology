@@ -93,3 +93,23 @@ export function summarizePipeline(deals: Deal[], today: string): PipelineSummary
     stale: stale.sort((a, b) => b.idleDays - a.idleDays),
   };
 }
+
+export type OwnerPipeline = { ownerId: string; owner: string; count: number; total: number; weighted: number; gp: number; isMe: boolean };
+
+/** 부문 보기의 영업대표별 합계 (Salesforce 팀 예측처럼). 가중 예상이 큰 순 */
+export function summarizeByOwner(deals: (Deal & { owner_id: string; owner: string })[], meId: string): OwnerPipeline[] {
+  const by = new Map<string, OwnerPipeline>();
+  for (const d of deals) {
+    if (d.status !== "active") continue;
+    const row = by.get(d.owner_id) ?? { ownerId: d.owner_id, owner: d.owner, count: 0, total: 0, weighted: 0, gp: 0, isMe: d.owner_id === meId };
+    row.count += 1;
+    if (d.amount != null) {
+      const amount = Number(d.amount);
+      row.total += amount;
+      row.weighted += (amount * (STAGE_PROBABILITY[d.stage] ?? 0)) / 100;
+      if (d.gp != null) row.gp += Number(d.gp);
+    }
+    by.set(d.owner_id, row);
+  }
+  return [...by.values()].map((r) => ({ ...r, weighted: Math.round(r.weighted) })).sort((a, b) => b.weighted - a.weighted);
+}

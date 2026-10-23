@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { DealDirection } from "./direction";
 import { DIRECTION_TONE } from "./direction-section";
-import { STAGE_PROBABILITY, STALE_AFTER_DAYS, type PipelineSummary } from "./pipeline";
+import { STAGE_PROBABILITY, STALE_AFTER_DAYS, type OwnerPipeline, type PipelineSummary } from "./pipeline";
+
+export type TeamPipeline = { summary: PipelineSummary; owners: OwnerPipeline[] };
 
 function eok(n: number) {
   if (n === 0) return "0";
@@ -16,11 +18,24 @@ function eok(n: number) {
 
 type Tab = "todo" | "pipeline";
 
-export function PipelineSummaryCard({ summary: s, directions }: { summary: PipelineSummary; directions: DealDirection[] }) {
+export function PipelineSummaryCard({
+  summary: mine,
+  directions,
+  team,
+}: {
+  summary: PipelineSummary;
+  directions: DealDirection[];
+  /** 부문 보기 (부문이 없는 관리자는 null) */
+  team: TeamPipeline | null;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>(directions.length > 0 ? "todo" : "pipeline");
-  const max = Math.max(1, ...s.stages.map((x) => x.amount));
+  const [scope, setScope] = useState<"mine" | "team">("mine");
+  // 머리글(접힌 상태)은 항상 내 사업 기준, 펼친 파이프라인 탭만 범위를 바꾼다
+  const s = mine;
+  const cur = scope === "team" && team ? team.summary : mine;
+  const max = Math.max(1, ...cur.stages.map((x) => x.amount));
   const focus = (dealId: string) => router.push(`/dashboard?focus=d:${dealId}`);
   const urgent = directions.filter((d) => d.priority >= 70).length;
 
@@ -96,11 +111,34 @@ export function PipelineSummaryCard({ summary: s, directions }: { summary: Pipel
               )
             ) : (
               <>
+                {team && (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="inline-flex rounded-md border border-line p-0.5">
+                      {(
+                        [
+                          ["mine", "내 사업"],
+                          ["team", "부문 전체"],
+                        ] as const
+                      ).map(([k, label]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          aria-pressed={scope === k}
+                          onClick={() => setScope(k)}
+                          className={`rounded px-2 py-0.5 text-[11px] ${scope === k ? "bg-white/10 text-fg" : "text-muted hover:text-fg"}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-muted">진행 {cur.activeCount}건 · 전체 {eok(cur.total)}</span>
+                  </div>
+                )}
                 <dl className="grid grid-cols-3 gap-2 text-center">
                   {[
-                    ["가중 예상", eok(s.weighted)],
-                    ["확정(수주 후)", eok(s.committed)],
-                    ["GP", s.gpRate == null ? eok(s.gp) : `${eok(s.gp)} · ${s.gpRate}%`],
+                    ["가중 예상", eok(cur.weighted)],
+                    ["확정(수주 후)", eok(cur.committed)],
+                    ["GP", cur.gpRate == null ? eok(cur.gp) : `${eok(cur.gp)} · ${cur.gpRate}%`],
                   ].map(([k, v]) => (
                     <div key={k} className="rounded-lg bg-white/[0.03] px-1 py-2">
                       <dt className="text-[10px] text-muted">{k}</dt>
@@ -109,9 +147,9 @@ export function PipelineSummaryCard({ summary: s, directions }: { summary: Pipel
                   ))}
                 </dl>
 
-                {s.stages.length > 0 && (
+                {cur.stages.length > 0 && (
                   <ul className="space-y-1.5">
-                    {s.stages.map((x) => (
+                    {cur.stages.map((x) => (
                       <li key={x.stage} className="grid grid-cols-[3.2rem_1fr_3.5rem] items-center gap-2 text-[11px]">
                         <span className="text-muted">
                           {x.label} <span className="text-[9px]">{STAGE_PROBABILITY[x.stage]}%</span>
@@ -127,7 +165,25 @@ export function PipelineSummaryCard({ summary: s, directions }: { summary: Pipel
                   </ul>
                 )}
 
-                {s.stale.length > 0 && (
+                {scope === "team" && team && team.owners.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] text-muted">영업대표별 (가중 예상 순)</p>
+                    <ul className="space-y-1">
+                      {team.owners.map((o) => (
+                        <li key={o.ownerId} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-md px-2 py-1 text-xs">
+                          <span className={`truncate ${o.isMe ? "text-accent" : ""}`}>
+                            {o.owner}
+                            {o.isMe && " (나)"} <span className="text-muted">· {o.count}건</span>
+                          </span>
+                          <span className="text-muted">{eok(o.total)}</span>
+                          <span className="w-14 text-right font-semibold">{eok(o.weighted)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {scope === "mine" && s.stale.length > 0 && (
                   <div className="space-y-1.5">
                     <p className="text-[11px] text-muted">{STALE_AFTER_DAYS}일 넘게 활동 없는 사업</p>
                     <ul className="space-y-1">
@@ -149,7 +205,7 @@ export function PipelineSummaryCard({ summary: s, directions }: { summary: Pipel
                   </div>
                 )}
 
-                {s.missingAmount > 0 && <p className="text-[10px] text-muted">규모를 넣지 않은 사업 {s.missingAmount}건은 금액에서 빠졌습니다.</p>}
+                {cur.missingAmount > 0 && <p className="text-[10px] text-muted">규모를 넣지 않은 사업 {cur.missingAmount}건은 금액에서 빠졌습니다.</p>}
                 <p className="text-[10px] text-muted">가중 예상 = 규모 × 단계별 성사 확률</p>
               </>
             )}

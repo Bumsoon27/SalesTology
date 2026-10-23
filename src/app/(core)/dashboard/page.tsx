@@ -4,13 +4,13 @@ import { AppHeader } from "@/shared/ui/app-header";
 import { UniverseShell } from "@/features/topology/universe-shell";
 import { UniverseLegend } from "@/features/topology/universe-legend";
 import { buildMyUniverse } from "@/features/topology/build-graph";
-import { getCompanyNames, getMyDeals } from "@/features/deals/queries";
+import { getCompanyNames, getMyDeals, getTeamDeals } from "@/features/deals/queries";
 import { todayInSeoul } from "@/features/deals/status";
 import { NewDealDialog } from "@/features/deals/new-deal-dialog";
 import { RealtimeRefresh } from "@/features/deals/realtime-refresh";
 import { getPartners } from "@/features/partners/queries";
 import { PartnerDialog } from "@/features/partners/partner-dialog";
-import { summarizePipeline } from "@/features/deals/pipeline";
+import { summarizeByOwner, summarizePipeline } from "@/features/deals/pipeline";
 import { topDirections } from "@/features/deals/direction";
 import { PipelineSummaryCard } from "@/features/deals/pipeline-summary";
 
@@ -37,11 +37,17 @@ export default function DashboardPage() {
 
 async function DashboardUniverse() {
   const user = await requireUser();
-  const [deals, companyNames, partners] = await Promise.all([getMyDeals(user.id), getCompanyNames(), getPartners()]);
+  const [deals, companyNames, partners, teamDeals] = await Promise.all([
+    getMyDeals(user.id),
+    getCompanyNames(),
+    getPartners(),
+    user.teamId ? getTeamDeals(user.teamId) : Promise.resolve(null),
+  ]);
   const today = todayInSeoul();
   const data = buildMyUniverse({ id: user.id, name: user.name }, deals, today);
   const pipeline = summarizePipeline(deals, today);
   const directions = topDirections(deals, today);
+  const team = teamDeals ? { summary: summarizePipeline(teamDeals, today), owners: summarizeByOwner(teamDeals, user.id) } : null;
   const isEmpty = data.nodes.length === 1;
   // 파트너가 많지 않으면 처음부터 펼쳐서 연관 관계가 보이게 한다
   const expandAll = data.nodes.filter((n) => n.kind === "party").length <= 60;
@@ -72,7 +78,7 @@ async function DashboardUniverse() {
       {!isEmpty && (
         <>
           <div className="absolute bottom-16 left-4 z-10 sm:bottom-4">
-            <PipelineSummaryCard summary={pipeline} directions={directions} />
+            <PipelineSummaryCard summary={pipeline} directions={directions} team={team} />
           </div>
           <div className="absolute bottom-4 right-4">
             <UniverseLegend data={data} />
