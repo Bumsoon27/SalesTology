@@ -2,7 +2,8 @@
 //
 // B(SOS)에서 쓰는 법:
 //   1) src/features/sos/notification-provider.ts 에서 NotificationProvider 를 구현해 export
-//   2) 아래 notificationProviders 배열에 import 해서 추가 (공용 파일이라 작은 PR 로, A 리뷰)
+//   2) 아래처럼 load 안에서 동적 import 로 불러오는 래퍼 공급자를 만들어 notificationProviders 배열에 추가
+//      (공급자가 "server-only" 라 정적 import 하면 이 파일을 쓰는 테스트·클라이언트가 깨진다. 공용 파일이라 작은 PR 로, A 리뷰)
 //
 // 규칙
 // - key 는 전역에서 겹치지 않게 "{공급자 id}:{종류}:{대상 id}:{기준일}" 형태로 만든다 (날짜가 바뀌면 새 알림)
