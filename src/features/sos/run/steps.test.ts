@@ -10,6 +10,9 @@ import {
   isStale,
   opLabel,
   parseCursor,
+  planSaveChunk,
+  releaseAfterError,
+  withoutStepError,
   planRun,
   recordAttempt,
   shouldSkipFetch,
@@ -146,6 +149,9 @@ describe("shouldSkipFetch", () => {
   it("같은 날 앞서 받은 기록은 건너뛰지 않음 (그 뒤 올라온 공고가 있을 수 있다)", () => {
     expect(shouldSkipFetch([{ range_from: "2026-10-20", fetched_at: "2026-10-22T02:59:00+00:00" }], range)).toBe(false);
   });
+  it("시작일이 같은 날인 기록은 건너뛰지 않음 (그날 앞 시각을 덮는지 알 수 없다)", () => {
+    expect(shouldSkipFetch([{ range_from: "2026-10-21", fetched_at: "2026-10-22T03:05:00+00:00" }], range)).toBe(false);
+  });
   it("시작일이 더 늦은 기록은 건너뛰지 않음", () => {
     expect(shouldSkipFetch([{ range_from: "2026-10-22", fetched_at: "2026-10-22T03:05:00+00:00" }], range)).toBe(false);
     expect(shouldSkipFetch([], range)).toBe(false);
@@ -157,8 +163,47 @@ describe("fetchLogRange", () => {
     const range = { from: new Date("2026-10-21T01:00:00Z"), to: new Date("2026-10-22T03:00:00Z") };
     const log = fetchLogRange(range);
     expect(log).toEqual({ range_from: "2026-10-21", range_to: "2026-10-22", fetched_at: "2026-10-22T03:00:00.000Z" });
-    // 같은 범위 끝으로 시작한 실행은 재사용, 그 뒤에 시작한 실행은 다시 받는다
-    expect(shouldSkipFetch([log], range)).toBe(true);
-    expect(shouldSkipFetch([log], { ...range, to: new Date("2026-10-22T03:00:01Z") })).toBe(false);
+    // 시작일이 같으면 다시 받는다. 다음 날부터 시작하고 범위 끝이 기록 안이면 재사용, 범위 끝이 기록 뒤면 다시 받는다
+    expect(shouldSkipFetch([log], range)).toBe(false);
+    const later = { from: new Date("2026-10-22T00:00:00Z"), to: new Date("2026-10-22T03:00:00Z") };
+    expect(shouldSkipFetch([log], later)).toBe(true);
+    expect(shouldSkipFetch([log], { ...later, to: new Date("2026-10-22T03:00:01Z") })).toBe(false);
+  });
+});
+
+describe("planSaveChunk", () => {
+  it("300건씩 나누고 마지막 조각이면 next 가 null", () => {
+    expect(planSaveChunk(700, 0)).toEqual({ start: 0, end: 300, next: 300 });
+    expect(planSaveChunk(700, 300)).toEqual({ start: 300, end: 600, next: 600 });
+    expect(planSaveChunk(700, 600)).toEqual({ start: 600, end: 700, next: null });
+  });
+  it("딱 맞거나 비어 있어도 한 번에 끝", () => {
+    expect(planSaveChunk(300, 0)).toEqual({ start: 0, end: 300, next: null });
+    expect(planSaveChunk(0, 0)).toEqual({ start: 0, end: 0, next: null });
+  });
+  it("잘못된 offset 은 범위 안으로", () => {
+    expect(planSaveChunk(10, -5)).toEqual({ start: 0, end: 10, next: null });
+    expect(planSaveChunk(10, 50)).toEqual({ start: 10, end: 10, next: null });
+  });
+});
+
+describe("releaseAfterError", () => {
+  it("lease 만 풀고 시도 횟수는 남겨 3번 실패하면 중단된다", () => {
+    let c: RunCursor = { steps: planRun("reanalyze"), index: 0, totals: {} };
+    for (let i = 0; i < 3; i++) {
+      c = withLease(recordAttempt(c), new Date("2026-10-22T00:00:00Z"));
+      expect(tooManyAttempts(c)).toBe(false);
+      c = releaseAfterError(c);
+      expect(c.lease).toBeNull();
+      expect(c.index).toBe(0);
+    }
+    expect(tooManyAttempts(recordAttempt(c))).toBe(true);
+  });
+});
+
+describe("withoutStepError", () => {
+  it("단계가 끝나면 지난 단계 오류 기록을 지운다", () => {
+    expect(withoutStepError({ a: 1, stepError: { step: "x", message: "m" } })).toEqual({ a: 1 });
+    expect(withoutStepError({ a: 1 })).toEqual({ a: 1 });
   });
 });

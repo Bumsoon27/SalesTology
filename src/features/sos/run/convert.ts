@@ -2,7 +2,7 @@
 import type { StoredLead } from "../analysis/lead-update";
 import { parseAmount } from "../lib/money";
 import type { KeywordRow, LeadRow, RawItemRow } from "../server/rows";
-import type { Keyword, NormalizedItem } from "../types";
+import type { DeadlineType, Keyword, NormalizedItem, Stage } from "../types";
 
 const text = (v: unknown): string | null => {
   if (typeof v === "number") return String(v);
@@ -40,7 +40,7 @@ export function rawRowToItem(r: RawItemRow): NormalizedItem {
 
 /** 엔진 "YYYY-MM" → DB date "YYYY-MM-01" */
 export function monthToDate(month: string | null): string | null {
-  return month && /^\d{4}-\d{2}$/.test(month) ? `${month}-01` : null;
+  return month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? `${month}-01` : null;
 }
 
 /** DB date → 엔진 "YYYY-MM" */
@@ -73,4 +73,53 @@ export function leadToStored(l: LeadRow): StoredLead {
     hasNewProgress: l.has_new_progress,
     keywordMismatch: l.keyword_mismatch,
   };
+}
+
+/** 분석이 sos_leads 에 쓰는 칸 (team_id·chain_key·last_run_id 제외) */
+export type LeadWrite = {
+  org_id: string | null;
+  title: string;
+  stage: Stage;
+  budget: number | null;
+  expected_order_month: string | null;
+  next_deadline_at: string | null;
+  next_deadline_type: DeadlineType | null;
+  matched_keyword_ids: string[];
+  score: number;
+  hidden: boolean;
+  has_new_progress: boolean;
+  keyword_mismatch: boolean;
+};
+
+// DB 는 "+00:00", 엔진은 "Z" — 시각으로 비교
+const sameTime = (a: string | null, b: string | null) => (a === null || b === null ? a === b : Date.parse(a) === Date.parse(b));
+const sameSet = (a: string[], b: string[]) => {
+  const s = new Set(a);
+  return s.size === new Set(b).size && b.every((x) => s.has(x));
+};
+
+/** 요약에 들어가는 사실(단계·제목·키워드·마감)이 바뀌었는지. 새 리드는 바뀐 것 */
+export function leadFactsChanged(prev: LeadRow | null, next: LeadWrite): boolean {
+  if (!prev) return true;
+  return (
+    prev.stage !== next.stage ||
+    prev.title !== next.title ||
+    !sameSet(prev.matched_keyword_ids ?? [], next.matched_keyword_ids) ||
+    prev.next_deadline_type !== next.next_deadline_type ||
+    !sameTime(prev.next_deadline_at, next.next_deadline_at)
+  );
+}
+
+/** 저장할 값이 읽어 온 행과 다른지 — 같으면 쓰지 않아 updated_at 을 올리지 않는다 */
+export function leadRowChanged(prev: LeadRow, next: LeadWrite): boolean {
+  return (
+    leadFactsChanged(prev, next) ||
+    prev.org_id !== next.org_id ||
+    parseAmount(prev.budget) !== next.budget ||
+    prev.expected_order_month !== next.expected_order_month ||
+    Number(prev.score) !== next.score ||
+    prev.hidden !== next.hidden ||
+    prev.has_new_progress !== next.has_new_progress ||
+    prev.keyword_mismatch !== next.keyword_mismatch
+  );
 }
