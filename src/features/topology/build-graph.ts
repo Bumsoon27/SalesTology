@@ -1,5 +1,6 @@
 // DB 행 → 우주 그래프 노드 (설계서 §6.2 '내 보기': 나 → 고객사 → 사업 → SI/매입처)
 import { computeCompanyStatus, computeDealStatus, computePartyStatus } from "@/features/deals/status";
+import { strengthByCompany } from "@/features/deals/relationship";
 import { STAGE_LABEL, type DealRow } from "@/features/deals/types";
 import type { UniverseData, UniverseNode } from "./types";
 
@@ -19,6 +20,10 @@ export function buildMyUniverse(me: { id: string; name: string }, deals: DealRow
   }
   const customerTotals = [...byCustomer.values()].map((c) => logAmt(c.deals.reduce((s, d) => s + (d.amount ?? 0), 0)));
   const maxCustomer = Math.max(1, ...customerTotals);
+
+  // 관계 강도 (최근성·빈도) — 회사 노드의 밝기·크기에 40% 섞는다. 금액·참여 수가 같아도 최근에 자주 만난 회사가 더 빛난다
+  const strength = strengthByCompany(visible, today);
+  const blend = (base: number, companyId: string) => Math.min(1, 0.6 * base + 0.4 * ((strength.get(companyId)?.score ?? 0) / 100));
 
   // 파트너별 참여 사업 수 (연관도)
   const partnerDealCount = new Map<string, number>();
@@ -54,10 +59,12 @@ export function buildMyUniverse(me: { id: string; name: string }, deals: DealRow
           label: `${p.company.name} · ${p.role === "si" ? "SI" : "매입"}${shared > 1 ? ` · ${shared}건` : ""}`,
           status: ps.status,
           reason: ps.reason,
-          // 여러 사업에 함께하는 파트너일수록 크고 밝다
-          weight: Math.min(1, 0.2 + 0.2 * (shared - 1)),
+          // 여러 사업에 함께하고, 최근 상호작용이 많은 파트너일수록 크고 밝다
+          weight: blend(Math.min(1, 0.2 + 0.2 * (shared - 1)), p.company.id),
           parentId: did,
           refId: p.company.id,
+          strength: strength.get(p.company.id)?.score,
+          strengthLastOn: strength.get(p.company.id)?.lastOn ?? null,
         });
       }
     }
@@ -68,9 +75,11 @@ export function buildMyUniverse(me: { id: string; name: string }, deals: DealRow
       kind: "customer",
       label: c.name,
       status: computeCompanyStatus(computed, today),
-      weight: 0.2 + 0.8 * (total / maxCustomer),
+      weight: blend(0.2 + 0.8 * (total / maxCustomer), customerId),
       parentId: "me",
       refId: customerId,
+      strength: strength.get(customerId)?.score,
+      strengthLastOn: strength.get(customerId)?.lastOn ?? null,
     });
   }
 

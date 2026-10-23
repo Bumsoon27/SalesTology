@@ -46,7 +46,16 @@ export type DealDetail = {
   today: string;
 };
 
-export type NoteItem = { id: string; kind: NoteKind; body: string; occurredOn: string; author: string | null; mine: boolean };
+export type NoteItem = {
+  id: string;
+  kind: NoteKind;
+  body: string;
+  occurredOn: string;
+  /** 고객 쪽 상대 (예: 김과장) */
+  counterpart: string | null;
+  author: string | null;
+  mine: boolean;
+};
 
 export type CompanyDetail = {
   kind: "company";
@@ -92,7 +101,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
         .limit(12),
       supabase
         .from("deal_notes")
-        .select("id, kind, body, occurred_on, author_id, author:profiles ( name )")
+        .select("id, kind, body, occurred_on, counterpart, author_id, author:profiles ( name )")
         .eq("deal_id", id)
         .order("occurred_on", { ascending: false })
         .order("created_at", { ascending: false })
@@ -116,7 +125,15 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       deal_tasks: (TaskRow & { deleted_at: string | null })[];
     };
     const settings = await getPipelineSettings(row.team_id);
-    type RawNote = { id: string; kind: NoteKind; body: string; occurred_on: string; author_id: string; author: { name: string } | null };
+    type RawNote = {
+      id: string;
+      kind: NoteKind;
+      body: string;
+      occurred_on: string;
+      counterpart: string | null;
+      author_id: string;
+      author: { name: string } | null;
+    };
     const today = todayInSeoul();
     const tasks = row.deal_tasks.filter((t) => !t.deleted_at).sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"));
     return {
@@ -146,6 +163,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
         kind: n.kind,
         body: n.body,
         occurredOn: n.occurred_on,
+        counterpart: n.counterpart,
         author: n.author?.name ?? null,
         mine: n.author_id === me.id,
       })),

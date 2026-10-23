@@ -7,8 +7,10 @@ describe("toNoteRow", () => {
   it("내용을 다듬고 날짜가 없으면 오늘", () => {
     expect(toNoteRow({ kind: "call", body: "  담당자 통화, 예산 확인  ", occurredOn: "" }, today)).toEqual({
       ok: true,
-      row: { kind: "call", body: "담당자 통화, 예산 확인", occurred_on: today },
+      row: { kind: "call", body: "담당자 통화, 예산 확인", occurred_on: today, counterpart: null },
     });
+    expect(toNoteRow({ kind: "call", body: "x", occurredOn: "", counterpart: "  김과장   (전산팀) " }, today)).toMatchObject({ ok: true, row: { counterpart: "김과장 (전산팀)" } });
+    expect(toNoteRow({ kind: "call", body: "x", occurredOn: "", counterpart: "가".repeat(101) }, today).ok).toBe(false);
     expect(toNoteRow({ kind: "meeting", body: "킥오프", occurredOn: "2026-10-20" }, today)).toMatchObject({ ok: true, row: { occurred_on: "2026-10-20" } });
   });
 

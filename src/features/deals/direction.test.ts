@@ -48,6 +48,18 @@ describe("suggestDirections", () => {
     expect(r.some((x) => x.kind === "overdue")).toBe(false);
   });
 
+  it("단일 접점 — 1억 이상 수주 전 사업에서 최근 90일 상대가 한 명이면 경고", () => {
+    const notes = (names: (string | null)[]) => names.map((c, i) => ({ occurred_on: `2026-10-${String(20 - i).padStart(2, "0")}`, counterpart: c }));
+    const one = suggestDirections(deal({ deal_notes: notes(["김과장", " 김과장 ", null]) }), today, 5);
+    expect(one.find((x) => x.kind === "single_thread")?.title).toContain("김과장 한 명");
+    expect(suggestDirections(deal({ deal_notes: notes([null]) }), today, 5).find((x) => x.kind === "single_thread")?.title).toContain("누구와");
+    // 두 명 이상·작은 사업·수주 후·최근 기록 없음은 경고 안 함
+    expect(suggestDirections(deal({ deal_notes: notes(["김과장", "이부장"]) }), today, 5).some((x) => x.kind === "single_thread")).toBe(false);
+    expect(suggestDirections(deal({ amount: 50_000_000, deal_notes: notes(["김과장"]) }), today, 5).some((x) => x.kind === "single_thread")).toBe(false);
+    expect(suggestDirections(deal({ stage: "won", deal_notes: notes(["김과장"]) }), today, 5).some((x) => x.kind === "single_thread")).toBe(false);
+    expect(suggestDirections(deal({ deal_notes: [{ occurred_on: "2026-01-01", counterpart: "김과장" }] }), today, 5).some((x) => x.kind === "single_thread")).toBe(false);
+  });
+
   it("진행 중이 아닌 사업은 제안 없음", () => {
     expect(suggestDirections(deal({ status: "on_hold", issues: [{ id: "i", title: "x", status: "open" }] }), today)).toEqual([]);
   });
