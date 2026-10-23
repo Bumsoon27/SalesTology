@@ -13,6 +13,7 @@ import { STAGE_LABEL, TASK_LABEL, type DealStage } from "./types";
 import type { UniverseNode } from "@/features/topology/types";
 import { DealInfoEditor } from "./deal-info-editor";
 import { DealPartiesSection } from "./deal-parties-section";
+import { DirectionSection } from "./direction-section";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
 const STATUS_TONE: Record<string, string> = {
@@ -188,6 +189,8 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         </div>
         {error && <p className="rounded-lg border border-st-red/40 bg-st-red/10 px-3 py-2 text-xs text-st-red">{error}</p>}
       </div>
+
+      <DirectionSection d={d} />
 
       <Section title="사업 흐름" right={<span className="text-[10px] text-muted">단계를 눌러 변경</span>}>
         <ol className="flex items-start">

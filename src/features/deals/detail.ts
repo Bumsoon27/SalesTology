@@ -15,6 +15,8 @@ export type DealDetail = {
   status: DealRow["status"];
   /** 동시 수정 감지용 */
   updatedAt: string;
+  /** 마지막 활동 시각 (정체 판단) */
+  lastActivityAt: string;
   contractType: "competitive" | "negotiated";
   amount: number | null;
   gp: number | null;
@@ -63,7 +65,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
     const [{ data: d, error }, { data: log }] = await Promise.all([
       supabase
         .from("deals")
-        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref,
+        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref, last_activity_at,
           owner:profiles!deals_owner_id_fkey ( name ),
           customer:companies!deals_customer_id_fkey ( id, name ),
           deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
@@ -101,6 +103,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       stage: row.stage,
       status: row.status,
       updatedAt: row.updated_at,
+      lastActivityAt: row.last_activity_at,
       contractType: row.contract_type,
       amount: row.amount,
       gp: row.gp,

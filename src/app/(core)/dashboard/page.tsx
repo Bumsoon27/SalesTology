@@ -11,6 +11,7 @@ import { RealtimeRefresh } from "@/features/deals/realtime-refresh";
 import { getPartners } from "@/features/partners/queries";
 import { PartnerDialog } from "@/features/partners/partner-dialog";
 import { summarizePipeline } from "@/features/deals/pipeline";
+import { topDirections } from "@/features/deals/direction";
 import { PipelineSummaryCard } from "@/features/deals/pipeline-summary";
 
 // A 영역 메인 대시보드: '나' 중심의 토폴로지 우주 (설계서 §6)
@@ -40,6 +41,7 @@ async function DashboardUniverse() {
   const today = todayInSeoul();
   const data = buildMyUniverse({ id: user.id, name: user.name }, deals, today);
   const pipeline = summarizePipeline(deals, today);
+  const directions = topDirections(deals, today);
   const isEmpty = data.nodes.length === 1;
   // 파트너가 많지 않으면 처음부터 펼쳐서 연관 관계가 보이게 한다
   const expandAll = data.nodes.filter((n) => n.kind === "party").length <= 60;
@@ -70,7 +72,7 @@ async function DashboardUniverse() {
       {!isEmpty && (
         <>
           <div className="absolute bottom-16 left-4 z-10 sm:bottom-4">
-            <PipelineSummaryCard summary={pipeline} />
+            <PipelineSummaryCard summary={pipeline} directions={directions} />
           </div>
           <div className="absolute bottom-4 right-4">
             <UniverseLegend data={data} />
