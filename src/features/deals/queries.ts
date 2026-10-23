@@ -5,7 +5,7 @@ import { createClient } from "@/shared/supabase/server";
 import type { DealRow } from "./types";
 
 const DEAL_SELECT = `
-  id, name, stage, status, amount, last_activity_at, period_end,
+  id, name, stage, status, amount, gp, last_activity_at, period_end,
   customer:companies!deals_customer_id_fkey ( id, name ),
   deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
   deal_tasks ( id, type, title, company_id, due_date, done_at, excluded_reason, deleted_at ),

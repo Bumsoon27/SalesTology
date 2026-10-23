@@ -30,6 +30,7 @@ export type DealRow = {
   stage: DealStage;
   status: DealStatus;
   amount: number | null;
+  gp?: number | null;
   last_activity_at: string;
   period_end?: string | null;
   customer: { id: string; name: string };
