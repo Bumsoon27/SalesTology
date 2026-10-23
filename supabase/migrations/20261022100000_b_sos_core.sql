@@ -43,6 +43,7 @@ create table public.sos_raw_items (
 create index sos_raw_items_fetched_at_idx on public.sos_raw_items (fetched_at);
 create index sos_raw_items_chain_plan_no_idx on public.sos_raw_items (chain_plan_no);
 create index sos_raw_items_chain_prespec_no_idx on public.sos_raw_items (chain_prespec_no);
+create index sos_raw_items_chain_bid_no_idx on public.sos_raw_items (chain_bid_no);
 
 -- ─── sos_fetch_log (출처·기간별 수집 기록, 원본 재사용 판단용) ────
 create table public.sos_fetch_log (
@@ -189,6 +190,7 @@ create table public.sos_signals (
 create index sos_signals_lead_idx on public.sos_signals (lead_id);
 create index sos_signals_run_idx on public.sos_signals (run_id);
 create index sos_signals_raw_item_idx on public.sos_signals (raw_item_id);
+create index sos_signals_team_created_idx on public.sos_signals (team_id, created_at desc);
 
 -- ═══ RLS · 권한 ═════════════════════════════════════════════════
 alter table public.sos_orgs             enable row level security;

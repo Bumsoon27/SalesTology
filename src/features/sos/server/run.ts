@@ -11,10 +11,12 @@ import {
   parseCursor,
   planRun,
   recordAttempt,
+  releaseAfterError,
   runRange,
   stepLabel,
   tooManyAttempts,
   withLease,
+  withoutStepError,
   type RunCursor,
   type RunMode,
   type RunStep,
@@ -145,11 +147,13 @@ export async function advanceRunFor(teamId: string, runId: string): Promise<Adva
     // 다른 탭이 지금 이 단계를 처리 중
     if (isBusy(cursor, now)) return snapshot("running", cursor, run.stats);
 
-    // 플랫폼 시간 제한으로 죽는 단계는 lease 만료 뒤 계속 다시 불린다 — 같은 단계 3번이면 중단
+    // 시간 제한으로 죽거나 오류가 난 단계는 다시 불린다 — 같은 단계 3번이면 중단
     const attempted = recordAttempt(cursor);
     if (tooManyAttempts(attempted)) {
       const label = stepLabel(currentStep(cursor));
-      return await fail(admin, run, run.stats, `${label}: 시간 초과 반복`, { step: label, reason: "시간 초과 반복" });
+      const last = stepErrorOf(run.stats);
+      const reason = last ? `오류 반복 (${last})` : "시간 초과 반복";
+      return await fail(admin, run, run.stats, `${label}: ${reason}`, { step: label, reason });
     }
 
     // 단계 선점: 읽은 heartbeat 가 그대로일 때만 lease 를 건다 (동시 호출 중 하나만 진행)
@@ -174,10 +178,12 @@ export async function advanceRunFor(teamId: string, runId: string): Promise<Adva
     try {
       result = step ? await runStep(ctx, step) : { cursor: claimedCursor, stats: ctx.stats, status: finalStatus(ctx.stats) };
     } catch (e) {
-      return await fail(admin, run, ctx.stats, e instanceof Error ? e.message : "단계 처리 중 오류");
+      // 일시 오류일 수 있으니 바로 실패시키지 않는다: lease 만 풀고 시도 횟수(recordAttempt)로 3번째에 중단
+      return await releaseStep(admin, run, claimedAt, claimedCursor, ctx.stats, step, e);
     }
 
     const next: RunCursor = { ...advance(result.cursor), lease: null };
+    result = { ...result, stats: withoutStepError(result.stats) };
     const status: RunStatus = result.status ?? "running";
     const finished = status !== "running";
     // 선점한 heartbeat 가 그대로일 때만 저장 — lease 가 끝나 다른 요청이 넘겨받았으면 덮어쓰지 않는다
@@ -214,12 +220,44 @@ function runStep(ctx: StepContext, step: RunStep): Promise<StepResult> {
     case "link":
       return linkStep(ctx, step.after);
     case "analyze":
-      return step.save ? analyzeSaveStep(ctx) : analyzeScanStep(ctx, step.after);
+      return step.save ? analyzeSaveStep(ctx, step.offset) : analyzeScanStep(ctx, step.after);
     case "summarize":
       return summarizeStep(ctx, step.aiOffset);
     case "finish":
       return finishStep(ctx);
   }
+}
+
+/** 단계 예외: 서버 로그엔 코드·메시지만, 실행은 running 으로 두고 lease 를 푼다 */
+async function releaseStep(
+  admin: Admin,
+  run: RunRow,
+  claimedAt: string,
+  claimedCursor: RunCursor,
+  stats: Record<string, unknown>,
+  step: RunStep | null,
+  e: unknown,
+): Promise<AdvanceRunResult> {
+  const label = stepLabel(step);
+  const message = e instanceof Error ? e.message : "단계 처리 중 오류";
+  const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : undefined;
+  console.error("[sos] 단계 오류", { run: run.id, step: label, code, message });
+  const cursor = releaseAfterError(claimedCursor);
+  const nextStats = { ...stats, stepError: { step: label, message } };
+  // 선점한 heartbeat 가 그대로일 때만 — 다른 요청이 넘겨받았으면 그쪽 상태를 둔다
+  await admin
+    .from("sos_runs")
+    .update({ cursor, stats: nextStats, heartbeat_at: new Date().toISOString() })
+    .eq("id", run.id)
+    .eq("team_id", run.team_id)
+    .eq("status", "running")
+    .eq("heartbeat_at", claimedAt);
+  return snapshot("running", cursor, nextStats);
+}
+
+function stepErrorOf(stats: Record<string, unknown> | null): string | null {
+  const v = stats?.stepError;
+  return v && typeof v === "object" && "message" in v ? String((v as { message: unknown }).message) : null;
 }
 
 async function fail(

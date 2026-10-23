@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { KeywordRow, LeadRow, RawItemRow } from "../server/rows";
-import { dateToMonth, g2bKeywords, leadToStored, monthToDate, othersInOrg, rawRowToItem } from "./convert";
+import { dateToMonth, g2bKeywords, leadFactsChanged, leadRowChanged, leadToStored, monthToDate, othersInOrg, rawRowToItem, type LeadWrite } from "./convert";
 
 const raw = (o: Partial<RawItemRow>): RawItemRow => ({
   id: "r1",
@@ -60,6 +60,10 @@ describe("발주월 변환", () => {
     expect(monthToDate("2026-10")).toBe("2026-10-01");
     expect(monthToDate(null)).toBeNull();
     expect(monthToDate("2026-1")).toBeNull();
+    expect(monthToDate("2026-13")).toBeNull();
+    expect(monthToDate("2026-00")).toBeNull();
+    expect(monthToDate("2026-12")).toBe("2026-12-01");
+    expect(monthToDate("2026-01")).toBe("2026-01-01");
     expect(dateToMonth("2026-10-01")).toBe("2026-10");
     expect(dateToMonth(null)).toBeNull();
   });
@@ -89,5 +93,70 @@ describe("leadToStored", () => {
   it("DB 리드 → 갱신 규칙 입력", () => {
     const l = { status: "on_hold", stage: "prespec", next_deadline_at: null, touched_at: "t", hidden: false, has_new_progress: false, keyword_mismatch: true } as LeadRow;
     expect(leadToStored(l)).toEqual({ status: "on_hold", stage: "prespec", nextDeadlineAt: null, touchedAt: "t", hidden: false, hasNewProgress: false, keywordMismatch: true });
+  });
+});
+
+const lead = (o: Partial<LeadRow> = {}): LeadRow => ({
+  id: "l1",
+  team_id: "t1",
+  chain_key: "bid:R1",
+  org_id: "o1",
+  title: "서버 교체",
+  stage: "bid",
+  budget: "150000000",
+  expected_order_month: "2026-11-01",
+  next_deadline_at: "2026-10-25T14:59:00+00:00",
+  next_deadline_type: "bid_close",
+  matched_keyword_ids: ["k1", "k2"],
+  score: 70,
+  status: "new",
+  touched_at: null,
+  hidden: false,
+  has_new_progress: false,
+  keyword_mismatch: false,
+  ...o,
+});
+const write = (o: Partial<LeadWrite> = {}): LeadWrite => ({
+  org_id: "o1",
+  title: "서버 교체",
+  stage: "bid",
+  budget: 150000000,
+  expected_order_month: "2026-11-01",
+  next_deadline_at: "2026-10-25T14:59:00.000Z",
+  next_deadline_type: "bid_close",
+  matched_keyword_ids: ["k2", "k1"],
+  score: 70,
+  hidden: false,
+  has_new_progress: false,
+  keyword_mismatch: false,
+  ...o,
+});
+
+describe("leadRowChanged", () => {
+  it("표기만 다른 같은 값은 바뀌지 않은 것 (금액 문자열·시각 Z/+00:00·키워드 순서)", () => {
+    expect(leadRowChanged(lead(), write())).toBe(false);
+  });
+  it("칸 하나라도 다르면 바뀐 것", () => {
+    expect(leadRowChanged(lead(), write({ score: 71 }))).toBe(true);
+    expect(leadRowChanged(lead(), write({ budget: null }))).toBe(true);
+    expect(leadRowChanged(lead(), write({ next_deadline_at: "2026-10-26T14:59:00.000Z" }))).toBe(true);
+    expect(leadRowChanged(lead(), write({ matched_keyword_ids: ["k1"] }))).toBe(true);
+    expect(leadRowChanged(lead(), write({ hidden: true }))).toBe(true);
+    expect(leadRowChanged(lead(), write({ org_id: null }))).toBe(true);
+    expect(leadRowChanged(lead(), write({ expected_order_month: null }))).toBe(true);
+  });
+});
+
+describe("leadFactsChanged", () => {
+  it("요약에 쓰는 사실(단계·제목·키워드·마감)이 바뀌었을 때만", () => {
+    expect(leadFactsChanged(lead(), write({ score: 10, budget: 1 }))).toBe(false);
+    expect(leadFactsChanged(lead(), write({ stage: "prespec" }))).toBe(true);
+    expect(leadFactsChanged(lead(), write({ title: "서버 증설" }))).toBe(true);
+    expect(leadFactsChanged(lead(), write({ matched_keyword_ids: ["k1", "k3"] }))).toBe(true);
+    expect(leadFactsChanged(lead(), write({ next_deadline_type: "prespec_opinion" }))).toBe(true);
+    expect(leadFactsChanged(lead(), write({ next_deadline_at: null }))).toBe(true);
+  });
+  it("새 리드는 바뀐 것", () => {
+    expect(leadFactsChanged(null, write())).toBe(true);
   });
 });

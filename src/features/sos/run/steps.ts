@@ -10,8 +10,8 @@ export type RunStep =
   | { kind: "fetch"; op: G2bOp; page: number }
   // after: 이어서 볼 사전규격 external_id (keyset)
   | { kind: "link"; after?: string }
-  // after: 이어서 훑을 원본 id (keyset). save: 다 훑었으니 리드 저장
-  | { kind: "analyze"; after?: string; save?: boolean }
+  // after: 이어서 훑을 원본 id (keyset). save: 다 훑었으니 리드 저장, offset: 맞은 원본 중 이어서 저장할 위치
+  | { kind: "analyze"; after?: string; save?: boolean; offset?: number }
   // aiOffset 이 있으면 템플릿은 끝났고 상위 N건 AI 요약 중
   | { kind: "summarize"; aiOffset?: number }
   | { kind: "finish" };
@@ -24,6 +24,12 @@ export type RunCursor = {
   range?: { from: string; to: string };
   // analyze 훑기 결과 — 부문 키워드에 맞은 원본 id
   matchedIds?: string[];
+  // 리드 저장 중 이번 실행에 묶인 chain_key (조각을 나눠 저장해도 마지막에 불일치 판정을 한 번 하려고)
+  keptKeys?: string[];
+  // 이번 실행에서 요약 사실(단계·제목·키워드·마감)이 바뀐 리드 id — 이 리드만 AI 요약을 다시 쓴다
+  factsChangedIds?: string[];
+  // AI 요약할 리드 id (템플릿 단계에서 상위 N·하루 상한으로 정해 둔다)
+  aiIds?: string[];
   // 다른 요청이 이 단계를 처리 중이면 그 만료 시각 (탭 두 개 동시 진행 방지)
   lease?: string | null;
   // 현재 단계(index)를 몇 번 선점했는지 — 플랫폼 시간 제한으로 죽는 단계의 무한 재시도 방지
@@ -31,6 +37,8 @@ export type RunCursor = {
 };
 
 const MAX_ATTEMPTS = 3;
+// 리드 저장 한 단계에서 다루는 맞은 원본 수 (연결 원본·기존 리드 조회까지 60초 안)
+export const SAVE_CHUNK = 300;
 
 const STALE_MS = 15 * 60 * 1000;
 const LEASE_MS = 70 * 1000;
@@ -100,11 +108,12 @@ export function tooManyAttempts(cursor: RunCursor): boolean {
 
 /**
  * 다른 부문(또는 이전 실행)이 받은 원본을 재사용해도 되는지.
- * 날짜만 비교하면 같은 날 두 번째 실행부터 늘 건너뛰므로, 기록이 덮는 범위 끝(fetched_at = 그 실행의 range.to)이 이번 범위 끝 이후여야 한다.
+ * 기록의 시작일이 이번 시작일보다 앞서야 한다. 날짜만 비교하면 같은 날 두 번째 실행부터 늘 건너뛰므로, 기록이 덮는 범위 끝(fetched_at = 그 실행의 range.to)이 이번 범위 끝 이후여야 한다.
  */
 export function shouldSkipFetch(logs: { range_from: string; fetched_at: string }[], range: { from: Date; to: Date }): boolean {
   const fromDay = todayInSeoul(range.from);
-  return logs.some((l) => l.range_from <= fromDay && Date.parse(l.fetched_at) >= range.to.getTime());
+  // 같은 날 시작한 기록은 그날 앞 시각을 덮는지 알 수 없어 다시 받는다 (range_from 은 날짜뿐)
+  return logs.some((l) => l.range_from < fromDay && Date.parse(l.fetched_at) >= range.to.getTime());
 }
 
 /**
@@ -113,6 +122,26 @@ export function shouldSkipFetch(logs: { range_from: string; fetched_at: string }
  */
 export function fetchLogRange(range: { from: Date; to: Date }): { range_from: string; range_to: string; fetched_at: string } {
   return { range_from: todayInSeoul(range.from), range_to: todayInSeoul(range.to), fetched_at: range.to.toISOString() };
+}
+
+/** 맞은 원본 total 건 중 offset 부터 한 조각. next 가 null 이면 마지막 조각 */
+export function planSaveChunk(total: number, offset: number, size = SAVE_CHUNK): { start: number; end: number; next: number | null } {
+  const start = Math.min(Math.max(0, offset), total);
+  const end = Math.min(start + size, total);
+  return { start, end, next: end < total ? end : null };
+}
+
+/** 단계가 예외로 끝났을 때: lease 만 풀어 다음 호출이 다시 시도하게 한다 (시도 횟수는 남겨 3번이면 중단) */
+export function releaseAfterError(cursor: RunCursor): RunCursor {
+  return { ...cursor, lease: null };
+}
+
+/** 단계가 정상으로 끝나면 지난 시도의 오류 기록(stepError)을 지운다 */
+export function withoutStepError(stats: Record<string, unknown>): Record<string, unknown> {
+  if (!("stepError" in stats)) return stats;
+  const rest = { ...stats };
+  delete rest.stepError;
+  return rest;
 }
 
 export function withLease(cursor: RunCursor, now: Date): RunCursor {
