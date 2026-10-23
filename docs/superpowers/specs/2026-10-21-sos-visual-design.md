@@ -44,8 +44,10 @@
 ### 2.2 액센트 (테마 불변)
 | 토큰 | 값 | 쓰임 |
 |---|---|---|
-| `--sos-accent` | `#FF6A0D` | 일치 키워드 하이라이트(`mark`), 링크·hover 글자, 현재 단계 점, 수집 진행 막대와 그 빛 |
-| `--sos-accent-bg` | `#331D0F` | 하이라이트된 키워드 칩의 연한 바탕 (dark-bg-secondary100) |
+| `--sos-accent` | `#FF8F6B` | 일치 키워드 하이라이트(`mark`), 링크·hover 글자, 현재 단계 점, 수집 진행 막대와 그 빛 |
+| `--sos-accent-bg` | `#33201A` | 하이라이트된 키워드 칩의 연한 바탕 |
+
+원본의 주황 `#FF6A0D` 대신 채도를 낮춘 코랄을 쓴다(2026-10-23 DJ 결정, SB #39 리뷰 반영). SOS 화면에서도 공용 상단 바는 앱 강조색 보라(`--accent` `#9AABFF`)로 보이므로, 따뜻한 SOS 정체성은 남기되 보라와 부딪히지 않게 했다. `--sos-bg-surface`(`#1A1A1A`) 위 대비 7.8:1, `--sos-accent-bg` 위 6.9:1.
 
 ### 2.3 상태
 | 토큰 | 값 | SOS 쓰임 |
@@ -62,10 +64,10 @@
 ---
 
 ## 3. 글꼴과 글자 크기
-- 글꼴: **Pretendard**, 뒤에 시스템 글꼴 스택. `-apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif`
-- 불러오기 [제안]: SOS 레이아웃에서만 jsDelivr의 Pretendard dynamic-subset CSS를 `<link>` 로. 정확한 버전을 고정한다(예: `pretendard@1.3.9`). `package.json` 변경 없음.
+- 글꼴: 앱 공통 **나눔스퀘어라운드** (`var(--font-nanum-round)`, 루트 layout 이 `next/font/local` 로 불러온다). 스택은 `src/app/globals.css` 의 `body` 와 같다: `var(--font-nanum-round), "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`
+- 불러오기: SOS 가 따로 불러오지 않는다(별도 CDN `<link>` 없음). 2026-10-23 SB #39 리뷰에 따라 Pretendard 에서 바꿨다.
 - 크기 단계: 12 · 14 · 16 · 18 · 20px (원본 현행 관측 다섯 단계). 행간 기본 1.45.
-- 굵기: 400(기본) · 500 · 600. 700은 쓰지 않는다 [제안].
+- 굵기: 400(기본) · 600. 나눔스퀘어라운드에는 400·700·800 만 있어 500은 400으로, 600은 700으로 보인다. 아래 표의 600은 실제로 700(Bold)으로 그려진다.
 - 숫자(예산·D-n·점수)는 `font-variant-numeric: tabular-nums` [제안].
 
 | 자리 | 크기 / 굵기 / 색 |
