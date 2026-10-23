@@ -55,6 +55,15 @@ describe("g2b 정규화", () => {
     }
     expect(stripPersonal({ a: 1, ofclNm: "x", bidNtceTelNo: "1", dminsttEmailAdrs: "e" })).toEqual({ a: 1 });
   });
+
+  it("집행관명(exctvNm)도 버리고, 픽스처에 개인정보 필드가 없다", () => {
+    const bid = normalize("g2b_bid", { ...bidItem, exctvNm: "홍길동" })!;
+    expect(bid.payload).not.toHaveProperty("exctvNm");
+    expect(stripPersonal({ a: 1, exctvNm: "x" })).toEqual({ a: 1 });
+    for (const f of [planFixture, prespecFixture, bidFixture, errorFixture]) {
+      expect(JSON.stringify(f)).not.toMatch(/"[^"]*(ofcl|TelNo|EmailAdrs|exctvNm)[^"]*":/i);
+    }
+  });
 });
 
 describe("g2b 응답·쿼리", () => {

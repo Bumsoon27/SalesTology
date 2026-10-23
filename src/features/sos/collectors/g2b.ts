@@ -70,7 +70,8 @@ export function parseG2bResponse(json: unknown): G2bParsed {
   return { ok: true, items, totalCount: Number(body.totalCount ?? items.length) || 0 };
 }
 
-const PERSONAL = /ofcl|TelNo|EmailAdrs/i;
+// 공무원 이름·연락처, 집행관명(exctvNm)
+const PERSONAL = /ofcl|TelNo|EmailAdrs|exctvNm/i;
 
 /** 공무원 개인정보 필드 제거 (원본 저장 전 반드시 통과) */
 export function stripPersonal(item: Record<string, unknown>): Record<string, unknown> {
