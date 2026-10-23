@@ -6,7 +6,6 @@ import type { DealDetail } from "./detail";
 import { addDealParty, listCompanyOptions, removeDealParty, setDealCustomer, type MutationResult } from "./mutations";
 
 const mini = "rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted hover:border-accent/40 hover:text-fg";
-const ROLE_LABEL = { si: "SI", supplier: "매입" } as const;
 
 export function DealPartiesSection({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
   const listId = useId();
@@ -49,7 +48,7 @@ export function DealPartiesSection({ d, onChanged }: { d: DealDetail; onChanged:
 
   const header = (
     <div className="flex items-center justify-between">
-      <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted">관계사</h3>
+      <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted">고객사 · 매출처 · 매입처</h3>
       {editing ? (
         <button type="button" className={mini} onClick={() => setEditingId(null)}>
           완료
@@ -66,21 +65,30 @@ export function DealPartiesSection({ d, onChanged }: { d: DealDetail; onChanged:
     return (
       <section className="space-y-2.5 border-t border-line px-5 py-4">
         {header}
-        <p className="text-sm">
-          <span className="text-[11px] text-muted">고객사 </span>
-          {d.customer.name}
-        </p>
-        {d.parties.length === 0 ? (
-          <p className="text-xs text-muted">SI·매입처 없이 직접 진행</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {[...si, ...sup].map((p) => (
-              <span key={p.id} className="rounded-full border border-line px-2.5 py-1 text-xs">
-                {p.company.name} <span className="text-muted">· {ROLE_LABEL[p.role]}</span>
-              </span>
-            ))}
-          </div>
-        )}
+        <dl className="space-y-2 text-sm">
+          {(
+            [
+              ["고객사", [d.customer.name]],
+              ["매출처(SI)", si.map((p) => p.company.name)],
+              ["매입처", sup.map((p) => p.company.name)],
+            ] as [string, string[]][]
+          ).map(([k, names]) => (
+            <div key={k} className="grid grid-cols-[4.5rem_1fr] items-start gap-2">
+              <dt className="pt-0.5 text-[11px] text-muted">{k}</dt>
+              <dd className="flex flex-wrap gap-1.5">
+                {names.length === 0 ? (
+                  <span className="text-xs text-muted">없음 (직접 진행)</span>
+                ) : (
+                  names.map((n) => (
+                    <span key={n} className="rounded-full border border-line px-2.5 py-0.5 text-xs">
+                      {n}
+                    </span>
+                  ))
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </section>
     );
   }

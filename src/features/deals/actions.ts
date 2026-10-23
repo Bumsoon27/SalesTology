@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { createClient } from "@/shared/supabase/server";
 import { MONEY_HINT } from "./edit";
-import { parseWon } from "./money";
+import { checkGp, parseWon } from "./money";
 
 export type CreateDealState = { ok: boolean; error?: string; fieldErrors?: Record<string, string> };
 
@@ -29,8 +29,15 @@ export async function createDeal(_prev: CreateDealState, formData: FormData): Pr
   if (!name) fieldErrors.name = "사업명을 입력하세요.";
   if (!customer) fieldErrors.customer = "고객사를 입력하세요.";
   if (contractType !== "competitive" && contractType !== "negotiated") fieldErrors.contractType = "계약 방식을 고르세요.";
+  // 사업 규모·GP 는 필수 (SB 요청: 파이프라인 예측·GP율이 빈 값 없이 나오게)
   if (!amount.ok) fieldErrors.amount = MONEY_HINT;
+  else if (amount.value == null) fieldErrors.amount = "사업 규모를 입력하세요.";
   if (!gp.ok) fieldErrors.gp = MONEY_HINT;
+  else if (gp.value == null) fieldErrors.gp = "GP를 입력하세요. (모르면 0)";
+  if (amount.ok && gp.ok) {
+    const gpError = checkGp(amount.value, gp.value);
+    if (gpError && !fieldErrors.gp) fieldErrors.gp = gpError;
+  }
   if (periodStart && periodEnd && periodEnd < periodStart) fieldErrors.periodEnd = "종료일은 시작일 이후여야 합니다.";
   if (Object.keys(fieldErrors).length || !amount.ok || !gp.ok) return { ok: false, fieldErrors };
 

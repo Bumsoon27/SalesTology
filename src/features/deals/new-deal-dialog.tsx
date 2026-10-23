@@ -171,13 +171,13 @@ export function NewDealDialog({
               <PartnerPicker name="suppliers" options={supplierOptions} placeholder="목록에 없는 매입처 이름 입력 후 Enter" />
             </div>
             <div>
-              <label className={label} htmlFor="nd-amount">사업 규모 (원, 부가세 별도)</label>
-              <input id="nd-amount" name="amount" inputMode="numeric" className="field" placeholder="예: 150,000,000 또는 1.5억" />
+              <label className={label} htmlFor="nd-amount">사업 규모 * (원, 부가세 별도)</label>
+              <input id="nd-amount" name="amount" inputMode="numeric" className="field" placeholder="예: 150,000,000 또는 1.5억" required />
               {err("amount")}
             </div>
             <div>
-              <label className={label} htmlFor="nd-gp">GP (이윤, 원)</label>
-              <input id="nd-gp" name="gp" inputMode="numeric" className="field" placeholder="예: 15,000,000 또는 1500만" />
+              <label className={label} htmlFor="nd-gp">GP * (이윤, 원 — 모르면 0)</label>
+              <input id="nd-gp" name="gp" inputMode="numeric" className="field" placeholder="예: 15,000,000 또는 1500만" required />
               {err("gp")}
             </div>
             <div>
