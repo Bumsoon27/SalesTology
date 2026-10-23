@@ -3,7 +3,7 @@
 // 우주에서 노드를 누르면 왼쪽 패널에 보여줄 상세 (설계서 §6.5). RLS가 부문 범위를 막는다.
 import { createClient } from "@/shared/supabase/server";
 import { computeDealStatus, todayInSeoul, type StatusResult } from "./status";
-import type { DealRow, DealStage, IssueRow, PartyRow, TaskRow } from "./types";
+import { isFromSos, type DealRow, type DealStage, type IssueRow, type PartyRow, type TaskRow } from "./types";
 
 export type ActivityItem = { id: number; action: string; entity: string; after: Record<string, unknown> | null; at: string; actor: string | null };
 
@@ -22,6 +22,8 @@ export type DealDetail = {
   periodStart: string | null;
   periodEnd: string | null;
   items: string | null;
+  /** SOS 리드에서 전환된 사업 */
+  fromSos: boolean;
   owner: string | null;
   customer: { id: string; name: string };
   parties: PartyRow[];
@@ -40,7 +42,15 @@ export type CompanyDetail = {
   roles: string[];
   memo: string | null;
   contact: string | null;
-  deals: { id: string; name: string; stage: DealStage; status: DealRow["status"]; asRole: "customer" | "si" | "supplier" }[];
+  deals: {
+    id: string;
+    name: string;
+    stage: DealStage;
+    status: DealRow["status"];
+    asRole: "customer" | "si" | "supplier";
+    owner: string | null;
+    fromSos: boolean;
+  }[];
 };
 
 export type NodeDetail = DealDetail | CompanyDetail | { kind: "none" };
@@ -53,7 +63,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
     const [{ data: d, error }, { data: log }] = await Promise.all([
       supabase
         .from("deals")
-        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items,
+        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref,
           owner:profiles!deals_owner_id_fkey ( name ),
           customer:companies!deals_customer_id_fkey ( id, name ),
           deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
@@ -75,6 +85,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       updated_at: string;
       gp: number | null;
       expected_contract_month: string | null;
+      source_ref: string | null;
       period_start: string | null;
       period_end: string | null;
       items: string | null;
@@ -97,6 +108,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       periodStart: row.period_start,
       periodEnd: row.period_end,
       items: row.items,
+      fromSos: isFromSos(row.source_ref),
       owner: row.owner?.name ?? null,
       customer: row.customer,
       parties: row.deal_parties,
@@ -120,17 +132,41 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
   if (!companyId) return { kind: "none" };
   const [{ data: c }, { data: asCustomer }, { data: asParty }] = await Promise.all([
     supabase.from("companies").select("id, name, partner_roles, memo, contact_name, contact_info").eq("id", companyId).single(),
-    supabase.from("deals").select("id, name, stage, status").eq("customer_id", companyId).is("deleted_at", null),
-    supabase.from("deal_parties").select("role, deal:deals ( id, name, stage, status, deleted_at )").eq("company_id", companyId),
+    supabase
+      .from("deals")
+      .select("id, name, stage, status, source_ref, owner:profiles!deals_owner_id_fkey ( name )")
+      .eq("customer_id", companyId)
+      .is("deleted_at", null),
+    supabase
+      .from("deal_parties")
+      .select("role, deal:deals ( id, name, stage, status, deleted_at, source_ref, owner:profiles!deals_owner_id_fkey ( name ) )")
+      .eq("company_id", companyId),
   ]);
   if (!c) return { kind: "none" };
 
-  type MiniDeal = { id: string; name: string; stage: DealStage; status: DealRow["status"]; deleted_at?: string | null };
+  type MiniDeal = {
+    id: string;
+    name: string;
+    stage: DealStage;
+    status: DealRow["status"];
+    deleted_at?: string | null;
+    source_ref: string | null;
+    owner: { name: string } | null;
+  };
+  const mini = (d: MiniDeal, asRole: CompanyDetail["deals"][number]["asRole"]) => ({
+    id: d.id,
+    name: d.name,
+    stage: d.stage,
+    status: d.status,
+    asRole,
+    owner: d.owner?.name ?? null,
+    fromSos: isFromSos(d.source_ref),
+  });
   const deals: CompanyDetail["deals"] = [
-    ...((asCustomer ?? []) as MiniDeal[]).map((d) => ({ ...d, asRole: "customer" as const })),
+    ...((asCustomer ?? []) as unknown as MiniDeal[]).map((d) => mini(d, "customer")),
     ...((asParty ?? []) as unknown as { role: "si" | "supplier"; deal: MiniDeal | null }[])
       .filter((p) => p.deal && !p.deal.deleted_at)
-      .map((p) => ({ id: p.deal!.id, name: p.deal!.name, stage: p.deal!.stage, status: p.deal!.status, asRole: p.role })),
+      .map((p) => mini(p.deal!, p.role)),
   ];
   return {
     kind: "company",

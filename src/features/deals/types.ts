@@ -39,6 +39,9 @@ export type DealRow = {
   issues: IssueRow[];
 };
 
+/** B(SOS) 리드에서 전환된 사업인지 — createDealFromLead 의 sourceRef 규칙 "sos_lead:<id>" */
+export const isFromSos = (sourceRef: string | null | undefined) => !!sourceRef?.startsWith("sos_lead:");
+
 export const STAGE_LABEL: Record<DealStage, string> = {
   discovery: "발굴",
   quoting: "견적",
