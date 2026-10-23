@@ -163,8 +163,11 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
     <div className={pending ? "pointer-events-none opacity-70 transition-opacity" : "transition-opacity"}>
       <div className="space-y-2 px-5 pb-4">
         <h2 className="text-lg font-semibold leading-snug">{d.name}</h2>
-        <p className="text-xs text-muted">
-          {d.customer.name} · 영업대표 <span className="text-fg">{d.owner ?? "-"}</span>
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
+          <span>
+            {d.customer.name} · 영업대표 <span className="text-fg">{d.owner ?? "-"}</span>
+          </span>
+          {d.fromSos && <SosBadge />}
         </p>
         <div className="flex items-center gap-2">
           <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs ${STATUS_TONE[d.computed.status]}`}>
@@ -449,6 +452,15 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
   );
 }
 
+/** SOS 리드에서 전환된 사업 표시 */
+function SosBadge() {
+  return (
+    <span title="SOS 시그널(리드)에서 사업으로 전환된 사업입니다" className="rounded-full border border-[#ff6a0d]/50 bg-[#ff6a0d]/10 px-1.5 py-px text-[10px] text-[#ff9a5c]">
+      SOS에서 전환
+    </span>
+  );
+}
+
 const ENTITY: Record<string, string> = { deal: "사업", deal_task: "업무", issue: "이슈", deal_party: "관계사", company: "회사" };
 function describe(action: string, entity: string, after: Record<string, unknown> | null) {
   if (action === "stage_change" && after?.stage) return `단계 → ${STAGE_LABEL[after.stage as DealStage] ?? after.stage}`;
@@ -468,12 +480,18 @@ function CompanyView({ c }: { c: CompanyDetail }) {
       <Section title={`함께한 사업 ${c.deals.length}`}>
         <ul className="space-y-2">
           {c.deals.map((d) => (
-            <li key={`${d.id}-${d.asRole}`} className="flex items-center justify-between gap-2 text-sm">
-              <span className="truncate">{d.name}</span>
-              <span className="shrink-0 text-xs text-muted">
-                {roleLabel[d.asRole]} · {STAGE_LABEL[d.stage]}
-                {d.status !== "active" ? ` · ${d.status === "on_hold" ? "보류" : d.status === "lost" ? "실주" : "종결"}` : ""}
-              </span>
+            <li key={`${d.id}-${d.asRole}`} className="space-y-0.5 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate">{d.name}</span>
+                <span className="shrink-0 text-xs text-muted">
+                  {roleLabel[d.asRole]} · {STAGE_LABEL[d.stage]}
+                  {d.status !== "active" ? ` · ${d.status === "on_hold" ? "보류" : d.status === "lost" ? "실주" : "종결"}` : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                영업대표 {d.owner ?? "-"}
+                {d.fromSos && <SosBadge />}
+              </div>
             </li>
           ))}
         </ul>
