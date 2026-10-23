@@ -18,13 +18,15 @@ const DEADLINE_LABEL: Record<DeadlineType, string> = {
 
 // 읽을 때 받침이 있는 숫자: 영·일·삼·육·칠·팔
 const DIGITS_WITH_BATCHIM = new Set(["0", "1", "3", "6", "7", "8"]);
+// 영문 끝 글자를 한 자씩 읽을 때 받침이 있는 것: 엘·엠·엔·알 ("한전KDN이", "LG가")
+const LETTERS_WITH_BATCHIM = new Set(["l", "m", "n", "r"]);
 
 function hasBatchim(word: string): boolean {
   const ch = word.trim().slice(-1);
   if (!ch) return false;
   const code = ch.charCodeAt(0);
   if (code >= 0xac00 && code <= 0xd7a3) return (code - 0xac00) % 28 !== 0;
-  return DIGITS_WITH_BATCHIM.has(ch);
+  return DIGITS_WITH_BATCHIM.has(ch) || LETTERS_WITH_BATCHIM.has(ch.toLowerCase());
 }
 
 const subject = (w: string) => `${w}${hasBatchim(w) ? "이" : "가"}`;

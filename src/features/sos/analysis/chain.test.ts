@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseKst } from "../lib/date";
 import type { NormalizedItem } from "../types";
-import { chainKeyOf, groupChains, resolveChainKey, toLeadDraft } from "./chain";
+import { chainKeyOf, groupChains, normalizeTitle, planNoByTitle, resolveChainKey, toLeadDraft } from "./chain";
 
 function item(o: Partial<NormalizedItem>): NormalizedItem {
   return {
@@ -70,5 +70,37 @@ describe("chain", () => {
     const p = item({ source: "g2b_plan", externalId: "P", chainPlanNo: "P", orgCode: "C1" });
     const b = item({ source: "g2b_bid", externalId: "B", chainBidNo: "B", chainPlanNo: "P" });
     expect(toLeadDraft([p, b], "plan:P", "2026-10-22").orgCode).toBe("C1");
+  });
+});
+
+describe("planNoByTitle", () => {
+  const P = (planNo: string, title: string, orgName = "한국항공우주연구원", orgCode: string | null = "1234") => ({ planNo, title, orgName, orgCode });
+  const pre = { title: "분산형 고가용 클러스터 서버 구매", orgNames: ["한국항공우주연구원"], orgCode: null };
+
+  it("같은 기관 + 공백·괄호만 다른 같은 사업명이면 그 발주계획 번호", () => {
+    expect(planNoByTitle(pre, [P("R26A1", "분산형 고가용 클러스터서버 구매"), P("R26A2", "슈퍼컴퓨터 유지보수")])).toBe("R26A1");
+    expect(normalizeTitle(" [긴급] 서버(구매) ")).toBe("긴급서버구매");
+    expect(planNoByTitle({ ...pre, title: "분산형 고가용 클러스터 서버 구매 (1)" }, [P("R26A1", "분산형 고가용 클러스터 서버 구매1")])).toBe("R26A1");
+  });
+
+  it("기관 이름은 법인 표기·공백을 무시하고, 사전규격의 여러 기관 이름 중 하나만 맞아도 된다", () => {
+    expect(planNoByTitle({ ...pre, orgNames: ["항우연 분원", "한국항공우주 연구원"] }, [P("R26A1", pre.title)])).toBe("R26A1");
+  });
+
+  it("기관 코드가 둘 다 있으면 코드로 비교한다", () => {
+    expect(planNoByTitle({ ...pre, orgCode: "1234" }, [P("R26A1", pre.title, "다른 표기")])).toBe("R26A1");
+    expect(planNoByTitle({ ...pre, orgCode: "9999" }, [P("R26A1", pre.title)])).toBeNull();
+  });
+
+  it("다른 기관, 다른 사업명, 비슷하기만 한 사업명은 묶지 않는다", () => {
+    expect(planNoByTitle(pre, [P("R26A1", pre.title, "한국천문연구원", null)])).toBeNull();
+    expect(planNoByTitle(pre, [P("R26A1", "분산형 고가용 클러스터 서버 구매 및 설치")])).toBeNull();
+    expect(planNoByTitle({ ...pre, title: "()" }, [P("R26A1", "[]")])).toBeNull();
+  });
+
+  it("맞는 발주계획이 둘 이상이면 고르지 않는다", () => {
+    expect(planNoByTitle(pre, [P("R26A1", pre.title), P("R26A9", pre.title)])).toBeNull();
+    // 같은 번호가 두 번(차수 등) 온 것은 하나로 본다
+    expect(planNoByTitle(pre, [P("R26A1", pre.title), P("R26A1", pre.title)])).toBe("R26A1");
   });
 });

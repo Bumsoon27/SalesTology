@@ -1,5 +1,6 @@
 // 실행 기록 화면 표시 도우미 (순수 — I/O 없음)
-import { sourceLines, type SourceLine } from "../run/progress";
+import { runProgress, sourceLines, type RunProgress, type SourceLine } from "../run/progress";
+import { parseCursor } from "../run/steps";
 import { isUuid } from "./ids";
 
 export type RunMode = "collect" | "reanalyze";
@@ -47,4 +48,11 @@ const KST_WHEN = new Intl.DateTimeFormat("ko-KR", {
 /** 화면 표시용 서울 시각 ("2026. 10. 22. 09:30") — 서버에서 만들어 넘긴다 */
 export function formatKst(iso: string): string {
   return KST_WHEN.format(new Date(iso));
+}
+
+/** 진행 중 실행 — 이어 가는 화면이 첫 단계 응답 전에도 지금까지의 진행·출처 줄을 그리게 함께 넘긴다 */
+export type RunningRun = { id: string; mode: RunMode; stats: Record<string, unknown>; progress: RunProgress };
+
+export function toRunningRun(row: { id: string; mode: RunMode; stats: Record<string, unknown> | null; cursor: unknown }): RunningRun {
+  return { id: row.id, mode: row.mode, stats: row.stats ?? {}, progress: runProgress(true, parseCursor(row.cursor)) };
 }

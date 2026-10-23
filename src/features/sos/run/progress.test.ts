@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { progressRatio, sourceLines } from "./progress";
+import { progressRatio, runProgress, sourceLines } from "./progress";
+import { planRun } from "./steps";
 
 describe("수집 진행 표시", () => {
   it("출처(업무)별 상태 글자 — 대기·진행·완료·재사용·실패", () => {
@@ -31,5 +32,14 @@ describe("수집 진행 표시", () => {
     expect(progressRatio({ index: 3, total: 12 })).toBe(0.25);
     expect(progressRatio({ index: 0, total: 0 })).toBe(0);
     expect(progressRatio({ index: 15, total: 12 })).toBe(1);
+  });
+});
+
+describe("runProgress", () => {
+  it("진행 중이면 현재 단계 이름과 위치, 끝났으면 '완료'", () => {
+    const steps = planRun("collect");
+    expect(runProgress(true, { steps, index: 3, totals: {} })).toEqual({ index: 3, total: steps.length, label: "사전규격(물품) 1쪽 수집" });
+    expect(runProgress(false, { steps, index: steps.length, totals: {} })).toEqual({ index: steps.length, total: steps.length, label: "완료" });
+    expect(runProgress(true, null)).toEqual({ index: 0, total: 0, label: "완료" });
   });
 });

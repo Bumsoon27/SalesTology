@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRunId, runView } from "./run-view";
+import { parseRunId, runView, toRunningRun } from "./run-view";
 
 describe("실행 기록 표시", () => {
   it("새·갱신 리드 수와 출처별 결과 (끝난 실행에서 못 간 업무는 '받지 않음')", () => {
@@ -33,5 +33,18 @@ describe("실행 기록 표시", () => {
     expect(parseRunId("1; drop")).toBeNull();
     expect(parseRunId(undefined)).toBeNull();
     expect(parseRunId(["0b6f3c2e-1a2b-4c3d-8e9f-0a1b2c3d4e5f"])).toBeNull();
+  });
+});
+
+describe("toRunningRun", () => {
+  it("저장된 커서로 진행 위치를, stats 는 그대로", () => {
+    const steps = [{ kind: "purge" }, { kind: "link" }, { kind: "finish" }];
+    expect(toRunningRun({ id: "r", mode: "collect", stats: { link: { tried: 1 } }, cursor: { steps, index: 1, totals: {} } })).toEqual({
+      id: "r",
+      mode: "collect",
+      stats: { link: { tried: 1 } },
+      progress: { index: 1, total: 3, label: "사업 흐름 연결" },
+    });
+    expect(toRunningRun({ id: "r", mode: "reanalyze", stats: null, cursor: null }).progress).toEqual({ index: 0, total: 0, label: "완료" });
   });
 });

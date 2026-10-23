@@ -5,6 +5,7 @@ import { createClient } from "@/shared/supabase/server";
 import { deadlineWindow, todayInSeoul } from "../lib/date";
 import { evidenceList, groupProducts, type EvidenceRow, type ProductLink } from "../lib/lead-view";
 import { statusCondition } from "../lib/list-query";
+import { toRunningRun, type RunningRun } from "../lib/run-view";
 import type { DeadlineType, LeadDetail, LeadListItem, LeadStatus, SourceId, Stage, Tier } from "../types";
 import { SosDbError } from "./db";
 import { one, type One } from "./embed";
@@ -157,18 +158,18 @@ export async function getLastRun(teamId: string): Promise<LastRun | null> {
   };
 }
 
-/** 진행 중인 실행 id — 화면이 이어서 진행한다 */
-export async function getRunningRun(teamId: string): Promise<string | null> {
+/** 진행 중인 실행 — 화면이 이어서 진행한다 (지금까지의 진행·출처 줄을 먼저 그리게 stats·커서도) */
+export async function getRunningRun(teamId: string): Promise<RunningRun | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sos_runs")
-    .select("id")
+    .select("id, mode, stats, cursor")
     .eq("team_id", teamId)
     .eq("status", "running")
     .limit(1)
     .maybeSingle();
   check("진행 중 실행 조회", error);
-  return (data as { id: string } | null)?.id ?? null;
+  return data ? toRunningRun(data as Parameters<typeof toRunningRun>[0]) : null;
 }
 
 export type TeamOption = { id: string; name: string };
