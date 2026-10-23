@@ -54,14 +54,24 @@ describe("suggestDirections", () => {
 });
 
 describe("topDirections", () => {
-  it("여러 사업에서 급한 순으로 모으고 단계 기본 제안은 뺀다", () => {
+  it("급한 신호를 먼저, 남는 자리는 급한 일 없는 사업의 단계 제안(규모 큰 순)으로", () => {
     const r = topDirections(
       [
-        { ...deal(), id: "d1", name: "평온", customer: { id: "c", name: "A" } },
-        { ...deal({ issues: [{ id: "i", title: "x", status: "open" }] }), id: "d2", name: "급함", customer: { id: "c", name: "B" } },
+        { ...deal({ amount: 10 }), id: "small", name: "작음", customer: { id: "c", name: "A" } },
+        { ...deal({ issues: [{ id: "i", title: "x", status: "open" }] }), id: "hot", name: "급함", customer: { id: "c", name: "B" } },
+        { ...deal({ amount: 900, gp: 90 }), id: "big", name: "큼", customer: { id: "c", name: "C" } },
       ],
       today,
     );
-    expect(r.map((x) => [x.dealId, x.kind])).toEqual([["d2", "issue"]]);
+    expect(r.map((x) => [x.dealId, x.kind])).toEqual([
+      ["hot", "issue"],
+      ["big", "stage"],
+      ["small", "stage"],
+    ]);
+  });
+
+  it("개수 제한", () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({ ...deal(), id: `d${i}`, name: `${i}`, customer: { id: "c", name: "A" } }));
+    expect(topDirections(many, today, 4)).toHaveLength(4);
   });
 });
