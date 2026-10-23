@@ -2,7 +2,8 @@
 //
 // B(SOS)에서 쓰는 법:
 //   1) src/features/sos/notification-provider.ts 에서 NotificationProvider 를 구현해 export
-//   2) 아래 notificationProviders 배열에 import 해서 추가 (공용 파일이라 작은 PR 로, A 리뷰)
+//   2) 아래처럼 load 안에서 동적 import 로 불러오는 래퍼 공급자를 만들어 notificationProviders 배열에 추가
+//      (공급자가 "server-only" 라 정적 import 하면 이 파일을 쓰는 테스트·클라이언트가 깨진다. 공용 파일이라 작은 PR 로, A 리뷰)
 //
 // 규칙
 // - key 는 전역에서 겹치지 않게 "{공급자 id}:{종류}:{대상 id}:{기준일}" 형태로 만든다 (날짜가 바뀌면 새 알림)
@@ -33,9 +34,14 @@ export type NotificationProvider = {
   load: (ctx: NotificationContext) => Promise<ExternalNotification[]>;
 };
 
-export const notificationProviders: NotificationProvider[] = [
-  // B: sosNotificationProvider,
-];
+// SOS 공급자는 "server-only" 라 정적 import 하면 이 모듈을 가져오는 테스트·클라이언트 쪽에서 바로 실패한다.
+// 실제로 load 가 호출될 때만 불러온다.
+const sosProvider: NotificationProvider = {
+  id: "sos",
+  load: async (ctx) => (await import("@/features/sos/notification-provider")).sosNotificationProvider.load(ctx),
+};
+
+export const notificationProviders: NotificationProvider[] = [sosProvider];
 
 /** 공급자 알림을 모은다. 한 공급자가 실패하거나 느려도 나머지는 보여준다 */
 export async function loadExternalNotifications(ctx: NotificationContext, providers = notificationProviders, timeoutMs = 1500) {
