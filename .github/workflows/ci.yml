@@ -1,10 +1,9 @@
 name: CI
 
-# Actions 사용량 절약 (무료 2,000분/월): PR 에서만 돈다. main 에는 PR 에서 검사한 것만 합쳐진다.
-# 문서만 바뀐 PR 은 건너뛴다. DB 검증은 db-check.yml (마이그레이션이 바뀐 PR 에서만)
+# PR 에서만 돈다 (main 은 보호 규칙상 이 검사를 통과한 PR 로만 바뀐다).
+# 필수 검사라 문서 PR 에서도 돌아야 한다 (건너뛰면 머지가 막힌다). DB 검증은 db-check.yml
 on:
   pull_request:
-    paths-ignore: ["docs/**", "**/*.md"]
 
 concurrency:
   group: ci-${{ github.ref }}
