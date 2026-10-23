@@ -2,6 +2,8 @@
 
 // 우주에서 노드를 누르면 왼쪽 패널에 보여줄 상세 (설계서 §6.5). RLS가 부문 범위를 막는다.
 import { createClient } from "@/shared/supabase/server";
+import { requireUser } from "@/shared/auth/current-user";
+import type { NoteKind } from "./notes";
 import { computeDealStatus, todayInSeoul, type StatusResult } from "./status";
 import { isFromSos, type DealRow, type DealStage, type IssueRow, type PartyRow, type TaskRow } from "./types";
 
@@ -33,9 +35,15 @@ export type DealDetail = {
   issues: IssueRow[];
   computed: StatusResult;
   activity: ActivityItem[];
+  /** 활동 기록 (최근 순) */
+  notes: NoteItem[];
+  /** 사업 삭제 가능 (담당자·관리자) — 화면 표시용, 실제 권한은 DB 트리거가 막는다 */
+  canDelete: boolean;
   /** 서버 기준 오늘 (Asia/Seoul) */
   today: string;
 };
+
+export type NoteItem = { id: string; kind: NoteKind; body: string; occurredOn: string; author: string | null; mine: boolean };
 
 export type CompanyDetail = {
   kind: "company";
@@ -62,10 +70,10 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
 
   if (nodeId.startsWith("d:")) {
     const id = nodeId.slice(2);
-    const [{ data: d, error }, { data: log }] = await Promise.all([
+    const [{ data: d, error }, { data: log }, { data: noteRows }, me] = await Promise.all([
       supabase
         .from("deals")
-        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref, last_activity_at,
+        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref, last_activity_at, owner_id,
           owner:profiles!deals_owner_id_fkey ( name ),
           customer:companies!deals_customer_id_fkey ( id, name ),
           deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
@@ -79,6 +87,14 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
         .eq("deal_id", id)
         .order("created_at", { ascending: false })
         .limit(12),
+      supabase
+        .from("deal_notes")
+        .select("id, kind, body, occurred_on, author_id, author:profiles ( name )")
+        .eq("deal_id", id)
+        .order("occurred_on", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(30),
+      requireUser(),
     ]);
     if (error || !d) return { kind: "none" };
 
@@ -92,8 +108,10 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       period_end: string | null;
       items: string | null;
       owner: { name: string } | null;
+      owner_id: string;
       deal_tasks: (TaskRow & { deleted_at: string | null })[];
     };
+    type RawNote = { id: string; kind: NoteKind; body: string; occurred_on: string; author_id: string; author: { name: string } | null };
     const today = todayInSeoul();
     const tasks = row.deal_tasks.filter((t) => !t.deleted_at).sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"));
     return {
@@ -118,6 +136,15 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       tasks,
       issues: row.issues,
       computed: computeDealStatus({ ...row, deal_tasks: tasks }, today),
+      notes: ((noteRows ?? []) as unknown as RawNote[]).map((n) => ({
+        id: n.id,
+        kind: n.kind,
+        body: n.body,
+        occurredOn: n.occurred_on,
+        author: n.author?.name ?? null,
+        mine: n.author_id === me.id,
+      })),
+      canDelete: me.role === "admin" || row.owner_id === me.id,
       today,
       activity: ((log ?? []) as unknown as { id: number; action: string; entity_type: string; after: Record<string, unknown> | null; created_at: string; actor: { name: string } | null }[]).map((a) => ({
         id: a.id,
