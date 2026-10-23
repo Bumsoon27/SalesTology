@@ -10,6 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# 공개 저장소: 워크플로 토큰은 읽기만
+permissions:
+  contents: read
+
 jobs:
   app:
     name: 린트·타입·테스트·빌드

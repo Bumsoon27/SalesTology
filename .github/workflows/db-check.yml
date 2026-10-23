@@ -9,6 +9,10 @@ concurrency:
   group: db-check-${{ github.ref }}
   cancel-in-progress: true
 
+# 공개 저장소: 워크플로 토큰은 읽기만
+permissions:
+  contents: read
+
 jobs:
   db:
     name: 마이그레이션 적용 검증 (로컬 Supabase)

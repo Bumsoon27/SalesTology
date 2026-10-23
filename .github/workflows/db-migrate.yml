@@ -15,6 +15,10 @@ concurrency:
   group: db-migrate
   cancel-in-progress: false
 
+# 공개 저장소: 워크플로 토큰은 읽기만
+permissions:
+  contents: read
+
 jobs:
   dev:
     name: dev DB 적용
