@@ -1,7 +1,8 @@
 "use client";
 
 // 파트너사 목록 + 보기 범위 탭 (부문 전체 / 내 사업 관련 / SOS 인바운드).
-// 목록은 한 번에 받아 화면에서 바로 거른다 → 탭을 누르면 즉시 바뀐다. 주소(?scope=)도 같이 바꿔 새로고침해도 유지
+// 목록은 한 번에 받아 화면에서 바로 거른다 → 탭을 누르면 즉시 바뀐다.
+// 주소(?scope=mine|sos)는 처음 열 때만 읽는다 (링크로 특정 탭을 열 때). 탭을 누르면 화면 상태만 바뀐다.
 import { useState } from "react";
 import { inScope, PARTNER_SCOPES, type PartnerScope } from "./count";
 import type { Partner } from "./queries";
@@ -23,11 +24,7 @@ export function PartnerBrowser({ partners, initialScope }: { partners: Partner[]
   const [scope, setScope] = useState<PartnerScope>(initialScope);
   const shown = partners.filter((p) => inScope(p, scope));
 
-  const pick = (s: PartnerScope) => {
-    setScope(s);
-    const url = s === "all" ? "/partners" : `/partners?scope=${s}`;
-    window.history.replaceState(null, "", url);
-  };
+  const pick = (s: PartnerScope) => setScope(s);
 
   return (
     <div className="space-y-3">
@@ -43,11 +40,15 @@ export function PartnerBrowser({ partners, initialScope }: { partners: Partner[]
                 role="tab"
                 aria-selected={on}
                 onClick={() => pick(s)}
-                className={`rounded-md px-3 py-1 text-xs transition-colors ${
-                  on ? (s === "sos" ? "bg-[#ff6a0d]/15 text-[#ff9a5c]" : "bg-white/10 text-fg") : "text-muted hover:text-fg"
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  on
+                    ? s === "sos"
+                      ? "bg-[#ff6a0d]/20 text-[#ffb27f] ring-1 ring-[#ff6a0d]/50"
+                      : "bg-accent/20 text-fg ring-1 ring-accent/50"
+                    : "text-muted hover:bg-white/[0.06] hover:text-fg"
                 }`}
               >
-                {SCOPE_LABEL[s]} {n}
+                {SCOPE_LABEL[s]} <span className={on ? "" : "opacity-70"}>{n}</span>
               </button>
             );
           })}
@@ -55,10 +56,18 @@ export function PartnerBrowser({ partners, initialScope }: { partners: Partner[]
         <p className="text-[11px] text-muted">{SCOPE_HINT[scope]}</p>
       </div>
 
+      {/* 무엇이 걸러졌는지 — 전체와 1~2곳만 차이 나면 바뀐 걸 알아보기 어려웠다 */}
+      {scope !== "all" && partners.length > shown.length && (
+        <p className="text-[11px] text-muted">
+          {shown.length}곳 표시 · {partners.length - shown.length}곳 숨김
+          {scope === "mine" ? " (다른 사람 사업에만 연결된 회사·사업 없는 회사)" : " (SOS 에서 들어온 사업이 없는 회사)"}
+        </p>
+      )}
+
       {shown.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line p-10 text-center text-sm text-muted">{EMPTY[scope]}</div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul key={scope} className="grid animate-[fadeIn_.18s_ease-out] gap-3 sm:grid-cols-2">
           {shown.map((p) => (
             <PartnerCard key={p.id} p={p} />
           ))}
