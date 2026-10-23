@@ -37,6 +37,8 @@ export type DealRow = {
   deal_parties: PartyRow[];
   deal_tasks: TaskRow[];
   issues: IssueRow[];
+  /** 활동 기록 요약 (관계 강도·단일 접점) */
+  deal_notes?: { kind: "call" | "meeting" | "email" | "note"; occurred_on: string; counterpart: string | null }[];
 };
 
 /** B(SOS) 리드에서 전환된 사업인지 — createDealFromLead 의 sourceRef 규칙 "sos_lead:<id>" */

@@ -7,7 +7,7 @@ import { STALE_AFTER_DAYS } from "./pipeline";
 import { computeTaskState, daysUntil } from "./status";
 import { TASK_LABEL, type DealRow, type DealStage, type TaskRow } from "./types";
 
-export type DirectionKind = "issue" | "overdue" | "due_soon" | "missing_schedule" | "stale" | "data" | "margin" | "stage";
+export type DirectionKind = "issue" | "overdue" | "due_soon" | "missing_schedule" | "stale" | "single_thread" | "data" | "margin" | "stage";
 
 export type Direction = {
   kind: DirectionKind;
@@ -21,6 +21,10 @@ export type Direction = {
 
 /** GP율이 이보다 낮으면 마진 경고 (%) */
 export const LOW_MARGIN_RATE = 5;
+/** 단일 접점 경고 대상: 이 규모(원) 이상의 수주 전 사업 */
+export const SINGLE_THREAD_MIN_AMOUNT = 100_000_000;
+/** 단일 접점 판단에 보는 최근 활동 기록 기간(일) */
+export const SINGLE_THREAD_WINDOW_DAYS = 90;
 const DUE_SOON_DAYS = 3;
 
 const WON_OR_LATER = new Set<DealStage>(["won", "fulfillment", "billing"]);
@@ -38,7 +42,24 @@ const STAGE_PLAY: Record<DealStage, { title: string; why: string }> = {
   billing: { title: "계산서 발행·수금 확인", why: "빌링 단계 — 수금까지 확인하면 사업을 종결할 수 있습니다" },
 };
 
-type Deal = Pick<DealRow, "stage" | "status" | "amount" | "last_activity_at" | "deal_tasks" | "issues"> & { gp?: number | null };
+type Deal = Pick<DealRow, "stage" | "status" | "amount" | "last_activity_at" | "deal_tasks" | "issues"> & {
+  gp?: number | null;
+  deal_notes?: { occurred_on: string; counterpart: string | null }[];
+};
+
+/** 최근 활동 기록의 고객 쪽 상대 (이름 비교는 공백·대소문자 무시) */
+export function recentCounterparts(notes: { occurred_on: string; counterpart: string | null }[], today: string, windowDays = SINGLE_THREAD_WINDOW_DAYS) {
+  const recent = notes.filter((n) => {
+    const age = daysUntil(today, n.occurred_on.slice(0, 10));
+    return age >= 0 && age <= windowDays;
+  });
+  const names = new Map<string, string>();
+  for (const n of recent) {
+    const name = n.counterpart?.trim();
+    if (name) names.set(name.replace(/\s+/g, "").toLowerCase(), name);
+  }
+  return { noteCount: recent.length, names: [...names.values()] };
+}
 
 const taskName = (t: TaskRow) => (t.type === "custom" ? (t.title ?? "업무") : TASK_LABEL[t.type]);
 
@@ -80,8 +101,25 @@ export function suggestDirections(deal: Deal, today: string, limit = 3, staleAft
     }
   }
 
-  // 5) 데이터 빈칸 / 마진
+  // 5) 단일 접점 (Clari single-threading) — 큰 수주 전 사업인데 최근 활동이 고객 쪽 한 사람하고만 있었다
   const amount = deal.amount == null ? null : Number(deal.amount);
+  if (PRE_WIN.has(deal.stage) && amount != null && amount >= SINGLE_THREAD_MIN_AMOUNT && deal.deal_notes) {
+    const { noteCount, names } = recentCounterparts(deal.deal_notes, today);
+    // 최근 기록이 아예 없으면 '정체'가 다룬다
+    if (noteCount > 0 && names.length <= 1) {
+      out.push({
+        kind: "single_thread",
+        priority: 52,
+        title: names.length === 1 ? `다른 담당자도 만나기 — 지금은 ${names[0]} 한 명` : "활동 기록에 '누구와'(고객 쪽 상대) 남기기",
+        why:
+          names.length === 1
+            ? `규모 1억 이상 사업의 최근 ${SINGLE_THREAD_WINDOW_DAYS}일 접점이 한 사람뿐입니다. 의사결정자·실무자를 더 확보하세요`
+            : "상대를 남겨야 접점이 한 사람에 몰렸는지 알 수 있습니다",
+      });
+    }
+  }
+
+  // 6) 데이터 빈칸 / 마진
   const gp = deal.gp == null ? null : Number(deal.gp);
   if (amount == null) out.push({ kind: "data", priority: 45, title: "사업 규모 입력", why: "규모가 없으면 파이프라인 예측에서 빠집니다" });
   else if (gp == null) out.push({ kind: "data", priority: 40, title: "GP 입력", why: "GP 가 없으면 GP율을 계산할 수 없습니다" });
@@ -92,7 +130,7 @@ export function suggestDirections(deal: Deal, today: string, limit = 3, staleAft
     }
   }
 
-  // 6) 급한 일이 없으면 단계별 기본 다음 할 일
+  // 7) 급한 일이 없으면 단계별 기본 다음 할 일
   const play = STAGE_PLAY[deal.stage];
   out.push({ kind: "stage", priority: 30, title: play.title, why: play.why });
 

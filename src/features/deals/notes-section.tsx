@@ -4,7 +4,7 @@
 import { useState, useTransition } from "react";
 import type { DealDetail } from "./detail";
 import { addDealNote, deleteDealNote, type MutationResult } from "./mutations";
-import { NOTE_KINDS, NOTE_LABEL, NOTE_MAX, type NoteKind } from "./notes";
+import { COUNTERPART_MAX, NOTE_KINDS, NOTE_LABEL, NOTE_MAX, type NoteKind } from "./notes";
 
 const mini = "rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted hover:border-accent/40 hover:text-fg";
 const KIND_ICON: Record<NoteKind, string> = { call: "☎", meeting: "◎", email: "✉", note: "✎" };
@@ -12,6 +12,7 @@ const KIND_ICON: Record<NoteKind, string> = { call: "☎", meeting: "◎", email
 export function NotesSection({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
   const [kind, setKind] = useState<NoteKind>("call");
   const [body, setBody] = useState("");
+  const [counterpart, setCounterpart] = useState("");
   const [on, setOn] = useState(d.today);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -39,7 +40,8 @@ export function NotesSection({ d, onChanged }: { d: DealDetail; onChanged: () =>
         className="space-y-2"
         onSubmit={(e) => {
           e.preventDefault();
-          run(() => addDealNote(d.id, { kind, body, occurredOn: on }), () => setBody(""));
+          // 상대는 다음 기록에도 같은 사람일 때가 많아 그대로 둔다
+          run(() => addDealNote(d.id, { kind, body, occurredOn: on, counterpart }), () => setBody(""));
         }}
       >
         <div className="flex flex-wrap items-center gap-1.5">
@@ -63,6 +65,20 @@ export function NotesSection({ d, onChanged }: { d: DealDetail; onChanged: () =>
             className="field ml-auto w-auto py-0.5 text-[11px]"
           />
         </div>
+        <input
+          value={counterpart}
+          onChange={(e) => setCounterpart(e.target.value)}
+          maxLength={COUNTERPART_MAX}
+          list={`counterparts-${d.id}`}
+          placeholder="누구와 — 고객 쪽 상대 (예: 김과장·전산팀) · 선택"
+          aria-label="고객 쪽 상대"
+          className="field py-1.5 text-xs"
+        />
+        <datalist id={`counterparts-${d.id}`}>
+          {[...new Set(d.notes.map((n) => n.counterpart).filter((c): c is string => !!c))].map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -89,7 +105,8 @@ export function NotesSection({ d, onChanged }: { d: DealDetail; onChanged: () =>
             <li key={n.id} className="rounded-lg bg-white/[0.03] px-3 py-2">
               <div className="flex items-center justify-between gap-2 text-[11px] text-muted">
                 <span>
-                  {KIND_ICON[n.kind]} {NOTE_LABEL[n.kind]} · {n.occurredOn} · {n.author ?? "-"}
+                  {KIND_ICON[n.kind]} {NOTE_LABEL[n.kind]}
+                  {n.counterpart && <span className="text-fg"> · {n.counterpart}</span>} · {n.occurredOn} · {n.author ?? "-"}
                 </span>
                 {n.mine && (
                   <button

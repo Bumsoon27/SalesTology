@@ -10,6 +10,7 @@ export const DIRECTION_TONE: Record<DirectionKind, string> = {
   due_soon: "bg-st-yellow",
   missing_schedule: "bg-st-yellow",
   stale: "bg-st-yellow",
+  single_thread: "bg-st-yellow",
   margin: "bg-st-yellow",
   data: "bg-accent",
   stage: "bg-accent",
@@ -17,7 +18,16 @@ export const DIRECTION_TONE: Record<DirectionKind, string> = {
 
 export function DirectionSection({ d }: { d: DealDetail }) {
   const items = suggestDirections(
-    { stage: d.stage, status: d.status, amount: d.amount, gp: d.gp, last_activity_at: d.lastActivityAt, deal_tasks: d.tasks, issues: d.issues },
+    {
+      stage: d.stage,
+      status: d.status,
+      amount: d.amount,
+      gp: d.gp,
+      last_activity_at: d.lastActivityAt,
+      deal_tasks: d.tasks,
+      issues: d.issues,
+      deal_notes: d.notes.map((n) => ({ occurred_on: n.occurredOn, counterpart: n.counterpart })),
+    },
     d.today,
     3,
     d.staleAfterDays,

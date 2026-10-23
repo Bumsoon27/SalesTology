@@ -15,6 +15,7 @@ import type { UniverseNode } from "@/features/topology/types";
 import { DealInfoEditor } from "./deal-info-editor";
 import { DealPartiesSection } from "./deal-parties-section";
 import { DirectionSection } from "./direction-section";
+import { TIER_LABEL, tierOf, type Strength } from "./relationship";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
 const STATUS_TONE: Record<string, string> = {
@@ -111,7 +112,7 @@ export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onCl
         ) : detail.kind === "deal" ? (
           <DealView d={detail} onChanged={reload} />
         ) : detail.kind === "company" ? (
-          <CompanyView c={detail} />
+          <CompanyView c={detail} strength={node?.strength} lastOn={node?.strengthLastOn ?? null} today={todayInSeoulClient()} />
         ) : (
           <p className="px-5 py-4 text-sm text-muted">정보를 찾을 수 없습니다.</p>
         )}
@@ -498,14 +499,44 @@ function describe(action: string, entity: string, after: Record<string, unknown>
   return `${ENTITY[entity] ?? entity} ${verb}`;
 }
 
-function CompanyView({ c }: { c: CompanyDetail }) {
+/** 브라우저 기준 오늘 (Asia/Seoul) — 관계 강도 '며칠 전' 표시용 */
+function todayInSeoulClient() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
+}
+
+const TIER_TONE: Record<Strength["tier"], string> = {
+  strong: "text-st-green",
+  medium: "text-accent",
+  weak: "text-st-yellow",
+  cold: "text-muted",
+};
+
+function CompanyView({ c, strength, lastOn, today }: { c: CompanyDetail; strength?: number; lastOn: string | null; today: string }) {
   const roleLabel = { customer: "고객사", si: "SI", supplier: "매입처" } as const;
+  const tier = strength == null ? null : tierOf(strength);
+  const since = lastOn ? daysUntil(today, lastOn) : null;
   return (
     <>
       <div className="space-y-2 px-5 pb-4">
         <h2 className="text-lg font-semibold">{c.name}</h2>
         {c.contact && <p className="text-xs text-muted">{c.contact}</p>}
         {c.memo && <p className="text-xs text-muted">{c.memo}</p>}
+        {tier && strength != null && (
+          <div className="rounded-xl border border-line bg-white/[0.03] p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[11px] text-muted">관계 강도 (내 사업 기준)</span>
+              <span className={`text-sm font-semibold ${TIER_TONE[tier]}`}>
+                {strength} · {TIER_LABEL[tier]}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="h-full rounded-full bg-accent/70" style={{ width: `${strength}%` }} />
+            </div>
+            <p className="mt-1.5 text-[10px] text-muted">
+              {since == null ? "최근 1년간 상호작용이 없습니다" : since === 0 ? "마지막 상호작용 오늘" : `마지막 상호작용 ${since}일 전`} · 미팅·통화·메일·업무 완료를 최근일수록 크게 칩니다
+            </p>
+          </div>
+        )}
       </div>
       <Section title={`함께한 사업 ${c.deals.length}`}>
         <ul className="space-y-2">
