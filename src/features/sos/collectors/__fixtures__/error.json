@@ -1,0 +1,8 @@
+{
+  "nkoneps.com.response.ResponseError": {
+    "header": {
+      "resultCode": "08",
+      "resultMsg": "필수값 입력 에러"
+    }
+  }
+}
