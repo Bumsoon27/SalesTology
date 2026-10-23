@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type ComponentProps } from "react";
 import { connection } from "next/server";
 import { requireUser } from "@/shared/auth/current-user";
 import { todayInSeoul } from "@/features/sos/lib/date";
@@ -189,7 +189,7 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
                 today={today}
                 team={runTeam}
                 closeHref={leadHref(query, null)}
-                convertSlot={detail.lead && <ConvertButton key={detail.lead.id} lead={detail.lead} team={runTeam} adminView={adminView} />}
+                convertSlot={detail.lead && <ConvertButton key={detail.lead.id} lead={convertProps(detail.lead)} team={runTeam} adminView={adminView} />}
               />
             </div>
           )}
@@ -197,6 +197,24 @@ async function SosLeads({ searchParams }: { searchParams: PageProps<"/sos">["sea
       )}
     </>
   );
+}
+
+// 클라이언트 컴포넌트로는 확인 창에 필요한 값만 넘긴다 (상세 전체를 보내지 않는다)
+function convertProps(l: LeadDetail): ComponentProps<typeof ConvertButton>["lead"] {
+  return {
+    id: l.id,
+    title: l.title,
+    orgName: l.orgName,
+    companyId: l.companyId,
+    budget: l.budget,
+    expectedOrderMonth: l.expectedOrderMonth,
+    stage: l.stage,
+    status: l.status,
+    assigneeId: l.assigneeId,
+    convertedDealId: l.convertedDealId,
+    convertedDealMissing: l.convertedDealMissing,
+    members: l.members,
+  };
 }
 
 function LastRunSummary({ run }: { run: LastRun | null }) {

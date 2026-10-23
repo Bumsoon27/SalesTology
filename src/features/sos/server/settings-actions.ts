@@ -15,6 +15,7 @@ import {
   type KeywordPatch,
   type KeywordSnapshot,
 } from "../lib/keyword-edit";
+import { isUuid } from "../lib/ids";
 import { parseTier } from "../lib/lead-input";
 import type { Tier } from "../types";
 import { requireSosTeam } from "./context";
@@ -32,9 +33,8 @@ type DbError = { message: string; code?: string };
 const BAD = { ok: false, error: "잘못된 요청입니다." };
 const FAILED = { ok: false, error: "저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
 const NO_LOG = { ok: false, error: "변경은 저장했지만 변경 이력을 남기지 못했습니다." };
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const team = (t: unknown) => (typeof t === "string" ? t : null);
-const uuid = (v: unknown) => (typeof v === "string" && UUID.test(v) ? v.toLowerCase() : null);
+const uuid = (v: unknown) => (isUuid(v) ? v.toLowerCase() : null);
 
 // 오류 원인은 서버 로그에만 남기고 화면에는 일반 문구를 돌려준다 (SosDbError 와 같은 형식)
 function logDb(where: string, e: DbError) {
@@ -131,8 +131,20 @@ export async function addKeywords(raw: string, tier: Tier, teamParam?: string | 
   return { ok: true, added: created.length, notice };
 }
 
-/** 키워드 갱신 + 연결 제품 맞추기. 이력은 호출하는 쪽이 남긴다 */
-async function applyPatch(supabase: Supabase, teamId: string, id: string, cur: KeywordSnapshot, patch: KeywordPatch): Promise<SettingsResult> {
+/**
+ * 키워드 갱신 + 연결 제품 맞추기. 이력은 호출하는 쪽이 남긴다.
+ * 중간에 실패해도 그 전까지 바뀐 것을 applied 로 돌려준다 — 바뀐 것은 모두 이력에 남아야 한다
+ */
+async function applyPatch(
+  supabase: Supabase,
+  teamId: string,
+  id: string,
+  cur: KeywordSnapshot,
+  patch: KeywordPatch,
+): Promise<{ result: SettingsResult; applied: KeywordPatch }> {
+  const applied: KeywordPatch = {};
+  const done = (result: SettingsResult) => ({ result, applied });
+
   const cols: { tier?: Tier; weight?: number | null; active?: boolean } = {};
   if (patch.tier !== undefined) cols.tier = patch.tier;
   if (patch.weight !== undefined) cols.weight = patch.weight;
@@ -140,11 +152,12 @@ async function applyPatch(supabase: Supabase, teamId: string, id: string, cur: K
   if (Object.keys(cols).length > 0) {
     const upd = await supabase.from("sos_keywords").update(cols).eq("id", id).eq("team_id", teamId).is("deleted_at", null).select("id");
     if (upd.error) {
-      if (upd.error.code === "23514") return BAD;
+      if (upd.error.code === "23514") return done(BAD);
       logDb("키워드 수정", upd.error);
-      return FAILED;
+      return done(FAILED);
     }
-    if (!upd.data || upd.data.length === 0) return { ok: false, error: "키워드를 찾을 수 없습니다." };
+    if (!upd.data || upd.data.length === 0) return done({ ok: false, error: "키워드를 찾을 수 없습니다." });
+    Object.assign(applied, cols);
   }
 
   if (patch.productIds !== undefined) {
@@ -152,29 +165,52 @@ async function applyPatch(supabase: Supabase, teamId: string, id: string, cur: K
     const have = new Set(cur.productIds.map((p) => p.toLowerCase()));
     const add = [...want].filter((p) => !have.has(p));
     const remove = cur.productIds.filter((p) => !want.has(p.toLowerCase()));
+    // 지금 붙어 있는 제품 — 단계마다 갱신해 실패해도 실제 상태를 이력에 남긴다
+    let linked = [...have];
     if (add.length > 0) {
       // 같은 부문의 제품만 붙인다 (RLS 도 막지만 이유를 알려 주려고 먼저 확인)
       const own = await supabase.from("sos_products").select("id").eq("team_id", teamId).in("id", add);
       if (own.error) {
         logDb("연결 제품 확인", own.error);
-        return FAILED;
+        return done(FAILED);
       }
-      if ((own.data ?? []).length !== add.length) return { ok: false, error: "같은 부문의 제품만 연결할 수 있습니다." };
+      if ((own.data ?? []).length !== add.length) return done({ ok: false, error: "같은 부문의 제품만 연결할 수 있습니다." });
       const ins = await supabase.from("sos_keyword_products").insert(add.map((product_id) => ({ keyword_id: id, product_id })));
       if (ins.error && ins.error.code !== "23505") {
         logDb("연결 제품 추가", ins.error);
-        return FAILED;
+        return done(FAILED);
       }
+      linked = [...linked, ...add];
+      applied.productIds = linked;
     }
     if (remove.length > 0) {
       const del = await supabase.from("sos_keyword_products").delete().eq("keyword_id", id).in("product_id", remove);
       if (del.error) {
         logDb("연결 제품 해제", del.error);
-        return FAILED;
+        return done(FAILED);
       }
+      const gone = new Set(remove.map((p) => p.toLowerCase()));
+      applied.productIds = linked.filter((p) => !gone.has(p));
     }
   }
-  return { ok: true };
+  return done({ ok: true });
+}
+
+/** applyPatch 결과를 이력에 남기고 결과를 돌려준다. 실패했어도 바뀐 것이 있으면 남긴다 */
+async function logApplied(
+  supabase: Supabase,
+  teamId: string,
+  actorId: string,
+  id: string,
+  cur: KeywordSnapshot,
+  { result, applied }: { result: SettingsResult; applied: KeywordPatch },
+): Promise<SettingsResult> {
+  const diff = diffKeyword(cur, applied);
+  if (!diff) return result;
+  const logged = await logChanges(supabase, teamId, actorId, [{ keyword_id: id, action: "update", ...diff }]);
+  refresh();
+  if (!result.ok) return result;
+  return logged ? { ok: true } : NO_LOG;
 }
 
 /** 칩 팝오버: 칸·가중치·켜기/끄기·연결 제품 */
@@ -196,14 +232,8 @@ export async function updateKeyword(
     return FAILED;
   }
   if (!k || k.row.deleted_at) return { ok: false, error: "키워드를 찾을 수 없습니다." };
-  const diff = diffKeyword(k.snap, parsed.patch);
-  if (!diff) return { ok: true };
-
-  const r = await applyPatch(supabase, teamId, kid, k.snap, parsed.patch);
-  if (!r.ok) return r;
-  const logged = await logChanges(supabase, teamId, user.id, [{ keyword_id: kid, action: "update", ...diff }]);
-  refresh();
-  return logged ? { ok: true } : NO_LOG;
+  if (!diffKeyword(k.snap, parsed.patch)) return { ok: true };
+  return logApplied(supabase, teamId, user.id, kid, k.snap, await applyPatch(supabase, teamId, kid, k.snap, parsed.patch));
 }
 
 /** 소프트 삭제 (deleted_at). 이력에 남아 [되돌리기]로 복구할 수 있다 */
@@ -297,11 +327,8 @@ export async function revertKeywordChange(changeId: number, teamParam?: string |
       const alive = new Set(((own.data ?? []) as { id: string }[]).map((p) => p.id.toLowerCase()));
       patch = { ...patch, productIds: patch.productIds.filter((p) => alive.has(p)) };
     }
-    const finalDiff = diffKeyword(k.snap, patch);
-    if (!finalDiff) return { ok: false, error: "이미 그 상태입니다." };
-    const r = await applyPatch(supabase, teamId, kid, k.snap, patch);
-    if (!r.ok) return r;
-    log = { keyword_id: kid, action: "update", ...finalDiff };
+    if (!diffKeyword(k.snap, patch)) return { ok: false, error: "이미 그 상태입니다." };
+    return logApplied(supabase, teamId, user.id, kid, k.snap, await applyPatch(supabase, teamId, kid, k.snap, patch));
   }
 
   const logged = await logChanges(supabase, teamId, user.id, [log]);

@@ -95,7 +95,14 @@ export function LeadCard({ lead, today, team, convertSlot }: Props) {
         )}
       </section>
 
-      <LeadActions lead={lead} team={team} convertSlot={convertSlot} />
+      {/* 클라이언트로는 버튼에 필요한 값만 넘긴다. 리드가 바뀌면 상태(메모 초안 등)를 새로 시작한다 */}
+      <LeadActions
+        key={lead.id}
+        lead={{ id: lead.id, status: lead.status, assigneeId: lead.assigneeId, memo: lead.memo, updatedAt: lead.updatedAt, members: lead.members }}
+        markSeen={lead.status === "on_hold" && lead.hasNewProgress}
+        team={team}
+        convertSlot={convertSlot}
+      />
     </article>
   );
 }

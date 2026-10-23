@@ -2,10 +2,9 @@
 import type { SourceId, Stage } from "../types";
 import { STAGE_RANK } from "../types";
 import { daysUntil } from "./date";
+import { isUuid } from "./ids";
 import { SOURCE_LABEL, STAGE_LABEL } from "./labels";
 import { listHref, type ListQuery } from "./list-query";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type Tone = "red" | "yellow" | "normal" | "hint";
 
@@ -51,7 +50,7 @@ export function safeExternalUrl(url: string | null | undefined): string | null {
 /** ?lead= 값 — uuid 형식만 받는다 (부문 확인은 조회가 한다) */
 export function parseLeadId(v: string | string[] | undefined): string | null {
   const s = (Array.isArray(v) ? v[0] : v)?.trim();
-  return s && UUID.test(s) ? s : null;
+  return isUuid(s) ? s : null;
 }
 
 /** 지금 목록 조건을 유지한 채 상세를 열거나(id) 닫는(null) 주소 */

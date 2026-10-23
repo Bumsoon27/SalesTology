@@ -7,6 +7,7 @@ import { evidenceList, groupProducts, type EvidenceRow, type ProductLink } from 
 import { statusCondition } from "../lib/list-query";
 import type { DeadlineType, LeadDetail, LeadListItem, LeadStatus, SourceId, Stage, Tier } from "../types";
 import { SosDbError } from "./db";
+import { one, type One } from "./embed";
 import type { RunStatus } from "./rows";
 
 // 목록 화면 조회. 로그인 사용자 클라이언트(RLS)로 읽고, requireSosTeam 이 정한 teamId 조건도 명시한다.
@@ -50,11 +51,6 @@ export function check(where: string, error: PgError | null) {
 
 // 목록 한 번에 보여 줄 최대 건수 (점수 상위부터)
 const LIST_LIMIT = 300;
-
-type One<T> = T | T[] | null;
-function one<T>(v: One<T>): T | null {
-  return Array.isArray(v) ? (v[0] ?? null) : v;
-}
 
 type LeadListRow = {
   id: string;

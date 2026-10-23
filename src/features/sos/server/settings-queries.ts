@@ -5,6 +5,7 @@ import { DEFAULT_TEAM_SETTINGS, type ChangeAction } from "../lib/keyword-edit";
 import type { RunMode } from "../lib/run-view";
 import type { LeadStatus, Stage, Tier } from "../types";
 import { chunk, IN_LIST } from "./db";
+import { one, type One } from "./embed";
 import { check } from "./queries";
 import type { RunStatus } from "./rows";
 
@@ -27,9 +28,6 @@ export type SettingsData = {
   changes: SettingsChange[];
   settings: { prespecAlertDays: number; aiSummaryTopN: number };
 };
-
-type One<T> = T | T[] | null;
-const one = <T,>(v: One<T>): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
 
 // 변경 이력은 최근 것만 보여 준다
 const CHANGE_LIMIT = 50;

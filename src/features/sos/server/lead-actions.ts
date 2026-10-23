@@ -86,10 +86,13 @@ export async function updateLead(
   return { ok: true };
 }
 
-/** 보류 리드를 열면 "새 진행" 표시를 지운다. 사람이 손댄 것은 아니므로 touched_at 은 그대로 */
-export async function markLeadSeen(leadId: string, teamParam?: string | null): Promise<void> {
+/**
+ * 보류 리드를 열면 "새 진행" 표시를 지운다. 사람이 손댄 것은 아니므로 touched_at 은 그대로.
+ * 지우면 updated_at 이 바뀌므로 새 값을 돌려준다 — 화면이 다음 저장의 비교 기준으로 쓴다 (안 바뀌었으면 null)
+ */
+export async function markLeadSeen(leadId: string, teamParam?: string | null): Promise<string | null> {
   const id = parseLeadId(typeof leadId === "string" ? leadId : undefined);
-  if (!id) return;
+  if (!id) return null;
   const { teamId } = await requireSosTeam(team(teamParam));
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -99,12 +102,15 @@ export async function markLeadSeen(leadId: string, teamParam?: string | null): P
     .eq("team_id", teamId)
     .eq("status", "on_hold")
     .eq("has_new_progress", true)
-    .select("id");
+    .select("updated_at");
   if (error) {
     logDb("새 진행 확인 표시", error);
-    return;
+    return null;
   }
-  if (data && data.length > 0) refresh();
+  const row = (data as { updated_at: string }[] | null)?.[0];
+  if (!row) return null;
+  refresh();
+  return row.updated_at;
 }
 
 /** 카드 제목에서 드래그로 고른 글자를 키워드로 추가 (설계서 §5.5). 다음 실행·[재분석]부터 반영된다 */

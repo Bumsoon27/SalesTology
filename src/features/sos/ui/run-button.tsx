@@ -2,23 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { progressRatio, sourceLines, type SourceLineState } from "../run/progress";
+import type { RunMode } from "../lib/run-view";
+import { progressRatio, sourceLines } from "../run/progress";
 import { advanceRun, startRun } from "../server/actions";
+import { STATE_COLOR } from "./sos-styles";
 
 // [수집 시작]·[재분석] — 실행을 만들고 끝날 때까지 단계를 하나씩 진행한다. 탭을 다시 열면 진행 중 실행을 이어 간다.
 type Progress = { index: number; total: number; label: string };
 
 // 다른 탭이 같은 단계를 처리 중이면 같은 진행이 돌아온다 — 잠깐 쉬었다 다시 묻는다
 const WAIT_MS = 2000;
-const STATE_COLOR: Record<SourceLineState, string> = {
-  waiting: "text-[var(--sos-text-hint)]",
-  active: "text-[var(--sos-accent)]",
-  done: "text-[var(--sos-text-sub)]",
-  failed: "text-[var(--sos-red)]",
-};
 
 // 재분석은 보조 버튼 모양(시각 설계서 §5.1)이고 원본을 받지 않으므로 출처 줄이 없다
-const TEXT = {
+const TEXT: Record<RunMode, Record<"idle" | "busy" | "done" | "failed" | "startFail", string>> = {
   collect: { idle: "수집 시작", busy: "수집 중…", done: "수집을 마쳤습니다.", failed: "수집이 실패했습니다.", startFail: "수집을 시작하지 못했습니다. 잠시 뒤 다시 눌러 주세요." },
   reanalyze: { idle: "재분석", busy: "실행 중…", done: "재분석을 마쳤습니다.", failed: "재분석이 실패했습니다.", startFail: "재분석을 시작하지 못했습니다. 잠시 뒤 다시 눌러 주세요." },
 };
@@ -32,11 +28,14 @@ const BUTTON = {
 export function RunButton({
   team,
   runningRunId,
+  runningMode,
   mode = "collect",
 }: {
   team: string | null;
   runningRunId: string | null;
-  mode?: "collect" | "reanalyze";
+  // 이어 가는 실행의 종류 — 설정 화면의 [재분석]이 진행 중인 수집을 이어 갈 수 있다 (없으면 mode)
+  runningMode?: RunMode;
+  mode?: RunMode;
 }) {
   const text = TEXT[mode];
   const router = useRouter();
@@ -45,13 +44,17 @@ export function RunButton({
   const [progress, setProgress] = useState<Progress | null>(null);
   const [stats, setStats] = useState<Record<string, unknown>>({});
   const [message, setMessage] = useState<{ tone: "error" | "warn" | "ok"; text: string } | null>(null);
+  // 지금 진행 중인(또는 마지막으로 진행한) 실행의 종류 — 끝 문구·출처 줄은 이것을 따른다
+  const [activeMode, setActiveMode] = useState<RunMode>(runningMode ?? mode);
   // 화면을 떠나면 반복을 멈춘다 (실행은 서버에 남아 다음 진입 때 이어진다)
   const alive = useRef(true);
   const looping = useRef(false);
 
   // 단계 반복 — 호출 전에 looping 을 잡아 둔 상태여야 한다 (한 화면에 반복은 하나만)
   const runLoop = useCallback(
-    async (runId: string) => {
+    async (runId: string, runMode: RunMode) => {
+      const t = TEXT[runMode];
+      setActiveMode(runMode);
       setRunning(true);
       setMessage(null);
       let last = -1;
@@ -66,9 +69,9 @@ export function RunButton({
             break;
           }
           if (r.done) {
-            if (r.status === "failed") setMessage({ tone: "error", text: text.failed });
+            if (r.status === "failed") setMessage({ tone: "error", text: t.failed });
             else if (r.status === "partial") setMessage({ tone: "warn", text: "일부 출처를 받지 못했습니다. 나머지 결과는 저장되었습니다." });
-            else setMessage({ tone: "ok", text: text.done });
+            else setMessage({ tone: "ok", text: t.done });
             break;
           }
           if (r.progress.index === last) await new Promise((res) => setTimeout(res, WAIT_MS));
@@ -85,7 +88,7 @@ export function RunButton({
         }
       }
     },
-    [router, team, text],
+    [router, team],
   );
 
   // 진행 중 실행이 있으면 (처음 들어올 때든 새로 그린 뒤든) 이어서 진행. 이미 반복 중이면 무시
@@ -96,19 +99,20 @@ export function RunButton({
       ? setTimeout(() => {
           if (looping.current) return;
           looping.current = true;
-          void runLoop(runningRunId);
+          void runLoop(runningRunId, runningMode ?? mode);
         }, 0)
       : undefined;
     return () => {
       alive.current = false;
       clearTimeout(t);
     };
-  }, [runningRunId, runLoop]);
+  }, [runningRunId, runningMode, mode, runLoop]);
 
   async function onStart() {
     // 상태값은 다음 렌더에야 바뀌므로 ref 로 바로 막는다 (두 번 눌러 내 실행에 "진행 중" 거절이 뜨지 않게)
     if (looping.current) return;
     looping.current = true;
+    setActiveMode(mode);
     setRunning(true);
     setMessage(null);
     setProgress(null);
@@ -126,7 +130,7 @@ export function RunButton({
       setMessage({ tone: "error", text: text.startFail });
     }
     if (runId) {
-      await runLoop(runId);
+      await runLoop(runId, mode);
       return;
     }
     looping.current = false;
@@ -134,7 +138,7 @@ export function RunButton({
   }
 
   const ratio = progress ? progressRatio(progress) : 0;
-  const lines = mode === "collect" && (running || progress) ? sourceLines(stats, progress?.label ?? "") : [];
+  const lines = activeMode === "collect" && (running || progress) ? sourceLines(stats, progress?.label ?? "") : [];
 
   return (
     <div className="flex w-full flex-col gap-3 sm:w-auto sm:min-w-[320px]">
@@ -154,7 +158,7 @@ export function RunButton({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(ratio * 100)}
-            aria-label={mode === "collect" ? "수집 진행" : "재분석 진행"}
+            aria-label={activeMode === "collect" ? "수집 진행" : "재분석 진행"}
             className="h-[2px] w-full bg-[var(--sos-divider-lite)]"
           >
             <div

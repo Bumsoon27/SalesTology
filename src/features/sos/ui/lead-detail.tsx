@@ -23,7 +23,7 @@ export function LeadDetailPanel({ lead, today, team, closeHref, convertSlot }: P
       </div>
       {lead ? (
         <>
-          <DetailEffects leadId={lead.id} markSeen={lead.status === "on_hold" && lead.hasNewProgress} team={team} />
+          <DetailEffects leadId={lead.id} />
           <LeadCard lead={lead} today={today} team={team} convertSlot={convertSlot} />
         </>
       ) : (

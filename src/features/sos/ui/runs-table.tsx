@@ -1,15 +1,9 @@
 import Link from "next/link";
 import { formatKst, RUN_MODE_LABEL, RUN_STATUS_VIEW, runView } from "../lib/run-view";
 import type { RunHistoryItem } from "../server/settings-queries";
-import type { SourceLineState } from "../run/progress";
+import { STATE_COLOR } from "./sos-styles";
 
 // 실행 기록 목록 (설계서 §5.6). 줄을 누르면 그 실행에서 나온 리드를 본다
-const STATE_COLOR: Record<SourceLineState, string> = {
-  waiting: "text-[var(--sos-text-hint)]",
-  active: "text-[var(--sos-accent)]",
-  done: "text-[var(--sos-text-sub)]",
-  failed: "text-[var(--sos-red)]",
-};
 
 export function runHref(id: string, team: string | null): string {
   return team ? `/sos/runs/${id}?team=${encodeURIComponent(team)}` : `/sos/runs/${id}`;

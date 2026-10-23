@@ -1,10 +1,10 @@
 // 서버 액션 입력 검증 (순수). 서버 액션은 누구나 POST 할 수 있으니 모양부터 엄격히 본다.
 import type { LeadStatus, Tier } from "../types";
+import { isUuid } from "./ids";
 
 export const MEMO_MAX = 2000;
 export const TERM_MAX = 50;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // 사람이 고를 수 있는 상태 — "사업 전환됨"은 전환 액션만 만든다
 const EDITABLE_STATUS: LeadStatus[] = ["new", "reviewing", "on_hold", "dismissed"];
 const TIERS: Tier[] = ["core", "extended", "exclude"];
@@ -24,7 +24,7 @@ export function parseLeadPatch(raw: unknown): { ok: true; patch: LeadDbPatch } |
     patch.status = p.status as EditableStatus;
   }
   if ("assigneeId" in p) {
-    if (p.assigneeId !== null && (typeof p.assigneeId !== "string" || !UUID.test(p.assigneeId))) return bad;
+    if (p.assigneeId !== null && !isUuid(p.assigneeId)) return bad;
     patch.assignee_id = p.assigneeId as string | null;
   }
   if ("memo" in p) {

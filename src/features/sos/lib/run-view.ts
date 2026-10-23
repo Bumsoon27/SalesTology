@@ -1,7 +1,6 @@
 // 실행 기록 화면 표시 도우미 (순수 — I/O 없음)
 import { sourceLines, type SourceLine } from "../run/progress";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from "./ids";
 
 export type RunMode = "collect" | "reanalyze";
 export type RunStatusView = "running" | "done" | "partial" | "failed";
@@ -32,7 +31,7 @@ export function runView(stats: Record<string, unknown> | null, mode: RunMode): {
 
 /** 주소의 실행 id — uuid 만, 소문자로 */
 export function parseRunId(v: unknown): string | null {
-  return typeof v === "string" && UUID.test(v) ? v.toLowerCase() : null;
+  return isUuid(v) ? v.toLowerCase() : null;
 }
 
 const KST_WHEN = new Intl.DateTimeFormat("ko-KR", {

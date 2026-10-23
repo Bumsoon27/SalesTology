@@ -1,6 +1,7 @@
 // 설정 화면 입력 검증·변경 이력 계산 (순수 — I/O 없음). 서버 액션은 누구나 POST 할 수 있으니 모양부터 엄격히 본다.
 import { parseKeywordInput } from "../analysis/keywords";
 import type { Tier } from "../types";
+import { isUuid } from "./ids";
 import { normalizeKeywordTerm, parseTier, TERM_MAX } from "./lead-input";
 
 export const WEIGHT_MAX = 10;
@@ -17,7 +18,6 @@ export const DEFAULT_TEAM_SETTINGS = { prespecAlertDays: 3, aiSummaryTopN: 5, fi
 
 export const TIER_LABEL: Record<Tier, string> = { core: "핵심", extended: "확장", exclude: "제외" };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BAD = { ok: false as const, error: "잘못된 요청입니다." };
 
 type Fail = { ok: false; error: string };
@@ -56,7 +56,7 @@ export function parseKeywordPatch(raw: unknown): { ok: true; patch: KeywordPatch
   }
   if ("productIds" in raw) {
     const ids = raw.productIds;
-    if (!Array.isArray(ids) || ids.length > PRODUCT_LINK_MAX || ids.some((id) => typeof id !== "string" || !UUID.test(id))) return BAD;
+    if (!Array.isArray(ids) || ids.length > PRODUCT_LINK_MAX || ids.some((id) => !isUuid(id))) return BAD;
     patch.productIds = sortedIds(ids as string[]);
   }
   if (Object.keys(patch).length === 0) return BAD;

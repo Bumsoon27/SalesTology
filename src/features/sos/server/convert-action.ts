@@ -7,6 +7,7 @@ import { dealHref, orderMonthOf, toLeadToDealInput } from "../convert";
 import { parseLeadId } from "../lib/lead-view";
 import type { LeadStatus, Stage } from "../types";
 import { requireSosTeam } from "./context";
+import { one, type One } from "./embed";
 
 // [사업으로 전환] (설계서 §6.1). A 의 createDealFromLead 만 쓴다 — deals 에 직접 INSERT 하지 않는다.
 // 로그인 사용자 클라이언트(RLS)만 쓴다. 부문은 requireSosTeam 으로만 정한다.
@@ -29,7 +30,6 @@ async function dealVisible(supabase: Client, dealId: string): Promise<boolean | 
   return !!data;
 }
 
-type One<T> = T | T[] | null;
 type Row = {
   id: string;
   title: string;
@@ -77,7 +77,7 @@ export async function convertLead(leadId: string, teamParam?: string | null): Pr
     if (r.status === "converted") return { ok: true, href: dealHref(r.converted_deal_id) };
   }
 
-  const org = Array.isArray(r.sos_orgs) ? r.sos_orgs[0] : r.sos_orgs;
+  const org = one(r.sos_orgs);
   const res = await createDealFromLead(
     toLeadToDealInput({
       id: r.id,

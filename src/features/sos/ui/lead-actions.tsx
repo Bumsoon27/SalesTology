@@ -1,24 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { MEMO_MAX, type EditableStatus } from "../lib/lead-input";
-import { updateLead } from "../server/lead-actions";
+import { markLeadSeen, updateLead } from "../server/lead-actions";
 import type { LeadDetail } from "../types";
+import { secondaryButton as secondary } from "./sos-styles";
 import { Toast, type ToastMessage } from "./toast";
 
 // 카드 버튼: [사업으로 전환](convertSlot), 담당 지정, 보류, 관심 없음, 메모 (시각 설계서 §5.1)
 // 저장 성공 시 서버가 화면을 새로 그려 새 updatedAt 이 props 로 온다 (다음 저장의 비교 기준).
-const secondary =
-  "relative h-8 rounded-[6px] border border-[var(--sos-divider)] px-3 text-sm text-[var(--sos-text)] transition-colors duration-200 hover:text-[var(--sos-accent)] disabled:cursor-not-allowed disabled:text-[var(--sos-disabled)] " +
-  // 32px 버튼의 누르는 영역을 44px 로 넓힌다
-  "before:absolute before:-inset-x-0 before:-inset-y-1.5 before:content-['']";
 
 type Lead = Pick<LeadDetail, "id" | "status" | "assigneeId" | "memo" | "updatedAt" | "members">;
 
-export function LeadActions({ lead, team, convertSlot }: { lead: Lead; team: string | null; convertSlot?: ReactNode }) {
+type Props = { lead: Lead; markSeen: boolean; team: string | null; convertSlot?: ReactNode };
+
+export function LeadActions({ lead, markSeen, team, convertSlot }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  // "새 진행"을 지우는 동안은 저장을 막는다 — 지우면 updatedAt 이 바뀌어 옛 값으로 저장하면 충돌이 난다
+  const [marking, setMarking] = useState(markSeen);
+  // markLeadSeen 이 돌려준 새 updatedAt. 서버가 새로 그린 props 가 오면 그쪽을 쓴다
+  const [seenAt, setSeenAt] = useState<string | null>(null);
   const [memo, setMemo] = useState(lead.memo ?? "");
   const [memoOpen, setMemoOpen] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -31,14 +34,27 @@ export function LeadActions({ lead, team, convertSlot }: { lead: Lead; team: str
   if (seen.updatedAt !== lead.updatedAt || seen.memo !== lead.memo) {
     if (seen.memo !== lead.memo) setMemo(lead.memo ?? "");
     setSeen({ updatedAt: lead.updatedAt, memo: lead.memo });
+    setSeenAt(null);
     setConflict(false);
   }
+  const expectedUpdatedAt = seenAt ?? lead.updatedAt;
+  const locked = busy || marking;
+
+  useEffect(() => {
+    // 서버 렌더 중에 쓰지 않고 화면이 열린 뒤에 지운다 (미리 불러오기로 표시가 지워지지 않게).
+    // 언마운트 뒤의 상태 갱신은 무시되므로 따로 막지 않는다 (개발 모드 effect 두 번 실행 때 첫 결과를 버리지 않게)
+    if (!markSeen) return;
+    markLeadSeen(lead.id, team)
+      .then((at) => at && setSeenAt(at))
+      .catch(() => {})
+      .finally(() => setMarking(false));
+  }, [lead.id, markSeen, team]);
 
   async function save(patch: { status?: EditableStatus; assigneeId?: string | null; memo?: string }, done: string) {
-    if (busy) return;
+    if (locked) return;
     setBusy(true);
     try {
-      const r = await updateLead(lead.id, patch, lead.updatedAt, team);
+      const r = await updateLead(lead.id, patch, expectedUpdatedAt, team);
       if (r.ok) setToast({ tone: "ok", text: done });
       else {
         setToast({ tone: "error", text: r.error });
@@ -64,7 +80,7 @@ export function LeadActions({ lead, team, convertSlot }: { lead: Lead; team: str
         <select
           id={`sos-assignee-${lead.id}`}
           value={lead.assigneeId ?? ""}
-          disabled={busy}
+          disabled={locked}
           onChange={(e) => save({ assigneeId: e.target.value || null }, e.target.value ? "담당자를 지정했습니다." : "담당자를 비웠습니다.")}
           className="h-8 rounded-[6px] border border-[var(--sos-divider)] bg-[var(--sos-bg-surface)] px-3 text-sm text-[var(--sos-text)] disabled:text-[var(--sos-disabled)]"
         >
@@ -81,7 +97,7 @@ export function LeadActions({ lead, team, convertSlot }: { lead: Lead; team: str
             <button
               type="button"
               className={secondary}
-              disabled={busy}
+              disabled={locked}
               aria-pressed={onHold}
               onClick={() => save({ status: onHold ? "reviewing" : "on_hold" }, onHold ? "보류를 풀었습니다." : "보류했습니다.")}
             >
@@ -90,7 +106,7 @@ export function LeadActions({ lead, team, convertSlot }: { lead: Lead; team: str
             <button
               type="button"
               className={secondary}
-              disabled={busy}
+              disabled={locked}
               aria-pressed={dismissed}
               onClick={() =>
                 save({ status: dismissed ? "reviewing" : "dismissed" }, dismissed ? "관심 없음을 풀었습니다." : "관심 없음으로 표시했습니다. 목록에서 숨겨집니다.")
@@ -126,7 +142,7 @@ export function LeadActions({ lead, team, convertSlot }: { lead: Lead; team: str
             className="rounded-[4px] border border-[var(--sos-divider)] bg-[var(--sos-bg-input)] p-3 text-sm text-[var(--sos-text)] placeholder:text-[var(--sos-text-hint)]"
           />
           <div className="flex justify-end">
-            <button type="submit" className={secondary} disabled={busy}>
+            <button type="submit" className={secondary} disabled={locked}>
               메모 저장
             </button>
           </div>
