@@ -6,6 +6,7 @@ name: 배포 (Vercel)
 #   main  → 운영 배포
 # 필요한 값: repo secret VERCEL_TOKEN (vercel.com/account/tokens 에서 발급)
 on:
+  workflow_dispatch: # 수동 운영 배포 (main 에서만 실행할 것)
   pull_request:
     paths-ignore: ["docs/**", "**/*.md"]
   push:
@@ -26,14 +27,14 @@ env:
 
 jobs:
   deploy:
-    name: Vercel ${{ github.event_name == 'push' && '운영' || '미리보기' }} 배포
+    name: Vercel ${{ github.event_name != 'pull_request' && '운영' || '미리보기' }} 배포
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # 포크 PR 에는 비밀값이 없으므로 건너뛴다
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    if: (github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      TARGET: ${{ github.event_name == 'push' && 'production' || 'preview' }}
+      TARGET: ${{ github.event_name != 'pull_request' && 'production' || 'preview' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
