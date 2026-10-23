@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { DealDirection } from "./direction";
 import { DIRECTION_TONE } from "./direction-section";
-import { STAGE_PROBABILITY, STALE_AFTER_DAYS, type OwnerPipeline, type PipelineSummary } from "./pipeline";
+import type { OwnerPipeline, PipelineSummary } from "./pipeline";
+import { DEFAULT_PIPELINE_SETTINGS, type PipelineSettings } from "./pipeline-settings";
 
 export type TeamPipeline = { summary: PipelineSummary; owners: OwnerPipeline[] };
 
@@ -22,11 +23,14 @@ export function PipelineSummaryCard({
   summary: mine,
   directions,
   team,
+  settings = DEFAULT_PIPELINE_SETTINGS,
 }: {
   summary: PipelineSummary;
   directions: DealDirection[];
   /** 부문 보기 (부문이 없는 관리자는 null) */
   team: TeamPipeline | null;
+  /** 부문 파이프라인 설정 (단계 확률·정체 기준) */
+  settings?: PipelineSettings;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -152,7 +156,7 @@ export function PipelineSummaryCard({
                     {cur.stages.map((x) => (
                       <li key={x.stage} className="grid grid-cols-[3.2rem_1fr_3.5rem] items-center gap-2 text-[11px]">
                         <span className="text-muted">
-                          {x.label} <span className="text-[9px]">{STAGE_PROBABILITY[x.stage]}%</span>
+                          {x.label} <span className="text-[9px]">{settings.probabilities[x.stage]}%</span>
                         </span>
                         <span className="h-1.5 overflow-hidden rounded-full bg-white/[0.05]">
                           <span className="block h-full rounded-full bg-accent/70" style={{ width: `${(x.amount / max) * 100}%` }} />
@@ -185,7 +189,7 @@ export function PipelineSummaryCard({
 
                 {scope === "mine" && s.stale.length > 0 && (
                   <div className="space-y-1.5">
-                    <p className="text-[11px] text-muted">{STALE_AFTER_DAYS}일 넘게 활동 없는 사업</p>
+                    <p className="text-[11px] text-muted">{settings.staleAfterDays}일 넘게 활동 없는 사업</p>
                     <ul className="space-y-1">
                       {s.stale.slice(0, 5).map((d) => (
                         <li key={d.id}>

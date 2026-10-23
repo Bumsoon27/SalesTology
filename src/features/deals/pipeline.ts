@@ -3,23 +3,15 @@
 // 참고한 사례
 // - 가중 파이프라인(Pipedrive·Freshworks): 단계마다 성사 확률을 두고 규모 × 확률로 예상 매출을 본다
 // - 정체 표시(Pipedrive 'rotting', Clari 'stalled activity'): 마지막 활동 이후 오래 손대지 않은 사업을 따로 띄운다
+import { DEFAULT_PIPELINE_SETTINGS, type PipelineSettings } from "./pipeline-settings";
 import { daysUntil } from "./status";
 import { STAGE_LABEL, type DealRow, type DealStage } from "./types";
 
-/** 단계별 기본 성사 확률 (%). 수주 이후는 확정 매출로 본다 */
-export const STAGE_PROBABILITY: Record<DealStage, number> = {
-  discovery: 10,
-  quoting: 20,
-  proposal: 40,
-  negotiation: 60,
-  bidding: 50,
-  won: 100,
-  fulfillment: 100,
-  billing: 100,
-};
+/** 단계별 기본 성사 확률 (%). 수주 이후는 확정 매출로 본다. 부문 설정(team_pipeline_settings)이 있으면 그 값 */
+export const STAGE_PROBABILITY: Record<DealStage, number> = DEFAULT_PIPELINE_SETTINGS.probabilities;
 
-/** 수주 전 단계에서 이 기간(일) 넘게 활동이 없으면 정체 */
-export const STALE_AFTER_DAYS = 14;
+/** 수주 전 단계에서 이 기간(일) 넘게 활동이 없으면 정체 (기본값, 부문 설정으로 바꿀 수 있다) */
+export const STALE_AFTER_DAYS = DEFAULT_PIPELINE_SETTINGS.staleAfterDays;
 
 const PIPELINE_ORDER: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
 const PRE_WIN = new Set<DealStage>(["discovery", "quoting", "proposal", "negotiation", "bidding"]);
@@ -46,7 +38,7 @@ export type PipelineSummary = {
 
 type Deal = Pick<DealRow, "id" | "name" | "stage" | "status" | "amount" | "last_activity_at" | "customer"> & { gp?: number | null };
 
-export function summarizePipeline(deals: Deal[], today: string): PipelineSummary {
+export function summarizePipeline(deals: Deal[], today: string, settings: PipelineSettings = DEFAULT_PIPELINE_SETTINGS): PipelineSummary {
   const active = deals.filter((d) => d.status === "active");
   const byStage = new Map<DealStage, PipelineStage>(PIPELINE_ORDER.map((s) => [s, { stage: s, label: STAGE_LABEL[s], count: 0, amount: 0 }]));
 
@@ -66,7 +58,7 @@ export function summarizePipeline(deals: Deal[], today: string): PipelineSummary
     if (amount == null) missingAmount += 1;
     else {
       total += amount;
-      weighted += (amount * (STAGE_PROBABILITY[d.stage] ?? 0)) / 100;
+      weighted += (amount * (settings.probabilities[d.stage] ?? 0)) / 100;
       if (!PRE_WIN.has(d.stage)) committed += amount;
       if (row) row.amount += amount;
       if (d.gp != null) {
@@ -77,7 +69,7 @@ export function summarizePipeline(deals: Deal[], today: string): PipelineSummary
 
     if (PRE_WIN.has(d.stage) && d.last_activity_at) {
       const idle = daysUntil(today, d.last_activity_at.slice(0, 10));
-      if (idle >= STALE_AFTER_DAYS) stale.push({ id: d.id, name: d.name, customer: d.customer.name, idleDays: idle, stage: d.stage });
+      if (idle >= settings.staleAfterDays) stale.push({ id: d.id, name: d.name, customer: d.customer.name, idleDays: idle, stage: d.stage });
     }
   }
 
@@ -97,7 +89,11 @@ export function summarizePipeline(deals: Deal[], today: string): PipelineSummary
 export type OwnerPipeline = { ownerId: string; owner: string; count: number; total: number; weighted: number; gp: number; isMe: boolean };
 
 /** 부문 보기의 영업대표별 합계 (Salesforce 팀 예측처럼). 가중 예상이 큰 순 */
-export function summarizeByOwner(deals: (Deal & { owner_id: string; owner: string })[], meId: string): OwnerPipeline[] {
+export function summarizeByOwner(
+  deals: (Deal & { owner_id: string; owner: string })[],
+  meId: string,
+  settings: PipelineSettings = DEFAULT_PIPELINE_SETTINGS,
+): OwnerPipeline[] {
   const by = new Map<string, OwnerPipeline>();
   for (const d of deals) {
     if (d.status !== "active") continue;
@@ -106,7 +102,7 @@ export function summarizeByOwner(deals: (Deal & { owner_id: string; owner: strin
     if (d.amount != null) {
       const amount = Number(d.amount);
       row.total += amount;
-      row.weighted += (amount * (STAGE_PROBABILITY[d.stage] ?? 0)) / 100;
+      row.weighted += (amount * (settings.probabilities[d.stage] ?? 0)) / 100;
       if (d.gp != null) row.gp += Number(d.gp);
     }
     by.set(d.owner_id, row);

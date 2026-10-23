@@ -19,6 +19,8 @@ export function DirectionSection({ d }: { d: DealDetail }) {
   const items = suggestDirections(
     { stage: d.stage, status: d.status, amount: d.amount, gp: d.gp, last_activity_at: d.lastActivityAt, deal_tasks: d.tasks, issues: d.issues },
     d.today,
+    3,
+    d.staleAfterDays,
   );
   if (items.length === 0) return null;
 

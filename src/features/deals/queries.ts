@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/shared/supabase/server";
 import type { DealRow } from "./types";
+import { DEFAULT_PIPELINE_SETTINGS, fromSettingsRow, type PipelineSettings } from "./pipeline-settings";
 
 const DEAL_SELECT = `
   id, name, stage, status, amount, gp, last_activity_at, period_end,
@@ -58,3 +59,11 @@ export async function getTeamDeals(teamId: string): Promise<TeamDeal[]> {
   type Raw = Omit<TeamDeal, "owner"> & { owner: { name: string } | null };
   return ((data ?? []) as unknown as Raw[]).map((d) => ({ ...d, owner: d.owner?.name ?? "-" }));
 }
+
+/** 부문 파이프라인 설정 (없으면 기본값). 부문이 없으면(관리자) 기본값 */
+export const getPipelineSettings = cache(async (teamId: string | null): Promise<PipelineSettings> => {
+  if (!teamId) return DEFAULT_PIPELINE_SETTINGS;
+  const supabase = await createClient();
+  const { data } = await supabase.from("team_pipeline_settings").select("stage_probabilities, stale_after_days").eq("team_id", teamId).maybeSingle();
+  return fromSettingsRow(data);
+});

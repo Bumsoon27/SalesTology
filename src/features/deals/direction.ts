@@ -42,7 +42,7 @@ type Deal = Pick<DealRow, "stage" | "status" | "amount" | "last_activity_at" | "
 
 const taskName = (t: TaskRow) => (t.type === "custom" ? (t.title ?? "업무") : TASK_LABEL[t.type]);
 
-export function suggestDirections(deal: Deal, today: string, limit = 3): Direction[] {
+export function suggestDirections(deal: Deal, today: string, limit = 3, staleAfterDays = STALE_AFTER_DAYS): Direction[] {
   if (deal.status !== "active") return [];
   const out: Direction[] = [];
 
@@ -75,8 +75,8 @@ export function suggestDirections(deal: Deal, today: string, limit = 3): Directi
   // 4) 정체 — 수주 전인데 오래 활동이 없음
   if (PRE_WIN.has(deal.stage) && deal.last_activity_at) {
     const idle = daysUntil(today, deal.last_activity_at.slice(0, 10));
-    if (idle >= STALE_AFTER_DAYS) {
-      out.push({ kind: "stale", priority: Math.min(80, 50 + idle), title: "고객 접촉 — 근황 확인", why: `${idle}일째 활동이 없습니다 (${STALE_AFTER_DAYS}일 기준)` });
+    if (idle >= staleAfterDays) {
+      out.push({ kind: "stale", priority: Math.min(80, 50 + idle), title: "고객 접촉 — 근황 확인", why: `${idle}일째 활동이 없습니다 (${staleAfterDays}일 기준)` });
     }
   }
 
@@ -109,13 +109,14 @@ export function topDirections(
   deals: (Deal & Pick<DealRow, "id" | "name" | "customer">)[],
   today: string,
   limit = 6,
+  staleAfterDays = STALE_AFTER_DAYS,
 ): DealDirection[] {
   const withDeal = (d: (typeof deals)[number], x: Direction): DealDirection => ({ ...x, dealId: d.id, dealName: d.name, customer: d.customer.name });
   const urgent: DealDirection[] = [];
   const plays: { amount: number; item: DealDirection }[] = [];
 
   for (const d of deals) {
-    const items = suggestDirections(d, today, 5);
+    const items = suggestDirections(d, today, 5, staleAfterDays);
     const signals = items.filter((x) => x.kind !== "stage");
     urgent.push(...signals.map((x) => withDeal(d, x)));
     const play = items.find((x) => x.kind === "stage");

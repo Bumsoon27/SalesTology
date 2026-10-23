@@ -4,6 +4,7 @@
 import { createClient } from "@/shared/supabase/server";
 import { requireUser } from "@/shared/auth/current-user";
 import type { NoteKind } from "./notes";
+import { getPipelineSettings } from "./queries";
 import { computeDealStatus, todayInSeoul, type StatusResult } from "./status";
 import { isFromSos, type DealRow, type DealStage, type IssueRow, type PartyRow, type TaskRow } from "./types";
 
@@ -39,6 +40,8 @@ export type DealDetail = {
   notes: NoteItem[];
   /** 사업 삭제 가능 (담당자·관리자) — 화면 표시용, 실제 권한은 DB 트리거가 막는다 */
   canDelete: boolean;
+  /** 이 사업 부문의 정체 기준일 (AI 디렉션) */
+  staleAfterDays: number;
   /** 서버 기준 오늘 (Asia/Seoul) */
   today: string;
 };
@@ -73,7 +76,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
     const [{ data: d, error }, { data: log }, { data: noteRows }, me] = await Promise.all([
       supabase
         .from("deals")
-        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref, last_activity_at, owner_id,
+        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref, last_activity_at, owner_id, team_id,
           owner:profiles!deals_owner_id_fkey ( name ),
           customer:companies!deals_customer_id_fkey ( id, name ),
           deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
@@ -109,8 +112,10 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       items: string | null;
       owner: { name: string } | null;
       owner_id: string;
+      team_id: string;
       deal_tasks: (TaskRow & { deleted_at: string | null })[];
     };
+    const settings = await getPipelineSettings(row.team_id);
     type RawNote = { id: string; kind: NoteKind; body: string; occurred_on: string; author_id: string; author: { name: string } | null };
     const today = todayInSeoul();
     const tasks = row.deal_tasks.filter((t) => !t.deleted_at).sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"));
@@ -145,6 +150,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
         mine: n.author_id === me.id,
       })),
       canDelete: me.role === "admin" || row.owner_id === me.id,
+      staleAfterDays: settings.staleAfterDays,
       today,
       activity: ((log ?? []) as unknown as { id: number; action: string; entity_type: string; after: Record<string, unknown> | null; created_at: string; actor: { name: string } | null }[]).map((a) => ({
         id: a.id,
