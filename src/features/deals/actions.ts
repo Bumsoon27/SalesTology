@@ -2,6 +2,8 @@
 
 import { refresh } from "next/cache";
 import { createClient } from "@/shared/supabase/server";
+import { MONEY_HINT } from "./edit";
+import { parseWon } from "./money";
 
 export type CreateDealState = { ok: boolean; error?: string; fieldErrors?: Record<string, string> };
 
@@ -18,8 +20,8 @@ export async function createDeal(_prev: CreateDealState, formData: FormData): Pr
   const name = text(formData.get("name"));
   const customer = text(formData.get("customer"));
   const contractType = String(formData.get("contractType") ?? "");
-  const amountRaw = String(formData.get("amount") ?? "").replace(/[,\s원]/g, "");
-  const gpRaw = String(formData.get("gp") ?? "").replace(/[,s원]/g, "");
+  const amount = parseWon(String(formData.get("amount") ?? ""));
+  const gp = parseWon(String(formData.get("gp") ?? ""), { allowNegative: true });
   const periodStart = date(formData.get("periodStart"));
   const periodEnd = date(formData.get("periodEnd"));
 
@@ -27,10 +29,10 @@ export async function createDeal(_prev: CreateDealState, formData: FormData): Pr
   if (!name) fieldErrors.name = "사업명을 입력하세요.";
   if (!customer) fieldErrors.customer = "고객사를 입력하세요.";
   if (contractType !== "competitive" && contractType !== "negotiated") fieldErrors.contractType = "계약 방식을 고르세요.";
-  if (amountRaw && !/^\d+$/.test(amountRaw)) fieldErrors.amount = "금액은 숫자만 입력하세요.";
-  if (gpRaw && !/^-?d+$/.test(gpRaw)) fieldErrors.gp = "GP는 숫자만 입력하세요.";
+  if (!amount.ok) fieldErrors.amount = MONEY_HINT;
+  if (!gp.ok) fieldErrors.gp = MONEY_HINT;
   if (periodStart && periodEnd && periodEnd < periodStart) fieldErrors.periodEnd = "종료일은 시작일 이후여야 합니다.";
-  if (Object.keys(fieldErrors).length) return { ok: false, fieldErrors };
+  if (Object.keys(fieldErrors).length || !amount.ok || !gp.ok) return { ok: false, fieldErrors };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("create_deal", {
@@ -38,7 +40,7 @@ export async function createDeal(_prev: CreateDealState, formData: FormData): Pr
     p_customer: customer,
     p_contract_type: contractType,
     p_stage: String(formData.get("stage") || "discovery"),
-    p_amount: amountRaw ? Number(amountRaw) : null,
+    p_amount: amount.value,
     p_period_start: periodStart,
     p_period_end: periodEnd,
     p_items: text(formData.get("items")),
@@ -46,7 +48,7 @@ export async function createDeal(_prev: CreateDealState, formData: FormData): Pr
     p_suppliers: list(formData.get("suppliers")),
     p_delivery_date: date(formData.get("deliveryDate")),
     p_invoice_date: date(formData.get("invoiceDate")),
-    p_gp: gpRaw ? Number(gpRaw) : null,
+    p_gp: gp.value,
   });
   if (error) return { ok: false, error: error.message };
 
