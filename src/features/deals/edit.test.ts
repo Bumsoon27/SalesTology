@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toDealInfoPatch } from "./edit";
+import { MONEY_HINT, toDealInfoPatch } from "./edit";
 
 const base = { name: " 차세대 서버 ", amount: "150,000,000", gp: "15,000,000원", contractType: "competitive", periodStart: "", periodEnd: "", items: " " };
 
@@ -13,10 +13,11 @@ describe("toDealInfoPatch", () => {
   });
 
   it("잘못된 값은 칸별 오류", () => {
-    expect(toDealInfoPatch({ ...base, name: "", amount: "1.5억" }, "discovery")).toEqual({
+    expect(toDealInfoPatch({ ...base, name: "", amount: "15%" }, "discovery")).toEqual({
       ok: false,
-      fieldErrors: { name: "사업명을 입력하세요.", amount: "숫자만 입력하세요." },
+      fieldErrors: { name: "사업명을 입력하세요.", amount: MONEY_HINT },
     });
+    expect(toDealInfoPatch({ ...base, amount: "1.5억", gp: "1500만" }, "discovery")).toMatchObject({ ok: true, patch: { amount: 150_000_000, gp: 15_000_000 } });
     expect(toDealInfoPatch({ ...base, periodStart: "2026-12-01", periodEnd: "2026-11-01" }, "discovery")).toMatchObject({ ok: false, fieldErrors: { periodEnd: expect.any(String) } });
   });
 

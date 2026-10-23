@@ -1,7 +1,7 @@
 "use client";
 
 // [+ 새 영업기회] — 5분 안에 입력할 수 있는 최소 필드 (설계서 §6.6)
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { createDeal, type CreateDealState } from "./actions";
 import { STAGE_LABEL, type DealStage } from "./types";
 import { PartnerPicker } from "@/features/partners/partner-picker";
@@ -67,7 +67,16 @@ export function NewDealDialog({
         ref={dialogRef}
         className="m-auto w-[min(640px,calc(100vw-32px))] rounded-2xl border border-line bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/70 backdrop:backdrop-blur-sm"
       >
-        <form ref={formRef} action={action} className="max-h-[85vh] space-y-5 overflow-y-auto p-6">
+        <form
+          ref={formRef}
+          // form action 으로 보내면 React 가 결과와 상관없이 입력칸을 비운다 → 오류 때 다시 써야 했다.
+          // 직접 보내고, 성공했을 때만 비운다 (아래 useEffect)
+          onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            startTransition(() => action(fd));
+          }}
+          className="max-h-[85vh] space-y-5 overflow-y-auto p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">새 영업기회</h2>
             <button type="button" onClick={() => dialogRef.current?.close()} className="text-muted hover:text-fg" aria-label="닫기">
@@ -142,12 +151,12 @@ export function NewDealDialog({
             </div>
             <div>
               <label className={label} htmlFor="nd-amount">사업 규모 (원, 부가세 별도)</label>
-              <input id="nd-amount" name="amount" inputMode="numeric" className="field" placeholder="예: 150000000" />
+              <input id="nd-amount" name="amount" inputMode="numeric" className="field" placeholder="예: 150,000,000 또는 1.5억" />
               {err("amount")}
             </div>
             <div>
               <label className={label} htmlFor="nd-gp">GP (이윤, 원)</label>
-              <input id="nd-gp" name="gp" inputMode="numeric" className="field" placeholder="예: 15000000" />
+              <input id="nd-gp" name="gp" inputMode="numeric" className="field" placeholder="예: 15,000,000 또는 1500만" />
               {err("gp")}
             </div>
             <div>
