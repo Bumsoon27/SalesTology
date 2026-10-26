@@ -2,7 +2,7 @@
 // 참고: Pipedrive 파이프라인 보드 (단계 열에 카드를 끌어 옮긴다)
 import { suggestDirections } from "./direction";
 import { DEFAULT_PIPELINE_SETTINGS, STAGES, type PipelineSettings } from "./pipeline-settings";
-import { computeDealStatus, daysUntil } from "./status";
+import { computeDealStatus, daysUntil, seoulDay } from "./status";
 import { STAGE_LABEL, type DealRow, type DealStage } from "./types";
 import type { NodeStatus } from "@/features/topology/types";
 
@@ -61,7 +61,7 @@ export function buildBoard(
       gpRate: amount && gp != null ? Math.round((gp / amount) * 1000) / 10 : null,
       status: st.status,
       reason: st.reason ?? null,
-      idleDays: Math.max(0, daysUntil(today, d.last_activity_at.slice(0, 10))),
+      idleDays: Math.max(0, daysUntil(today, seoulDay(d.last_activity_at))),
       next,
       updatedAt: d.updated_at ?? "",
     });

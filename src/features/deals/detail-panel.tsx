@@ -58,10 +58,16 @@ export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onCl
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const silent = useRef(false);
+  const lastKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (!node || node.kind === "me") return;
     let alive = true;
+    // 같은 노드인데 그래프만 새로 그려진 경우(router.refresh·실시간 갱신)는 조용히 다시 불러온다
+    // → 수정 중인 입력칸·메모 초안이 로딩 화면에 지워지지 않는다
+    const key = `${node.id}|${node.refId ?? ""}`;
+    if (lastKey.current === key) silent.current = true;
+    lastKey.current = key;
     const run = async () => {
       // 조치 후 다시 불러올 때는 기존 내용을 유지한다
       if (!silent.current) setLoadingId(node.id);

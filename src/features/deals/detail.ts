@@ -107,7 +107,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
         .eq("deal_id", id)
         .order("occurred_on", { ascending: false })
         .order("created_at", { ascending: false })
-        .limit(30),
+        .limit(200), // 90일 접점·활동 수를 셀 수 있게 넉넉히 (화면에는 최근 5개 + 더 보기)
       requireUser(),
     ]);
     if (error || !d) return { kind: "none" };

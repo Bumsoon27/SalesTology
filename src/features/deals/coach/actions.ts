@@ -8,7 +8,8 @@ import { createClient } from "@/shared/supabase/server";
 import { requireUser } from "@/shared/auth/current-user";
 import { loadNodeDetail } from "../detail";
 import { todayInSeoul } from "../status";
-import { parseAdvice, ruleBasedAdvice, type Advice } from "./advice";
+import { createAdminClient } from "@/shared/supabase/admin";
+import { isAdvice, parseAdvice, ruleBasedAdvice, type Advice } from "./advice";
 import { askCoach, coachProvider } from "./provider";
 import { buildCoachSignals, signalsKey, type CoachSignals } from "./signals";
 
@@ -84,32 +85,48 @@ export async function getCoaching(dealId: string, mode: "peek" | "generate" | "r
     .limit(1)
     .maybeSingle();
 
-  if (cached && mode !== "refresh") {
-    return { ...base, advice: cached.advice as Advice, source: cached.source as "llm" | "rules", model: cached.model, createdAt: cached.created_at };
+  // 저장된 조언도 모양을 다시 확인한다 (깨진 행이 화면을 멈추지 않게)
+  if (cached && mode !== "refresh" && isAdvice(cached.advice)) {
+    return { ...base, advice: cached.advice, source: cached.source as "llm" | "rules", model: cached.model, createdAt: cached.created_at };
   }
   if (mode === "peek") return { ...base, advice: null, source: null, model: null, createdAt: null };
 
-  // 모델 호출 (설정돼 있고 상한 안일 때만) → 실패하면 규칙 기반
+  // 기록은 서버만 쓴다 (사용자 권한으로는 넣을 수 없게 막았다 — 가짜 'sLLM 결과' 방지).
+  // 이 시점까지 사용자 권한(RLS)으로 사업을 읽었으므로 볼 수 있는 사업임이 확인됐다.
+  const admin = createAdminClient();
   let advice: Advice | null = null;
   let source: "llm" | "rules" = "rules";
   let model: string | null = null;
   let note: string | undefined;
-  if (provider && remaining > 0) {
-    const r = await askCoach(signals);
-    const parsed = r ? parseAdvice(r.text) : null;
-    if (parsed) {
-      advice = parsed;
-      source = "llm";
-      model = r!.model;
-    } else note = "모델 응답을 받지 못해 규칙 기반 코칭을 보여드립니다.";
-  } else if (provider) note = `오늘 AI 코칭 한도(${DAILY_LIMIT}회)를 다 써서 규칙 기반 코칭을 보여드립니다.`;
+  let rowId: string | null = null;
+
+  if (provider) {
+    // 하루 상한을 한 번에 확인·예약 (동시에 여러 번 눌러도 넘지 않는다)
+    const { data: reserved } = await admin.rpc("coach_reserve_call", {
+      p_user: user.id,
+      p_deal: dealId,
+      p_signals_key: key,
+      p_limit: DAILY_LIMIT,
+      p_day_start: dayStart,
+    });
+    rowId = (reserved as string | null) ?? null;
+    if (rowId) {
+      const r = await askCoach(signals);
+      const parsed = r ? parseAdvice(r.text) : null;
+      if (parsed) {
+        advice = parsed;
+        source = "llm";
+        model = r!.model;
+      } else note = "모델 응답을 받지 못해 규칙 기반 코칭을 보여드립니다.";
+    } else note = `오늘 AI 코칭 한도(${DAILY_LIMIT}회)를 다 써서 규칙 기반 코칭을 보여드립니다.`;
+  }
   if (!advice) advice = ruleBasedAdvice(signals);
 
-  const { data: saved, error } = await supabase
-    .from("deal_coaching")
-    .insert({ deal_id: dealId, source, model, signals_key: key, advice })
-    .select("created_at")
-    .single();
+  // 예약한 행이 있으면 결과로 채우고(실패면 'rules' 로 바꿔 상한에서 빠진다), 없으면 새로 기록
+  const write = rowId
+    ? admin.from("deal_coaching").update({ source, model, signals_key: key, advice }).eq("id", rowId).select("created_at").single()
+    : admin.from("deal_coaching").insert({ deal_id: dealId, user_id: user.id, source, model, signals_key: key, advice }).select("created_at").single();
+  const { data: saved, error } = await write;
   if (error) console.error(`[coach] 저장 실패: ${error.code ?? ""}`); // 본문·신호는 로그에 남기지 않는다
 
   return {
