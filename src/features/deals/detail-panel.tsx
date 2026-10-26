@@ -15,6 +15,7 @@ import type { UniverseNode } from "@/features/topology/types";
 import { DealInfoEditor } from "./deal-info-editor";
 import { DealPartiesSection } from "./deal-parties-section";
 import { DirectionSection } from "./direction-section";
+import { CoachSection } from "./coach/coach-section";
 import { TIER_LABEL, tierOf, type Strength } from "./relationship";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
@@ -444,6 +445,9 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
       </Section>
 
       <NewsSection names={[d.customer.name, ...si.map((p) => p.company.name)]} />
+
+      {/* 영업기회 하단 — AI 코칭 (진단·영업 방향·이번 주 할 일) */}
+      <CoachSection d={d} />
 
       <Section title="변경 이력">
         {d.activity.length === 0 ? (

@@ -34,7 +34,7 @@ export async function restoreItem(kind: "deal" | "company", id: string): Promise
 /** 부문 파이프라인 설정 저장 (관리자만 — RLS 가 막는다) */
 export async function savePipelineSettings(
   teamId: string,
-  input: { probabilities: Record<string, string>; staleAfterDays: string },
+  input: { probabilities: Record<string, string>; staleAfterDays: string; aiCoachEnabled?: boolean },
 ): Promise<AdminResult> {
   const parsed = parseSettingsInput(input);
   if (!parsed.ok) return { ok: false, error: parsed.error };

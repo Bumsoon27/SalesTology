@@ -51,7 +51,7 @@ export async function getAdminData() {
 /** 부문별 파이프라인 설정 (행이 없는 부문은 기본값) */
 export async function getTeamPipelineSettings(teamIds: string[]): Promise<Record<string, PipelineSettings>> {
   const supabase = await createClient();
-  const { data } = await supabase.from("team_pipeline_settings").select("team_id, stage_probabilities, stale_after_days").in("team_id", teamIds);
+  const { data } = await supabase.from("team_pipeline_settings").select("team_id, stage_probabilities, stale_after_days, ai_coach_enabled").in("team_id", teamIds);
   const rows = new Map((data ?? []).map((r) => [r.team_id as string, r]));
   return Object.fromEntries(teamIds.map((id) => [id, fromSettingsRow(rows.get(id) ?? null)]));
 }
