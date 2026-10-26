@@ -119,6 +119,7 @@ export function PipelineBoard({ columns: initial }: { columns: BoardColumn[] }) 
                     </div>
                     <p className="mt-1 truncate pl-4 text-[11px] text-muted">
                       {c.customer}
+                      {c.owner && <span className="text-accent"> · {c.owner}</span>}
                       {c.onHold && " · 보류"}
                     </p>
                     <div className="mt-2 flex items-center justify-between pl-4 tabular-nums">
