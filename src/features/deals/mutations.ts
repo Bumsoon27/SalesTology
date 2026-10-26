@@ -28,12 +28,21 @@ export async function updateDeal(
   patch: { stage?: DealStage; status?: DealStatus },
   expectedUpdatedAt: string,
 ): Promise<MutationResult> {
-  if (patch.stage && !STAGES.includes(patch.stage)) return { ok: false, error: "알 수 없는 단계입니다." };
-  if (patch.status && !STATUSES.includes(patch.status)) return { ok: false, error: "알 수 없는 상태입니다." };
+  // 서버 액션은 누구나 임의 인자로 부를 수 있다 → 받은 객체를 그대로 쓰지 않고 허용한 두 칸만 옮긴다
+  const safe: { stage?: DealStage; status?: DealStatus } = {};
+  if (patch?.stage !== undefined) {
+    if (!STAGES.includes(patch.stage)) return { ok: false, error: "알 수 없는 단계입니다." };
+    safe.stage = patch.stage;
+  }
+  if (patch?.status !== undefined) {
+    if (!STATUSES.includes(patch.status)) return { ok: false, error: "알 수 없는 상태입니다." };
+    safe.status = patch.status;
+  }
+  if (!safe.stage && !safe.status) return { ok: false, error: "바꿀 내용이 없습니다." };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("deals")
-    .update(patch)
+    .update(safe)
     .eq("id", dealId)
     .eq("updated_at", expectedUpdatedAt)
     .select("id");

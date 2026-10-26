@@ -2,7 +2,7 @@
 //
 // 참고: Affinity relationship strength (최근성·빈도 기반 점수). 우리는 이메일·캘린더 대신
 // 앱 안의 기록(활동 기록·업무 완료·사업 활동)을 쓴다. 데이터는 외부로 나가지 않는다.
-import { daysUntil } from "./status";
+import { daysUntil, seoulDay } from "./status";
 import type { NoteKind } from "./notes";
 
 /** 상호작용 하나의 무게 */
@@ -34,7 +34,7 @@ export function relationshipStrength(events: Interaction[], today: string): Stre
   let count = 0;
   let lastOn: string | null = null;
   for (const e of events) {
-    const on = e.on.slice(0, 10);
+    const on = seoulDay(e.on);
     const age = daysUntil(today, on);
     if (age < 0 || age > MAX_AGE_DAYS) continue;
     sum += INTERACTION_WEIGHT[e.kind] * Math.exp(-age / DECAY_DAYS);

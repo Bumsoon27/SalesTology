@@ -4,7 +4,7 @@
 // 규칙 기반이라 사업 데이터가 외부(LLM)로 나가지 않고, 왜 그 제안이 나왔는지(why)를 항상 함께 보여준다.
 // 나중에 sLLM 을 붙이더라도 이 결과(구조화된 신호)를 입력으로 쓰고, 이 함수는 그대로 기본값으로 남긴다.
 import { STALE_AFTER_DAYS } from "./pipeline";
-import { computeTaskState, daysUntil } from "./status";
+import { computeTaskState, daysUntil, seoulDay } from "./status";
 import { TASK_LABEL, type DealRow, type DealStage, type TaskRow } from "./types";
 
 export type DirectionKind = "issue" | "overdue" | "due_soon" | "missing_schedule" | "stale" | "single_thread" | "data" | "margin" | "stage";
@@ -95,7 +95,7 @@ export function suggestDirections(deal: Deal, today: string, limit = 3, staleAft
 
   // 4) 정체 — 수주 전인데 오래 활동이 없음
   if (PRE_WIN.has(deal.stage) && deal.last_activity_at) {
-    const idle = daysUntil(today, deal.last_activity_at.slice(0, 10));
+    const idle = daysUntil(today, seoulDay(deal.last_activity_at));
     if (idle >= staleAfterDays) {
       out.push({ kind: "stale", priority: Math.min(80, 50 + idle), title: "고객 접촉 — 근황 확인", why: `${idle}일째 활동이 없습니다 (${staleAfterDays}일 기준)` });
     }

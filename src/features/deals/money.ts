@@ -30,10 +30,12 @@ export function parseWon(raw: string | null | undefined, opts: { allowNegative?:
   // 숫자만
   if (/^\d+$/.test(s)) return { ok: true, value: sign * Number(s) };
 
-  // 억·만 단위: "1.5억", "1억5000만", "1500만", "3억2000"
+  // 억·만 단위: "1.5억", "1억5000만", "1500만", "3억2000"(= 3억 2000만, 한국어 관용)
   const m = /^(?:(\d+(?:\.\d+)?)억)?(?:(\d+(?:\.\d+)?)만)?(\d+)?$/.exec(s);
   if (!m || (!m[1] && !m[2])) return { ok: false };
-  const value = (m[1] ? Number(m[1]) * UNIT.억 : 0) + (m[2] ? Number(m[2]) * UNIT.만 : 0) + (m[3] ? Number(m[3]) : 0);
+  // '억' 뒤에 '만' 없이 붙은 숫자는 만 단위로 읽는다. '만' 뒤의 숫자는 원
+  const tail = m[3] ? Number(m[3]) * (m[1] && !m[2] ? UNIT.만 : 1) : 0;
+  const value = (m[1] ? Number(m[1]) * UNIT.억 : 0) + (m[2] ? Number(m[2]) * UNIT.만 : 0) + tail;
   if (!Number.isFinite(value)) return { ok: false };
   return { ok: true, value: sign * Math.round(value) };
 }

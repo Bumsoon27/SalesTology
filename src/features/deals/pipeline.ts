@@ -4,7 +4,7 @@
 // - 가중 파이프라인(Pipedrive·Freshworks): 단계마다 성사 확률을 두고 규모 × 확률로 예상 매출을 본다
 // - 정체 표시(Pipedrive 'rotting', Clari 'stalled activity'): 마지막 활동 이후 오래 손대지 않은 사업을 따로 띄운다
 import { DEFAULT_PIPELINE_SETTINGS, type PipelineSettings } from "./pipeline-settings";
-import { daysUntil } from "./status";
+import { daysUntil, seoulDay } from "./status";
 import { STAGE_LABEL, type DealRow, type DealStage } from "./types";
 
 /** 단계별 기본 성사 확률 (%). 수주 이후는 확정 매출로 본다. 부문 설정(team_pipeline_settings)이 있으면 그 값 */
@@ -73,7 +73,7 @@ export function summarizePipeline(deals: Deal[], today: string, settings: Pipeli
     }
 
     if (PRE_WIN.has(d.stage) && d.last_activity_at) {
-      const idle = daysUntil(today, d.last_activity_at.slice(0, 10));
+      const idle = daysUntil(today, seoulDay(d.last_activity_at));
       if (idle >= settings.staleAfterDays) stale.push({ id: d.id, name: d.name, customer: d.customer.name, idleDays: idle, stage: d.stage });
     }
   }

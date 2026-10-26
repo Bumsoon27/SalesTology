@@ -4,12 +4,17 @@ import { MONEY_HINT, toDealInfoPatch } from "./edit";
 const base = { name: " 차세대 서버 ", amount: "150,000,000", gp: "15,000,000원", contractType: "competitive", periodStart: "", periodEnd: "", items: " " };
 
 describe("toDealInfoPatch", () => {
-  it("금액은 원 단위 숫자로, 빈 값은 null", () => {
+  it("금액은 원 단위 숫자로, 손실 GP(음수) 허용", () => {
     expect(toDealInfoPatch(base, "discovery")).toEqual({
       ok: true,
       patch: { name: "차세대 서버", amount: 150000000, gp: 15000000, contract_type: "competitive", period_start: null, period_end: null, items: null },
     });
-    expect(toDealInfoPatch({ ...base, amount: "", gp: "-3000000" }, "discovery")).toMatchObject({ ok: true, patch: { amount: null, gp: -3000000 } });
+    expect(toDealInfoPatch({ ...base, gp: "-3000000" }, "discovery")).toMatchObject({ ok: true, patch: { gp: -3000000 } });
+  });
+
+  it("규모·GP 는 비울 수 없다 (등록과 같은 규칙)", () => {
+    expect(toDealInfoPatch({ ...base, amount: "" }, "discovery")).toMatchObject({ ok: false, fieldErrors: { amount: expect.stringContaining("규모") } });
+    expect(toDealInfoPatch({ ...base, gp: "" }, "discovery")).toMatchObject({ ok: false, fieldErrors: { gp: expect.stringContaining("GP") } });
   });
 
   it("잘못된 값은 칸별 오류", () => {

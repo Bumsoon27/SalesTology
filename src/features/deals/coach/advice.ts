@@ -58,6 +58,14 @@ export function parseAdvice(raw: string): Advice | null {
   return { diagnosis, strategy, actions };
 }
 
+/** 저장된 값이 화면에 그릴 수 있는 조언 모양인지 (문자열·문자열 배열, 길이 제한) */
+export function isAdvice(v: unknown): v is Advice {
+  if (!v || typeof v !== "object") return false;
+  const a = v as Record<string, unknown>;
+  const list = (x: unknown) => Array.isArray(x) && x.length > 0 && x.length <= 5 && x.every((s) => typeof s === "string" && s.length <= 200);
+  return typeof a.diagnosis === "string" && a.diagnosis.length > 0 && a.diagnosis.length <= 300 && list(a.strategy) && list(a.actions);
+}
+
 /** 모델이 없거나 실패했을 때 — 같은 신호로 규칙 기반 코칭 */
 export function ruleBasedAdvice(s: CoachSignals): Advice {
   const has = (sig: string) => s.감지된신호.includes(sig);

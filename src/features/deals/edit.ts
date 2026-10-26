@@ -38,8 +38,11 @@ export function toDealInfoPatch(
   const end = input.periodEnd.trim();
 
   if (!name) e.name = "사업명을 입력하세요.";
+  // 등록과 같이 규모·GP 는 비울 수 없다 (파이프라인 예측·GP율이 빈 값 없이 나오게)
   if (!amount.ok) e.amount = MONEY_HINT;
+  else if (amount.value == null) e.amount = "사업 규모를 입력하세요.";
   if (!gp.ok) e.gp = MONEY_HINT;
+  else if (gp.value == null) e.gp = "GP를 입력하세요. (모르면 0)";
   else if (amount.ok) {
     const gpError = checkGp(amount.value, gp.value);
     if (gpError) e.gp = gpError;

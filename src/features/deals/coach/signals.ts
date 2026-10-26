@@ -4,7 +4,7 @@
 // - 보내지 않는 것: 사업명·고객사·관계사 이름, 사람 이름(담당자·상대), 메모·이슈 본문, 정확한 금액, 날짜
 // - 보내는 것: 단계·계약 방식·금액 구간·GP율 구간·경과 일수·업무 상태·활동 종류별 횟수·신호 종류
 import { recentCounterparts, suggestDirections, type DirectionKind } from "../direction";
-import { computeTaskState, daysUntil } from "../status";
+import { computeTaskState, daysUntil, seoulDay } from "../status";
 import { STAGE_LABEL, TASK_LABEL, type DealRow, type DealStage, type IssueRow, type TaskRow } from "../types";
 import { NOTE_LABEL, type NoteKind } from "../notes";
 
@@ -123,7 +123,7 @@ export function buildCoachSignals(input: CoachInput, today: string): CoachSignal
     계약방식: input.contractType === "competitive" ? "경쟁입찰" : "수의계약",
     규모구간: amountBand(input.amount),
     GP율구간: gpRateBand(input.amount, input.gp),
-    마지막활동_며칠전: Math.max(0, daysUntil(today, input.lastActivityAt.slice(0, 10))),
+    마지막활동_며칠전: Math.max(0, daysUntil(today, seoulDay(input.lastActivityAt))),
     계약기간_개월: months,
     열린이슈_건수: input.issues.filter((i) => i.status === "open").length,
     업무: input.tasks.map((t) => taskLine(t, today)),

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { parseAdvice, ruleBasedAdvice, userPrompt } from "./advice";
+import { isAdvice, parseAdvice, ruleBasedAdvice, userPrompt } from "./advice";
+
+describe("isAdvice", () => {
+  it("저장된 값 모양 확인 — 깨진 값·예약 중 값은 거부", () => {
+    expect(isAdvice({ diagnosis: "x", strategy: ["a"], actions: ["b"] })).toBe(true);
+    expect(isAdvice({ pending: true })).toBe(false);
+    expect(isAdvice({ diagnosis: "x", strategy: "a", actions: ["b"] })).toBe(false);
+    expect(isAdvice({ diagnosis: "x", strategy: [1], actions: ["b"] })).toBe(false);
+    expect(isAdvice(null)).toBe(false);
+  });
+});
 import type { CoachSignals } from "./signals";
 
 const signals = (o: Partial<CoachSignals> = {}): CoachSignals => ({

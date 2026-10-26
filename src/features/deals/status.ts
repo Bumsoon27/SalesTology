@@ -78,11 +78,21 @@ export function computeCompanyStatus(
     return active.reduce<NodeStatus>((worst, d) => (SEVERITY[d.computed] > SEVERITY[worst] ? d.computed : worst), "green");
   }
   const last = deals.reduce((m, d) => (d.last_activity_at > m ? d.last_activity_at : m), "");
-  if (last && daysUntil(today, last.slice(0, 10)) >= GREY_AFTER_DAYS) return "grey";
+  if (last && daysUntil(today, seoulDay(last)) >= GREY_AFTER_DAYS) return "grey";
   return deals.length > 0 && deals.every((d) => d.status === "on_hold") ? "hold" : "green";
 }
 
 /** 오늘 날짜 (Asia/Seoul, YYYY-MM-DD) */
 export function todayInSeoul(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
+/**
+ * 시각(timestamptz 문자열) → 서울 날짜 YYYY-MM-DD. 날짜만 있는 값은 그대로.
+ * slice(0,10) 은 UTC 날짜라 서울 00~09시 활동이 전날로 잡혀 '며칠째 활동 없음'이 하루 늘었다.
+ */
+export function seoulDay(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const t = Date.parse(value);
+  return Number.isNaN(t) ? value.slice(0, 10) : todayInSeoul(new Date(t));
 }
