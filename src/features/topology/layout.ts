@@ -1,8 +1,6 @@
 // 방사형 궤도 배치 (설계서 §6.3): 서브트리의 보이는 리프 수에 비례해 부채꼴을 나누고,
 // 각 노드의 목표 좌표를 자기 부채꼴 가운데·자기 궤도 위에 둔다.
-import type { NodeKind, UniverseNode } from "./types";
-
-export const DEPTH: Record<NodeKind, number> = { me: 0, member: 1, customer: 1, deal: 2, party: 3 };
+import type { UniverseNode } from "./types";
 
 export type Target = { angle: number; depth: number };
 
@@ -25,18 +23,19 @@ export function computeTargets(nodes: UniverseNode[]): Map<string, Target> {
   };
   countLeaves(root);
 
-  const assign = (n: UniverseNode, start: number, span: number) => {
-    targets.set(n.id, { angle: start + span / 2, depth: DEPTH[n.kind] });
+  // 궤도는 노드 종류가 아니라 트리 깊이로 정한다 — 부문 보기(부문 → 영업대표 → 고객사 → 사업)도 한 칸씩 밀려 배치된다
+  const assign = (n: UniverseNode, start: number, span: number, depth: number) => {
+    targets.set(n.id, { angle: start + span / 2, depth: Math.min(depth, 4) });
     const kids = children.get(n.id) ?? [];
     const total = leafCount.get(n.id) ?? 1;
     let cursor = start;
     for (const k of kids) {
       const s = (span * (leafCount.get(k.id) ?? 1)) / total;
-      assign(k, cursor, s);
+      assign(k, cursor, s, depth + 1);
       cursor += s;
     }
   };
-  assign(root, -Math.PI / 2, Math.PI * 2);
+  assign(root, -Math.PI / 2, Math.PI * 2, 0);
   return targets;
 }
 

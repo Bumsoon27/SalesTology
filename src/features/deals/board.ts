@@ -10,6 +10,8 @@ export type BoardCard = {
   id: string;
   name: string;
   customer: string;
+  /** 부문 보기에서 영업대표 이름 */
+  owner: string | null;
   stage: DealStage;
   onHold: boolean;
   contractType: "competitive" | "negotiated";
@@ -31,7 +33,11 @@ export function moveError(card: Pick<BoardCard, "stage" | "contractType">, to: D
   return null;
 }
 
-export function buildBoard(deals: DealRow[], today: string, settings: PipelineSettings = DEFAULT_PIPELINE_SETTINGS): BoardColumn[] {
+export function buildBoard(
+  deals: (DealRow & { owner?: string })[],
+  today: string,
+  settings: PipelineSettings = DEFAULT_PIPELINE_SETTINGS,
+): BoardColumn[] {
   const columns = new Map<DealStage, BoardColumn>(
     STAGES.map((s) => [s, { stage: s, label: STAGE_LABEL[s], probability: settings.probabilities[s], cards: [], total: 0, weighted: 0 }]),
   );
@@ -47,6 +53,7 @@ export function buildBoard(deals: DealRow[], today: string, settings: PipelineSe
       id: d.id,
       name: d.name,
       customer: d.customer.name,
+      owner: d.owner ?? null,
       stage: d.stage,
       onHold: d.status === "on_hold",
       contractType: d.contract_type ?? "negotiated",

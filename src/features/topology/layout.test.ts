@@ -27,4 +27,10 @@ describe("computeTargets", () => {
     expect(t.get("p")!.angle).toBeCloseTo(t.get("a1")!.angle);
     expect(t.get("p")!.depth).toBe(3);
   });
+
+  it("부문 보기: 부문 → 영업대표 → 고객사 → 사업 → 관계사 가 한 궤도씩 바깥으로", () => {
+    const nodes = [n("me", "me", null), n("m", "member", "me"), n("C", "customer", "m"), n("d", "deal", "C"), n("p", "party", "d")];
+    const t = computeTargets(nodes);
+    expect(["m", "C", "d", "p"].map((id) => t.get(id)!.depth)).toEqual([1, 2, 3, 4]);
+  });
 });

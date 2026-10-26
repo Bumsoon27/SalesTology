@@ -3,8 +3,8 @@ import { requireUser } from "@/shared/auth/current-user";
 import { AppHeader } from "@/shared/ui/app-header";
 import { UniverseShell } from "@/features/topology/universe-shell";
 import { UniverseLegend } from "@/features/topology/universe-legend";
-import { buildMyUniverse } from "@/features/topology/build-graph";
-import { getCompanyNames, getMyDeals, getPipelineSettings, getTeamDeals } from "@/features/deals/queries";
+import { buildMyUniverse, buildTeamUniverse } from "@/features/topology/build-graph";
+import { getCompanyNames, getMyDeals, getPipelineSettings, getTeamDealsFull, getTeamMembers } from "@/features/deals/queries";
 import { todayInSeoul } from "@/features/deals/status";
 import { NewDealDialog } from "@/features/deals/new-deal-dialog";
 import { RealtimeRefresh } from "@/features/deals/realtime-refresh";
@@ -13,9 +13,13 @@ import { PartnerDialog } from "@/features/partners/partner-dialog";
 import { summarizeByOwner, summarizePipeline } from "@/features/deals/pipeline";
 import { topDirections } from "@/features/deals/direction";
 import { PipelineSummaryCard } from "@/features/deals/pipeline-summary";
+import { resolveScope } from "@/features/deals/scope";
+import { ScopeSwitch } from "@/features/deals/scope-switch";
 
-// A 영역 메인 대시보드: '나' 중심의 토폴로지 우주 (설계서 §6)
-export default function DashboardPage() {
+type Params = { scope?: string; owner?: string };
+
+// A 영역 메인 대시보드: '나'(또는 부문·영업대표) 중심의 토폴로지 우주 (설계서 §6)
+export default function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   return (
     <>
       <AppHeader active="core" />
@@ -28,41 +32,61 @@ export default function DashboardPage() {
             </div>
           }
         >
-          <DashboardUniverse />
+          <DashboardUniverse searchParams={searchParams as Promise<Params>} />
         </Suspense>
       </main>
     </>
   );
 }
 
-async function DashboardUniverse() {
-  const user = await requireUser();
-  const [deals, companyNames, partners, teamDeals, settings] = await Promise.all([
+async function DashboardUniverse({ searchParams }: { searchParams: Promise<Params> }) {
+  const [user, params] = await Promise.all([requireUser(), searchParams]);
+  const [myDeals, companyNames, partners, teamDeals, members, settings] = await Promise.all([
     getMyDeals(user.id),
     getCompanyNames(),
     getPartners(),
-    user.teamId ? getTeamDeals(user.teamId) : Promise.resolve(null),
+    user.teamId ? getTeamDealsFull(user.teamId) : Promise.resolve(null),
+    user.teamId ? getTeamMembers(user.teamId) : Promise.resolve([]),
     getPipelineSettings(user.teamId),
   ]);
+  const scope = resolveScope(params, user, members);
   const today = todayInSeoul();
-  const data = buildMyUniverse({ id: user.id, name: user.name }, deals, today);
+
+  // 조회 범위에 맞는 사업과 우주
+  const deals =
+    scope.kind === "mine" || !teamDeals ? myDeals : scope.kind === "member" ? teamDeals.filter((d) => d.owner_id === scope.id) : teamDeals;
+  const data =
+    scope.kind === "team" && teamDeals
+      ? buildTeamUniverse({ name: user.teamName ?? "부문" }, teamDeals, today)
+      : buildMyUniverse(scope.kind === "member" ? { id: scope.id, name: scope.name } : { id: user.id, name: user.name }, deals, today);
+
   const pipeline = summarizePipeline(deals, today, settings);
   const directions = topDirections(deals, today, 6, settings.staleAfterDays);
   const team = teamDeals
     ? { summary: summarizePipeline(teamDeals, today, settings), owners: summarizeByOwner(teamDeals, user.id, settings) }
     : null;
-  const isEmpty = data.nodes.length === 1;
+  const isEmpty = !data.nodes.some((n) => n.kind === "customer");
   // 파트너가 많지 않으면 처음부터 펼쳐서 연관 관계가 보이게 한다
   const expandAll = data.nodes.filter((n) => n.kind === "party").length <= 60;
 
   return (
     <>
-      <UniverseShell data={data} expandAll={expandAll} />
+      <UniverseShell
+        data={data}
+        expandAll={expandAll}
+        toolbar={<ScopeSwitch path="/dashboard" scope={scope} members={members} meId={user.id} teamName={user.teamId ? (user.teamName ?? "부문") : null} />}
+      />
 
       {isEmpty && (
         <div className="pointer-events-none absolute inset-x-0 top-[58%] flex flex-col items-center gap-2 text-center">
-          <p className="text-sm text-fg">첫 영업기회를 등록해 보세요</p>
-          <p className="text-xs text-muted">사업이 늘어날수록 나를 중심으로 우주가 넓어집니다</p>
+          {scope.kind === "mine" ? (
+            <>
+              <p className="text-sm text-fg">첫 영업기회를 등록해 보세요</p>
+              <p className="text-xs text-muted">사업이 늘어날수록 나를 중심으로 우주가 넓어집니다</p>
+            </>
+          ) : (
+            <p className="text-sm text-muted">이 범위에는 진행 중인 사업이 없습니다</p>
+          )}
         </div>
       )}
 
