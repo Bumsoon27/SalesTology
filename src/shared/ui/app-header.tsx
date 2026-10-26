@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { signOut } from "@/shared/auth/actions";
 import { requireUser } from "@/shared/auth/current-user";
 import { HeaderTicker } from "@/features/notifications/header-ticker";
-import { AppNav } from "./app-nav";
+import { AppNav, AppNavFallback } from "./app-nav";
 import { LogoMark, LogoWordmark } from "./logo";
 
 // A·B 공용 상단 바. 주 메뉴 [SalesTology ▸ 대시보드·파이프라인 | SOS] + 가운데 주요 알림 티커 (설계서 §6.1, §7.2, §11)
@@ -16,7 +16,10 @@ export function AppHeader({ active }: { active: "core" | "pipeline" | "sos" }) {
           <LogoMark size={24} />
           <LogoWordmark className="hidden text-sm sm:inline" />
         </Link>
-        <AppNav inSos={active === "sos"} />
+        {/* 주소(usePathname)를 읽는 메뉴는 Suspense 안에 (Next 16 사전 렌더 규칙) */}
+        <Suspense fallback={<AppNavFallback active={active} />}>
+          <AppNav />
+        </Suspense>
       </div>
       {/* 모바일에서는 둘째 줄 전체 폭 */}
       <div className="order-last col-span-3 flex min-w-0 justify-center sm:order-none sm:col-span-1">
