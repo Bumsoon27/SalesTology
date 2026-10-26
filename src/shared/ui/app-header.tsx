@@ -5,12 +5,12 @@ import { requireUser } from "@/shared/auth/current-user";
 import { HeaderTicker } from "@/features/notifications/header-ticker";
 import { LogoMark, LogoWordmark } from "./logo";
 
-// A·B 공용 상단 바. [SalesTology|SOS] 전환 탭 + 가운데 주요 알림 티커 (설계서 §6.1, §7.2, §11)
-export function AppHeader({ active }: { active: "core" | "sos" }) {
+// A·B 공용 상단 바. [SalesTology|파이프라인|SOS] 전환 탭 + 가운데 주요 알림 티커 (설계서 §6.1, §7.2, §11)
+export function AppHeader({ active }: { active: "core" | "pipeline" | "sos" }) {
   const tab = (href: string, label: string, on: boolean) => (
     <Link
       href={href}
-      className={`rounded-md px-3 py-1 text-xs transition-colors whitespace-nowrap ${on ? "bg-white/[0.14] font-medium text-white" : "text-[#b4b7c3] hover:text-white"}`}
+      className={`rounded-md px-2.5 py-1 text-xs transition-colors whitespace-nowrap sm:px-3 ${on ? "bg-white/[0.14] font-medium text-white" : "text-[#b4b7c3] hover:text-white"}`}
     >
       {label}
     </Link>
@@ -25,6 +25,7 @@ export function AppHeader({ active }: { active: "core" | "sos" }) {
         </Link>
         <nav className="flex gap-0.5 rounded-lg border border-white/15 p-0.5">
           {tab("/dashboard", "SalesTology", active === "core")}
+          {tab("/pipeline", "파이프라인", active === "pipeline")}
           {tab("/sos", "SOS", active === "sos")}
         </nav>
       </div>
