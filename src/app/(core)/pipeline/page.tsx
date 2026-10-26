@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { requireUser } from "@/shared/auth/current-user";
 import { AppHeader } from "@/shared/ui/app-header";
 import { buildBoard } from "@/features/deals/board";
+import { summarizePipeline } from "@/features/deals/pipeline";
 import { PipelineBoard } from "@/features/deals/pipeline-board";
 import { getMyDeals, getPipelineSettings, getTeamDealsFull, getTeamMembers } from "@/features/deals/queries";
 import { resolveScope } from "@/features/deals/scope";
@@ -50,8 +51,7 @@ async function Board({ searchParams }: { searchParams: Promise<Params> }) {
   const today = todayInSeoul();
   const columns = buildBoard(deals, today, settings);
   const active = columns.flatMap((c) => c.cards).filter((c) => !c.onHold);
-  const total = columns.reduce((s, c) => s + c.total, 0);
-  const weighted = columns.reduce((s, c) => s + c.weighted, 0);
+  const summary = summarizePipeline(deals, today, settings);
   const eok = (n: number) => (n >= 100_000_000 ? `${(n / 100_000_000).toFixed(1).replace(/\.0$/, "")}억` : `${Math.round(n / 10_000).toLocaleString()}만`);
   const title = scope.kind === "mine" ? "내 파이프라인" : scope.kind === "member" ? `${scope.name}님의 파이프라인` : `${user.teamName ?? "부문"} 파이프라인`;
 
@@ -65,8 +65,9 @@ async function Board({ searchParams }: { searchParams: Promise<Params> }) {
           </div>
           <ScopeSwitch path="/pipeline" scope={scope} members={members} meId={user.id} teamName={user.teamId ? (user.teamName ?? "부문") : null} />
         </div>
+        {/* 대시보드 카드와 같은 기준: 확정 = 협상 단계 이상, 전체 강조 */}
         <p className="text-xs text-muted tabular-nums">
-          진행 {active.length}건 · 전체 <span className="text-fg">{eok(total)}</span> · 가중 예상 <span className="text-fg">{eok(weighted)}</span>
+          진행 {active.length}건 · 확정 {eok(summary.firm)} ({summary.firmCount}건) / <span className="text-sm font-semibold text-fg">전체 {eok(summary.total)}</span>
         </p>
       </div>
       {/* 사업 내용·범위가 바뀌면 보드를 새로 그린다 (서버 값 기준) */}

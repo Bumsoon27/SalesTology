@@ -55,8 +55,10 @@ export function PipelineSummaryCard({
           <span className="block text-[11px] text-muted">
             <span className="text-accent">✦</span> 오늘 할 일 {directions.length} · 진행 {s.activeCount}건
           </span>
-          <span className="text-sm font-semibold">
-            예상 {eok(s.weighted)} <span className="font-normal text-muted">/ 전체 {eok(s.total)}</span>
+          {/* 전체를 강조(흰색 볼드), 확정(협상 이상)은 보조(회색) */}
+          <span className="text-sm tabular-nums">
+            <span className="text-muted">확정 {eok(s.firm)} / </span>
+            <span className="font-semibold text-fg">전체 {eok(s.total)}</span>
           </span>
         </span>
         <span className="flex items-center gap-2">
@@ -140,8 +142,8 @@ export function PipelineSummaryCard({
                 )}
                 <dl className="grid grid-cols-3 gap-2 text-center">
                   {[
+                    [`확정 · ${cur.firmCount}건`, eok(cur.firm)],
                     ["가중 예상", eok(cur.weighted)],
-                    ["확정(수주 후)", eok(cur.committed)],
                     ["GP", cur.gpRate == null ? eok(cur.gp) : `${eok(cur.gp)} · ${cur.gpRate}%`],
                   ].map(([k, v]) => (
                     <div key={k} className="rounded-lg bg-white/[0.03] px-1 py-2">
@@ -210,7 +212,7 @@ export function PipelineSummaryCard({
                 )}
 
                 {cur.missingAmount > 0 && <p className="text-[10px] text-muted">규모를 넣지 않은 사업 {cur.missingAmount}건은 금액에서 빠졌습니다.</p>}
-                <p className="text-[10px] text-muted">가중 예상 = 규모 × 단계별 성사 확률</p>
+                <p className="text-[10px] text-muted">확정 = 협상 단계 이상 사업의 규모 합 · 가중 예상 = 규모 × 단계별 성사 확률</p>
               </>
             )}
           </div>

@@ -15,6 +15,8 @@ export const STALE_AFTER_DAYS = DEFAULT_PIPELINE_SETTINGS.staleAfterDays;
 
 const PIPELINE_ORDER: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
 const PRE_WIN = new Set<DealStage>(["discovery", "quoting", "proposal", "negotiation", "bidding"]);
+/** '확정'으로 보는 단계 — 협상 이상 (가시적인 딜). SB 결정 2026-10-26 */
+export const FIRM_STAGES = new Set<DealStage>(["negotiation", "bidding", "won", "fulfillment", "billing"]);
 
 export type PipelineStage = { stage: DealStage; label: string; count: number; amount: number };
 export type StaleDeal = { id: string; name: string; customer: string; idleDays: number; stage: DealStage };
@@ -25,8 +27,9 @@ export type PipelineSummary = {
   total: number;
   /** 가중 예상 (원) = Σ 규모 × 단계 확률 */
   weighted: number;
-  /** 수주 이후(확정) 규모 */
-  committed: number;
+  /** 확정 규모 — 협상 단계 이상 진행 중 사업의 규모 합 (FIRM_STAGES) */
+  firm: number;
+  firmCount: number;
   gp: number;
   /** GP율 (%) — GP 를 넣은 사업의 GP ÷ 그 사업들의 규모. 계산할 수 없으면 null */
   gpRate: number | null;
@@ -44,7 +47,8 @@ export function summarizePipeline(deals: Deal[], today: string, settings: Pipeli
 
   let total = 0;
   let weighted = 0;
-  let committed = 0;
+  let firm = 0;
+  let firmCount = 0;
   let gp = 0;
   let gpBase = 0;
   let missingAmount = 0;
@@ -54,12 +58,13 @@ export function summarizePipeline(deals: Deal[], today: string, settings: Pipeli
     const amount = d.amount == null ? null : Number(d.amount);
     const row = byStage.get(d.stage);
     if (row) row.count += 1;
+    if (FIRM_STAGES.has(d.stage)) firmCount += 1;
 
     if (amount == null) missingAmount += 1;
     else {
       total += amount;
       weighted += (amount * (settings.probabilities[d.stage] ?? 0)) / 100;
-      if (!PRE_WIN.has(d.stage)) committed += amount;
+      if (FIRM_STAGES.has(d.stage)) firm += amount;
       if (row) row.amount += amount;
       if (d.gp != null) {
         gp += Number(d.gp);
@@ -77,7 +82,8 @@ export function summarizePipeline(deals: Deal[], today: string, settings: Pipeli
     activeCount: active.length,
     total,
     weighted: Math.round(weighted),
-    committed,
+    firm,
+    firmCount,
     gp,
     gpRate: gpBase > 0 ? Math.round((gp / gpBase) * 1000) / 10 : null,
     missingAmount,

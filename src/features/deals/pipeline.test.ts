@@ -50,7 +50,8 @@ describe("summarizePipeline", () => {
       activeCount: 4,
       total: 350_000_000,
       weighted: 40_000_000 + 50_000_000 + 20_000_000,
-      committed: 50_000_000,
+      firm: 50_000_000,
+      firmCount: 1,
       gp: 15_000_000,
       gpRate: 10,
       missingAmount: 1,
@@ -61,6 +62,21 @@ describe("summarizePipeline", () => {
       ["proposal", 1, 100_000_000],
       ["won", 1, 50_000_000],
     ]);
+  });
+
+  it("확정 = 협상 단계 이상 진행 중 사업 (협상·입찰·수주·이행·빌링), 제안 이하·실주는 제외", () => {
+    const s = summarizePipeline(
+      [
+        deal({ id: "1", stage: "proposal", amount: 100 }),
+        deal({ id: "2", stage: "negotiation", amount: 200 }),
+        deal({ id: "3", stage: "bidding", amount: 300 }),
+        deal({ id: "4", stage: "billing", amount: 400 }),
+        deal({ id: "5", stage: "won", amount: 999, status: "lost" }),
+        deal({ id: "6", stage: "fulfillment" }), // 규모 없음 → 건수만
+      ],
+      today,
+    );
+    expect(s).toMatchObject({ firm: 900, firmCount: 4, total: 1000 });
   });
 
   it("수주 전 단계에서 14일 넘게 손대지 않은 사업만 정체, 오래된 순", () => {
