@@ -2,13 +2,25 @@
 
 // 상단 주 메뉴: [SalesTology ▸ 대시보드 · 파이프라인] [SOS]
 // SalesTology 를 누르면 그 칸이 늘어나며 하위 메뉴가 나오고, SOS 를 누르면 접힌다.
-// 헤더는 페이지마다 새로 그려지므로 마지막 펼침 상태를 모듈 변수에 기억해 두고,
-// 새 헤더가 그 상태에서 시작해 다음 프레임에 목표 상태로 옮겨 가게 한다 → 페이지가 바뀌어도 끊김 없이 이어진다.
+//
+// 펼침 상태는 모든 헤더가 '하나'를 같이 본다 (모듈 저장소 + useSyncExternalStore).
+// 헤더는 페이지마다 따로 그려지고, Next 16 은 지나온 페이지를 숨긴 채 살려 두기 때문에
+// 헤더마다 상태를 따로 두면 다시 보일 때 예전 상태로 튀었다 (운영에서 확인).
+// 누르는 순간 저장소를 바꿔 보이는 헤더가 바로 움직이고, 다음 페이지 헤더는 이미 같은 상태로 나타난다.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
-let lastExpanded: boolean | null = null;
+const store = { value: null as boolean | null, listeners: new Set<() => void>() };
+function setShared(v: boolean) {
+  if (store.value === v) return;
+  store.value = v;
+  for (const l of store.listeners) l();
+}
+function subscribe(l: () => void) {
+  store.listeners.add(l);
+  return () => store.listeners.delete(l);
+}
 
 const SUB = [
   { href: "/dashboard", label: "대시보드" },
@@ -79,21 +91,17 @@ export function AppNav() {
   const pathname = usePathname() ?? "";
   const inSos = pathname === "/sos" || pathname.startsWith("/sos/");
   const target = !inSos;
-  const [expanded, setExpanded] = useState<boolean>(() => lastExpanded ?? target);
+  const shared = useSyncExternalStore(
+    subscribe,
+    () => store.value,
+    () => null,
+  );
+  const expanded = shared ?? target;
 
-  // 경로가 바뀌면 목표 상태로 (첫 그림은 이전 상태 → 다음 프레임에 전환해 애니메이션이 보이게)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setExpanded(target));
-    lastExpanded = target;
-    return () => cancelAnimationFrame(id);
-  }, [target]);
+  // 주소가 기준 — 뒤로가기 등 클릭 없이 바뀐 경우도 맞춘다 (보이는 헤더에서만 실행된다)
+  useEffect(() => setShared(target), [target]);
 
-  // 누르는 순간 바로 움직이기 시작 (페이지 로딩을 기다리지 않는다)
-  const go = (next: boolean) => {
-    lastExpanded = next;
-    setExpanded(next);
-  };
-
+  // SOS 강조도 펼침 상태를 따라가 누르는 순간 바뀐다
   const subActive = SUB.find((s) => pathname === s.href || pathname.startsWith(`${s.href}/`))?.href ?? null;
-  return <NavView expanded={expanded} inSos={inSos} subActive={subActive} onGo={go} />;
+  return <NavView expanded={expanded} inSos={!expanded} subActive={expanded ? subActive : null} onGo={setShared} />;
 }
