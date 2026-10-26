@@ -62,7 +62,7 @@ export function CoachSection({ d }: { d: DealDetail }) {
           disabled={pending || !res?.ok}
           className="mt-3 w-full rounded-lg bg-[#a770ff]/20 px-3 py-2 text-xs font-semibold text-[#e2d2ff] ring-1 ring-[#a770ff]/40 hover:bg-[#a770ff]/30 disabled:opacity-40"
         >
-          {pending ? "코칭을 만드는 중…" : "이 사업 코칭 받기"}
+          {pending ? "코칭을 만드는 중…" : !res ? "확인 중…" : "이 사업 코칭 받기"}
         </button>
       )}
 
