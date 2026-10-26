@@ -3,19 +3,12 @@ import { Suspense } from "react";
 import { signOut } from "@/shared/auth/actions";
 import { requireUser } from "@/shared/auth/current-user";
 import { HeaderTicker } from "@/features/notifications/header-ticker";
+import { AppNav } from "./app-nav";
 import { LogoMark, LogoWordmark } from "./logo";
 
-// A·B 공용 상단 바. [SalesTology|파이프라인|SOS] 전환 탭 + 가운데 주요 알림 티커 (설계서 §6.1, §7.2, §11)
+// A·B 공용 상단 바. 주 메뉴 [SalesTology ▸ 대시보드·파이프라인 | SOS] + 가운데 주요 알림 티커 (설계서 §6.1, §7.2, §11)
+// active 는 서버에서 정한 현재 영역 — 메뉴는 주소로 하위 항목까지 판단하고, 이 값은 첫 그림의 기준으로 쓴다
 export function AppHeader({ active }: { active: "core" | "pipeline" | "sos" }) {
-  const tab = (href: string, label: string, on: boolean) => (
-    <Link
-      href={href}
-      className={`rounded-md px-2.5 py-1 text-xs transition-colors whitespace-nowrap sm:px-3 ${on ? "bg-white/[0.14] font-medium text-white" : "text-[#b4b7c3] hover:text-white"}`}
-    >
-      {label}
-    </Link>
-  );
-
   return (
     <header className="pt-safe relative z-30 grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 border-b border-white/10 bg-[#08080b] px-3 py-2 sm:h-12 sm:px-4 sm:py-0">
       <div className="flex items-center gap-3 sm:gap-4">
@@ -23,11 +16,7 @@ export function AppHeader({ active }: { active: "core" | "pipeline" | "sos" }) {
           <LogoMark size={24} />
           <LogoWordmark className="hidden text-sm sm:inline" />
         </Link>
-        <nav className="flex gap-0.5 rounded-lg border border-white/15 p-0.5">
-          {tab("/dashboard", "SalesTology", active === "core")}
-          {tab("/pipeline", "파이프라인", active === "pipeline")}
-          {tab("/sos", "SOS", active === "sos")}
-        </nav>
+        <AppNav inSos={active === "sos"} />
       </div>
       {/* 모바일에서는 둘째 줄 전체 폭 */}
       <div className="order-last col-span-3 flex min-w-0 justify-center sm:order-none sm:col-span-1">
