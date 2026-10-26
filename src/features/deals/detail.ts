@@ -42,6 +42,8 @@ export type DealDetail = {
   canDelete: boolean;
   /** 이 사업 부문의 정체 기준일 (AI 디렉션) */
   staleAfterDays: number;
+  /** 이 사업 부문에서 AI 코칭을 쓰는지 (관리자 설정) */
+  aiCoachEnabled: boolean;
   /** 서버 기준 오늘 (Asia/Seoul) */
   today: string;
 };
@@ -169,6 +171,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       })),
       canDelete: me.role === "admin" || row.owner_id === me.id,
       staleAfterDays: settings.staleAfterDays,
+      aiCoachEnabled: settings.aiCoachEnabled,
       today,
       activity: ((log ?? []) as unknown as { id: number; action: string; entity_type: string; after: Record<string, unknown> | null; created_at: string; actor: { name: string } | null }[]).map((a) => ({
         id: a.id,

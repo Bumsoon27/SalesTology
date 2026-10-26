@@ -28,6 +28,7 @@ export function PipelineSettingsPanel({ teams, settings }: { teams: AdminTeam[];
 function TeamSettings({ team, initial }: { team: AdminTeam; initial: PipelineSettings }) {
   const [prob, setProb] = useState<Record<string, string>>(() => Object.fromEntries(STAGES.map((s) => [s, String(initial.probabilities[s])])));
   const [days, setDays] = useState(String(initial.staleAfterDays));
+  const [aiCoach, setAiCoach] = useState(initial.aiCoachEnabled);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
 
@@ -38,7 +39,7 @@ function TeamSettings({ team, initial }: { team: AdminTeam; initial: PipelineSet
         onSubmit={(e) => {
           e.preventDefault();
           start(async () => {
-            const r = await savePipelineSettings(team.id, { probabilities: prob, staleAfterDays: days });
+            const r = await savePipelineSettings(team.id, { probabilities: prob, staleAfterDays: days, aiCoachEnabled: aiCoach });
             setMsg(r.ok ? { ok: true, text: "저장했습니다." } : { ok: false, text: r.error ?? "저장하지 못했습니다." });
           });
         }}
@@ -61,6 +62,10 @@ function TeamSettings({ team, initial }: { team: AdminTeam; initial: PipelineSet
             </label>
           ))}
         </div>
+        <label className="flex items-center gap-2 text-[11px] text-muted">
+          <input type="checkbox" checked={aiCoach} onChange={(e) => setAiCoach(e.target.checked)} className="accent-[var(--accent)]" />
+          AI 코칭 사용 — 영업기회 하단 코칭 (모델에는 이름·메모 없이 익명 신호만 보냄)
+        </label>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-[11px] text-muted">
             정체 기준

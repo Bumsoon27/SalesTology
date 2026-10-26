@@ -65,6 +65,6 @@ export async function getTeamDeals(teamId: string): Promise<TeamDeal[]> {
 export const getPipelineSettings = cache(async (teamId: string | null): Promise<PipelineSettings> => {
   if (!teamId) return DEFAULT_PIPELINE_SETTINGS;
   const supabase = await createClient();
-  const { data } = await supabase.from("team_pipeline_settings").select("stage_probabilities, stale_after_days").eq("team_id", teamId).maybeSingle();
+  const { data } = await supabase.from("team_pipeline_settings").select("stage_probabilities, stale_after_days, ai_coach_enabled").eq("team_id", teamId).maybeSingle();
   return fromSettingsRow(data);
 });
