@@ -109,7 +109,7 @@ export function PipelineBoard({ columns: initial }: { columns: BoardColumn[] }) 
                       setDragId(null);
                       setOverStage(null);
                     }}
-                    className={`group rounded-xl border border-line bg-bg/70 p-3 text-xs shadow-sm transition hover:border-accent/40 ${dragId === c.id ? "opacity-40" : ""} ${c.onHold ? "opacity-60" : ""}`}
+                    className={`group animate-[fadeIn_.22s_ease-out] rounded-xl border border-line bg-bg/70 p-3 text-xs shadow-sm transition hover:border-accent/40 ${dragId === c.id ? "opacity-40" : ""} ${c.onHold ? "opacity-60" : ""}`}
                   >
                     <div className="flex items-start gap-2">
                       <span aria-hidden className={`mt-1 h-2 w-2 shrink-0 rounded-full ${DOT[c.status]}`} />

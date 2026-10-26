@@ -71,7 +71,7 @@ export function PipelineSummaryCard({
       </button>
 
       {open && (
-        <div className="border-t border-line">
+        <div className="animate-[fadeIn_.2s_ease-out] border-t border-line">
           <div role="tablist" aria-label="카드 보기" className="flex gap-1 px-3 pt-2">
             {(
               [
@@ -94,7 +94,7 @@ export function PipelineSummaryCard({
             ))}
           </div>
 
-          <div className="max-h-[50dvh] space-y-4 overflow-y-auto px-4 py-3">
+          <div key={tab} className="max-h-[50dvh] animate-[fadeIn_.18s_ease-out] space-y-4 overflow-y-auto px-4 py-3">
             {tab === "todo" ? (
               directions.length === 0 ? (
                 <p className="py-4 text-center text-xs text-muted">급한 일이 없습니다. 사업을 눌러 단계별 다음 할 일을 확인하세요.</p>
