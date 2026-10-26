@@ -3,24 +3,17 @@
 // 상단 주 메뉴: [SalesTology ▸ 대시보드 · 파이프라인] [SOS]
 // SalesTology 를 누르면 그 칸이 늘어나며 하위 메뉴가 나오고, SOS 를 누르면 접힌다.
 //
-// 펼침 상태는 모든 헤더가 '하나'를 같이 본다 (모듈 저장소 + useSyncExternalStore).
-// 헤더는 페이지마다 따로 그려지고, Next 16 은 지나온 페이지를 숨긴 채 살려 두기 때문에
-// 헤더마다 상태를 따로 두면 다시 보일 때 예전 상태로 튀었다 (운영에서 확인).
-// 누르는 순간 저장소를 바꿔 보이는 헤더가 바로 움직이고, 다음 페이지 헤더는 이미 같은 상태로 나타난다.
+// 헤더는 페이지마다 따로 그려지고, Next 16 은 지나온 페이지를 숨긴 채 살려 두었다가 즉시 다시 보여준다.
+// 그래서 '누른 헤더'가 움직이는 동안 바로 다른 페이지 헤더로 바뀌어 애니메이션이 보이지 않았다 (운영에서 측정).
+// → 새로 보이는 헤더가 '사용자가 마지막으로 본 상태(lastShown)'에서 시작해 목표로 움직인다.
+//   페이지 로딩이 느리면 누른 헤더가 먼저 움직이고, 300ms 뒤 lastShown 을 갱신해 새 헤더가 두 번 움직이지 않게 한다.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const store = { value: null as boolean | null, listeners: new Set<() => void>() };
-function setShared(v: boolean) {
-  if (store.value === v) return;
-  store.value = v;
-  for (const l of store.listeners) l();
-}
-function subscribe(l: () => void) {
-  store.listeners.add(l);
-  return () => store.listeners.delete(l);
-}
+/** 사용자가 마지막으로 본(움직임이 끝난) 펼침 상태 — 모든 헤더가 같이 본다 */
+let lastShown: boolean | null = null;
+const DURATION_MS = 300;
 
 const SUB = [
   { href: "/dashboard", label: "대시보드" },
@@ -91,17 +84,38 @@ export function AppNav() {
   const pathname = usePathname() ?? "";
   const inSos = pathname === "/sos" || pathname.startsWith("/sos/");
   const target = !inSos;
-  const shared = useSyncExternalStore(
-    subscribe,
-    () => store.value,
-    () => null,
-  );
-  const expanded = shared ?? target;
+  const [shown, setShown] = useState<boolean>(() => lastShown ?? target);
+  const timer = useRef<number | undefined>(undefined);
 
-  // 주소가 기준 — 뒤로가기 등 클릭 없이 바뀐 경우도 맞춘다 (보이는 헤더에서만 실행된다)
-  useEffect(() => setShared(target), [target]);
+  // 보일 때마다(처음·숨겼다 다시 보임·주소 변경): 마지막으로 본 상태를 한 프레임 그린 뒤 목표로 → CSS 전환이 보인다.
+  // 숨겨 두었던 헤더는 다시 보일 때 효과가 새로 실행된다 (React Activity)
+  useEffect(() => {
+    const from = lastShown ?? target;
+    lastShown = target;
+    let id2 = 0;
+    const id1 = requestAnimationFrame(() => {
+      setShown(from);
+      id2 = requestAnimationFrame(() => setShown(target));
+    });
+    return () => {
+      cancelAnimationFrame(id1);
+      cancelAnimationFrame(id2);
+    };
+  }, [target]);
+
+  // 숨겨지면 대기 중인 타이머를 버린다 → 바로 다음 헤더가 '누르기 전 상태'에서 움직인다
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  // 누르는 순간 이 헤더가 먼저 움직인다 (페이지 로딩이 느릴 때). 움직임이 끝난 뒤에야 '본 상태'로 기록
+  const go = (next: boolean) => {
+    setShown(next);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      lastShown = next;
+    }, DURATION_MS);
+  };
 
   // SOS 강조도 펼침 상태를 따라가 누르는 순간 바뀐다
   const subActive = SUB.find((s) => pathname === s.href || pathname.startsWith(`${s.href}/`))?.href ?? null;
-  return <NavView expanded={expanded} inSos={!expanded} subActive={expanded ? subActive : null} onGo={setShared} />;
+  return <NavView expanded={shown} inSos={!shown} subActive={shown ? subActive : null} onGo={go} />;
 }
