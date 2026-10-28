@@ -159,3 +159,19 @@ export function salesCycle(wins: Win[], deals: Pick<ReportDeal, "id" | "created_
     count: days.length,
   };
 }
+
+export type CustomerRow = { customer: string; count: number; amount: number; gp: number };
+
+/** 고객사별 수주 (기간 안) — 금액 많은 순 */
+export function byCustomer(wins: Win[], p: Period, limit = 10): CustomerRow[] {
+  const map = new Map<string, CustomerRow>();
+  for (const w of wins) {
+    if (w.on < p.from || w.on > p.to) continue;
+    const r = map.get(w.customer) ?? { customer: w.customer, count: 0, amount: 0, gp: 0 };
+    r.count += 1;
+    r.amount += w.amount;
+    r.gp += w.gp ?? 0;
+    map.set(w.customer, r);
+  }
+  return [...map.values()].sort((a, b) => b.amount - a.amount || b.count - a.count).slice(0, limit);
+}

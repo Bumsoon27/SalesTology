@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byOwner, computeOutcomes, monthly, periods, salesCycle, totals, winRate, type DealEvent, type ReportDeal } from "./report";
+import { byCustomer, byOwner, computeOutcomes, monthly, periods, salesCycle, totals, winRate, type DealEvent, type ReportDeal } from "./report";
 
 const deal = (o: Partial<ReportDeal>): ReportDeal => ({
   id: "d",
@@ -91,5 +91,16 @@ describe("salesCycle", () => {
     // 처음부터 수주로 등록한 사업은 뺀다
     const created = [{ deal_id: "a", action: "create", before: null, after: { stage: "won" }, created_at: "2026-09-01T00:00:00Z" }];
     expect(salesCycle([w("a", "2026-10-01"), w("b", "2026-10-01")], deals, "2026-08-01", "2026-10-31", created)).toEqual({ avg: 10, median: 10, count: 1 });
+  });
+});
+
+describe("byCustomer", () => {
+  it("고객사별 합계, 금액 순, 기간 밖 제외", () => {
+    const w = (customer: string, on: string, amount: number) => ({ dealId: on + customer, name: "", customer, ownerId: "u", owner: "", on, amount, gp: 1 });
+    const rows = byCustomer([w("A", "2026-03-01", 100), w("B", "2026-04-01", 500), w("A", "2026-05-01", 300), w("C", "2025-12-31", 999)], { from: "2026-01-01", to: "2026-12-31", label: "" });
+    expect(rows).toEqual([
+      { customer: "B", count: 1, amount: 500, gp: 1 },
+      { customer: "A", count: 2, amount: 400, gp: 2 },
+    ]);
   });
 });

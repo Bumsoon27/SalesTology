@@ -15,7 +15,7 @@ import { advances, weekStats, weeks } from "@/features/reports/weekly";
 import { funnel } from "@/features/reports/funnel";
 import { LOSS_LABEL, lossBreakdown } from "@/features/deals/loss";
 import { STAGE_LABEL } from "@/features/deals/types";
-import { byOwner, computeOutcomes, monthly, periods, salesCycle, totals, winRate } from "@/features/reports/report";
+import { byCustomer, byOwner, computeOutcomes, monthly, periods, salesCycle, totals, winRate } from "@/features/reports/report";
 
 type Params = { scope?: string; owner?: string };
 
@@ -99,6 +99,8 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   // 파이프라인 커버리지 — 올해 남은 목표 대비 수주 전 진행 중 사업
   const yearCard = cards[2];
   const cov = coverage(deals, settings.probabilities, yearCard.target, yearCard.t.amount);
+  const customers = byCustomer(wins, p.year);
+  const maxCustomer = Math.max(1, ...customers.map((c) => c.amount));
   // 단계별 전환 — 최근 1년 안에 등록한 사업
   const funnelRows = funnel(deals, data.events, new Date(Date.parse(`${today}T00:00:00Z`) - 364 * 86_400_000).toISOString().slice(0, 10));
   const funnelTop = Math.max(1, funnelRows[0]?.reached ?? 0);
@@ -359,6 +361,31 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
           )}
         </section>
       </div>
+
+      {/* 고객사별 수주 (올해) */}
+      <section className="rounded-2xl border border-line bg-surface/60 p-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">고객사별 수주 · {p.year.label} Top {customers.length || 10}</h2>
+          <span className="text-[11px] text-muted">금액 순</span>
+        </div>
+        {customers.length === 0 ? (
+          <p className="py-6 text-center text-xs text-muted">올해 수주가 없습니다.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {customers.map((c) => (
+              <li key={c.customer} className="grid grid-cols-[minmax(0,8rem)_1fr_7rem] items-center gap-2 text-xs tabular-nums">
+                <span className="truncate" title={c.customer}>{c.customer}</span>
+                <span className="h-3 overflow-hidden rounded bg-white/[0.04]">
+                  <span className="block h-full rounded bg-accent/55" style={{ width: `${Math.max(2, (c.amount / maxCustomer) * 100)}%` }} />
+                </span>
+                <span className="text-right">
+                  {eok(c.amount)} <span className="text-muted">· {c.count}건</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* 단계별 전환 (퍼널) */}
       <section className="rounded-2xl border border-line bg-surface/60 p-4">
