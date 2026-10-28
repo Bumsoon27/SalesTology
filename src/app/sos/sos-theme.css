@@ -16,9 +16,9 @@
   --sos-divider-lite: #2e2e2e;
   --sos-disabled: #808080;
 
-  /* 액센트 (테마 불변) */
-  --sos-accent: #ff6a0d;
-  --sos-accent-bg: #331d0f;
+  /* 액센트 (테마 불변) — 앱 공통 보라(--accent)와 함께 보이므로 채도를 낮춘 코랄 (시각 설계서 §2.2) */
+  --sos-accent: #ff8f6b;
+  --sos-accent-bg: #33201a;
 
   /* 상태 */
   --sos-red: #eb3838;
@@ -39,9 +39,8 @@
 
   background: var(--sos-bg-page);
   color: var(--sos-text);
-  font-family:
-    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI",
-    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  /* 앱 공통 글꼴 (src/app/globals.css body 와 같은 스택) — 나눔스퀘어라운드는 400·700·800 만 있어 500→400, 600→700 으로 보인다 */
+  font-family: var(--font-nanum-round), "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   font-size: 14px;
   line-height: 1.45;
   /* 긴 사업명·주소가 좁은 화면 폭을 밀어내지 않게 */
