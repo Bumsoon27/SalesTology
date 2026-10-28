@@ -23,7 +23,7 @@ export type ReportDeal = {
   created_at: string;
   owner_id: string;
   owner: string;
-  customer: { name: string };
+  customer: { id?: string; name: string };
 };
 
 export type DealEvent = {
@@ -34,7 +34,7 @@ export type DealEvent = {
   created_at: string;
 };
 
-export type Win = { dealId: string; name: string; customer: string; ownerId: string; owner: string; on: string; amount: number; gp: number | null };
+export type Win = { dealId: string; name: string; customer: string; customerId?: string; ownerId: string; owner: string; on: string; amount: number; gp: number | null };
 export type Loss = { dealId: string; ownerId: string; on: string };
 
 export function computeOutcomes(deals: ReportDeal[], events: DealEvent[]): { wins: Win[]; losses: Loss[] } {
@@ -61,6 +61,7 @@ export function computeOutcomes(deals: ReportDeal[], events: DealEvent[]): { win
       dealId: d.id,
       name: d.name,
       customer: d.customer.name,
+      customerId: d.customer.id,
       ownerId: d.owner_id,
       owner: d.owner,
       on: seoulDay(entered?.created_at ?? d.created_at),
@@ -160,14 +161,14 @@ export function salesCycle(wins: Win[], deals: Pick<ReportDeal, "id" | "created_
   };
 }
 
-export type CustomerRow = { customer: string; count: number; amount: number; gp: number };
+export type CustomerRow = { customer: string; customerId?: string; count: number; amount: number; gp: number };
 
 /** 고객사별 수주 (기간 안) — 금액 많은 순 */
 export function byCustomer(wins: Win[], p: Period, limit = 10): CustomerRow[] {
   const map = new Map<string, CustomerRow>();
   for (const w of wins) {
     if (w.on < p.from || w.on > p.to) continue;
-    const r = map.get(w.customer) ?? { customer: w.customer, count: 0, amount: 0, gp: 0 };
+    const r = map.get(w.customer) ?? { customer: w.customer, customerId: w.customerId, count: 0, amount: 0, gp: 0 };
     r.count += 1;
     r.amount += w.amount;
     r.gp += w.gp ?? 0;
