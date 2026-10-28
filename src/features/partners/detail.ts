@@ -49,3 +49,21 @@ export function summarizeCompany(deals: CompanyDeal[]): CompanySummary {
     owners: [...new Set(deals.map((d) => d.owner))],
   };
 }
+
+export type Contact = { name: string; count: number; lastOn: string; kinds: string[] };
+
+/** 고객 쪽 접점 — 활동 기록의 '누구와'(counterpart)를 사람별로. 이름은 공백·대소문자 무시로 합친다. 최근 접촉 순 */
+export function contactsFrom(notes: { counterpart: string | null; occurredOn: string; kind: string }[]): Contact[] {
+  const map = new Map<string, Contact>();
+  for (const n of notes) {
+    const name = n.counterpart?.trim();
+    if (!name) continue;
+    const k = name.replace(/\s/g, "").toLowerCase();
+    const c = map.get(k) ?? { name, count: 0, lastOn: n.occurredOn, kinds: [] };
+    c.count += 1;
+    if (n.occurredOn > c.lastOn) c.lastOn = n.occurredOn;
+    if (!c.kinds.includes(n.kind)) c.kinds.push(n.kind);
+    map.set(k, c);
+  }
+  return [...map.values()].sort((a, b) => b.lastOn.localeCompare(a.lastOn) || b.count - a.count);
+}
