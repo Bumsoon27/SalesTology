@@ -17,6 +17,7 @@ import { DealInfoEditor } from "./deal-info-editor";
 import { DealPartiesSection } from "./deal-parties-section";
 import { DirectionSection } from "./direction-section";
 import { CoachSection } from "./coach/coach-section";
+import { FilesSection } from "./files/files-section";
 import { TIER_LABEL, tierOf, type Strength } from "./relationship";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
@@ -494,6 +495,8 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
           이 고객사와 관련된 아웃바운드 시그널(SOS)이 여기에 표시됩니다.
         </p>
       </Section>
+
+      <FilesSection key={d.id} dealId={d.id} />
 
       <NewsSection names={[d.customer.name, ...si.map((p) => p.company.name)]} />
 
