@@ -10,6 +10,8 @@ import { todayInSeoul } from "@/features/deals/status";
 import { getReportData, getTargets } from "@/features/reports/queries";
 import { attainment, elapsedPct, targetFor } from "@/features/reports/targets";
 import { TargetEditor } from "@/features/reports/target-editor";
+import { advances, weekStats, weeks } from "@/features/reports/weekly";
+import { STAGE_LABEL } from "@/features/deals/types";
 import { byOwner, computeOutcomes, monthly, periods, totals, winRate } from "@/features/reports/report";
 
 type Params = { scope?: string; owner?: string };
@@ -79,6 +81,17 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const owners = byOwner(wins, p.year);
   const ownersQuarter = new Map(byOwner(wins, p.quarter).map((r) => [r.ownerId, r]));
   const ownersMonth = new Map(byOwner(wins, p.month).map((r) => [r.ownerId, r]));
+  // 주간 브리핑 — 이번 주(월~오늘) vs 지난주 같은 기간
+  const wk = weeks(today);
+  const thisWeek = weekStats(deals, data.events, wins, losses, wk.thisWeek);
+  const lastWeek = weekStats(deals, data.events, wins, losses, wk.lastWeek);
+  const moved = advances(deals, data.events, wk.thisWeek);
+  const brief = [
+    { label: "수주", now: thisWeek.won, prev: lastWeek.won, sub: thisWeek.won ? eok(thisWeek.wonAmount) : null, bad: false },
+    { label: "단계 진전", now: thisWeek.advanced, prev: lastWeek.advanced, sub: null, bad: false },
+    { label: "신규 사업", now: thisWeek.created, prev: lastWeek.created, sub: null, bad: false },
+    { label: "실주", now: thisWeek.lost, prev: lastWeek.lost, sub: null, bad: true },
+  ];
   const title = scope.kind === "mine" ? "내 실적" : scope.kind === "member" ? `${scope.name}님의 실적` : `${user.teamName ?? "부문"} 실적`;
 
   return (
@@ -93,6 +106,53 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
         </div>
         <ExportButton scope={scope} />
       </div>
+
+      {/* 주간 브리핑 */}
+      <section className="rounded-2xl border border-line bg-surface/60 p-4">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-1">
+          <h2 className="text-sm font-semibold">이번 주 브리핑</h2>
+          <span className="text-[11px] text-muted tabular-nums">
+            {wk.thisWeek.from.slice(5).replace("-", "/")} ~ {wk.thisWeek.to.slice(5).replace("-", "/")} · 지난주 같은 기간과 비교
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {brief.map((b) => {
+            const diff = b.now - b.prev;
+            const good = b.bad ? diff < 0 : diff > 0;
+            return (
+              <div key={b.label}>
+                <p className="text-[11px] text-muted">{b.label}</p>
+                <p className="mt-0.5 flex items-baseline gap-1.5">
+                  <span className="text-xl font-semibold tabular-nums">{b.now}</span>
+                  <span className="text-[11px] text-muted">건</span>
+                  {diff !== 0 && (
+                    <span className={`text-[11px] tabular-nums ${good ? "text-st-green" : "text-st-yellow"}`} title={`지난주 ${b.prev}건`}>
+                      {diff > 0 ? "▲" : "▼"} {Math.abs(diff)}
+                    </span>
+                  )}
+                </p>
+                {b.sub && <p className="text-[11px] text-muted tabular-nums">{b.sub}</p>}
+              </div>
+            );
+          })}
+        </div>
+        {moved.length > 0 && (
+          <ul className="mt-3 divide-y divide-line border-t border-line">
+            {moved.slice(0, 6).map((a) => (
+              <li key={a.dealId}>
+                <Link href={`/dashboard?focus=d:${a.dealId}`} className="flex items-center justify-between gap-3 py-2 text-xs hover:text-accent">
+                  <span className="min-w-0 truncate">
+                    {a.name} <span className="text-muted">· {a.customer}</span>
+                  </span>
+                  <span className="shrink-0 text-[11px] text-muted">
+                    {STAGE_LABEL[a.from]} → <span className="text-fg">{STAGE_LABEL[a.to]}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* 이번 달 · 분기 · 올해 · 승률 */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
