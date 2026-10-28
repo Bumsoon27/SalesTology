@@ -16,6 +16,7 @@ export const DIRECTION_TONE: Record<DirectionKind, string> = {
   missing_schedule: "bg-st-yellow",
   stale: "bg-st-yellow",
   single_thread: "bg-st-yellow",
+  competitor: "bg-accent",
   renewal: "bg-accent",
   margin: "bg-st-yellow",
   data: "bg-accent",

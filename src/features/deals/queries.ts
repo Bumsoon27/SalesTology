@@ -11,7 +11,8 @@ const DEAL_SELECT = `
   deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
   deal_tasks ( id, type, title, company_id, due_date, done_at, excluded_reason, deleted_at ),
   issues ( id, title, status ),
-  deal_notes ( kind, occurred_on, counterpart )
+  deal_notes ( kind, occurred_on, counterpart ),
+  deal_competitors ( id )
 `;
 
 /** 내 보기: 내가 담당한 사업 (RLS가 부문 범위를 한 번 더 막는다). 헤더 티커·대시보드가 한 요청에서 같이 쓴다 */
