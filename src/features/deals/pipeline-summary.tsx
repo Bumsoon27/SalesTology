@@ -7,15 +7,9 @@ import type { DealDirection } from "./direction";
 import { DIRECTION_TONE } from "./direction-section";
 import type { OwnerPipeline, PipelineSummary } from "./pipeline";
 import { DEFAULT_PIPELINE_SETTINGS, type PipelineSettings } from "./pipeline-settings";
+import { formatEok as eok } from "./money";
 
 export type TeamPipeline = { summary: PipelineSummary; owners: OwnerPipeline[] };
-
-function eok(n: number) {
-  if (n === 0) return "0";
-  if (Math.abs(n) >= 100_000_000) return `${(n / 100_000_000).toFixed(1).replace(/\.0$/, "")}억`;
-  if (Math.abs(n) >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`;
-  return n.toLocaleString();
-}
 
 type Tab = "todo" | "pipeline";
 

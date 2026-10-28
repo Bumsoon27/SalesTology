@@ -9,6 +9,7 @@ import { resolveScope } from "@/features/deals/scope";
 import { ScopeSwitch } from "@/features/deals/scope-switch";
 import { ExportButton } from "@/features/export/export-button";
 import { todayInSeoul } from "@/features/deals/status";
+import { formatEok as eok } from "@/features/deals/money";
 
 type Params = { scope?: string; owner?: string };
 
@@ -53,7 +54,6 @@ async function Board({ searchParams }: { searchParams: Promise<Params> }) {
   const columns = buildBoard(deals, today, settings);
   const active = columns.flatMap((c) => c.cards).filter((c) => !c.onHold);
   const summary = summarizePipeline(deals, today, settings);
-  const eok = (n: number) => (n >= 100_000_000 ? `${(n / 100_000_000).toFixed(1).replace(/\.0$/, "")}억` : `${Math.round(n / 10_000).toLocaleString()}만`);
   const title = scope.kind === "mine" ? "내 파이프라인" : scope.kind === "member" ? `${scope.name}님의 파이프라인` : `${user.teamName ?? "부문"} 파이프라인`;
 
   return (

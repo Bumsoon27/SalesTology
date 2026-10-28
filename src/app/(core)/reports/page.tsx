@@ -16,6 +16,7 @@ import { funnel } from "@/features/reports/funnel";
 import { LOSS_LABEL, lossBreakdown } from "@/features/deals/loss";
 import { STAGE_LABEL } from "@/features/deals/types";
 import { byCustomer, byOwner, computeOutcomes, monthly, periods, salesCycle, totals, winRate } from "@/features/reports/report";
+import { formatEok as eok } from "@/features/deals/money";
 
 type Params = { scope?: string; owner?: string };
 
@@ -38,13 +39,6 @@ export default function ReportsPage({ searchParams }: PageProps<"/reports">) {
       </main>
     </>
   );
-}
-
-function eok(n: number) {
-  if (n === 0) return "0";
-  if (Math.abs(n) >= 100_000_000) return `${(n / 100_000_000).toFixed(1).replace(/\.0$/, "")}억`;
-  if (Math.abs(n) >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`;
-  return n.toLocaleString();
 }
 
 async function Report({ searchParams }: { searchParams: Promise<Params> }) {

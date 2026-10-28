@@ -8,6 +8,7 @@ import { useState, useTransition } from "react";
 import { moveError, type BoardCard, type BoardColumn } from "./board";
 import { updateDeal } from "./mutations";
 import { STAGE_LABEL, type DealStage } from "./types";
+import { formatEok as eok } from "./money";
 
 const DOT: Record<BoardCard["status"], string> = {
   red: "bg-st-red",
@@ -16,13 +17,6 @@ const DOT: Record<BoardCard["status"], string> = {
   grey: "bg-st-grey",
   hold: "bg-st-grey",
 };
-
-function eok(n: number) {
-  if (n === 0) return "0";
-  if (Math.abs(n) >= 100_000_000) return `${(n / 100_000_000).toFixed(1).replace(/\.0$/, "")}억`;
-  if (Math.abs(n) >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`;
-  return n.toLocaleString();
-}
 
 export function PipelineBoard({ columns: initial }: { columns: BoardColumn[] }) {
   const router = useRouter();

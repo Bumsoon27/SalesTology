@@ -39,3 +39,11 @@ export function parseWon(raw: string | null | undefined, opts: { allowNegative?:
   if (!Number.isFinite(value)) return { ok: false };
   return { ok: true, value: sign * Math.round(value) };
 }
+
+/** 화면 표시용 금액 — 1억 이상은 '3.2억', 1만 이상은 '5,180만', 그 아래는 원 그대로 (음수 GP 도 같은 규칙) */
+export function formatEok(n: number): string {
+  if (n === 0) return "0";
+  if (Math.abs(n) >= 100_000_000) return `${(n / 100_000_000).toFixed(1).replace(/\.0$/, "")}억`;
+  if (Math.abs(n) >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`;
+  return n.toLocaleString();
+}
