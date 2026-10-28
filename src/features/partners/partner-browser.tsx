@@ -23,7 +23,15 @@ const EMPTY: Record<PartnerScope, string> = {
 
 export function PartnerBrowser({ partners, initialScope }: { partners: Partner[]; initialScope: PartnerScope }) {
   const [scope, setScope] = useState<PartnerScope>(initialScope);
-  const shown = partners.filter((p) => inScope(p, scope));
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<"deals" | "name">("deals");
+  // 검색: 회사명·담당자·메모 (띄어쓰기·대소문자 무시)
+  const norm = (v: string | null) => (v ?? "").replace(/\s/g, "").toLowerCase();
+  const needle = norm(q);
+  const shown = partners
+    .filter((p) => inScope(p, scope))
+    .filter((p) => !needle || [p.name, p.contactName, p.memo].some((v) => norm(v).includes(needle)))
+    .sort((a, b) => (sort === "deals" ? b.dealCount - a.dealCount || a.name.localeCompare(b.name, "ko") : a.name.localeCompare(b.name, "ko")));
 
   const pick = (s: PartnerScope) => setScope(s);
 
@@ -57,6 +65,21 @@ export function PartnerBrowser({ partners, initialScope }: { partners: Partner[]
         <p className="text-[11px] text-muted">{SCOPE_HINT[scope]}</p>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="회사명·담당자·메모 검색"
+          aria-label="파트너사 검색"
+          className="field min-w-0 flex-1 py-1.5 text-xs"
+        />
+        <select value={sort} onChange={(e) => setSort(e.target.value as "deals" | "name")} aria-label="정렬" className="field w-auto py-1.5 text-xs">
+          <option value="deals">사업 많은 순</option>
+          <option value="name">이름 순</option>
+        </select>
+      </div>
+
       {/* 무엇이 걸러졌는지 — 전체와 1~2곳만 차이 나면 바뀐 걸 알아보기 어려웠다 */}
       {scope !== "all" && partners.length > shown.length && (
         <p className="text-[11px] text-muted">
@@ -66,7 +89,7 @@ export function PartnerBrowser({ partners, initialScope }: { partners: Partner[]
       )}
 
       {shown.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-line p-10 text-center text-sm text-muted">{EMPTY[scope]}</div>
+        <div className="rounded-2xl border border-dashed border-line p-10 text-center text-sm text-muted">{needle ? `'${q}' 에 맞는 파트너사가 없습니다.` : EMPTY[scope]}</div>
       ) : (
         <ul key={scope} className="grid animate-[fadeIn_.18s_ease-out] gap-3 sm:grid-cols-2">
           {shown.map((p) => (
