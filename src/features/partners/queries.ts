@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/shared/supabase/server";
 import { countDeals, type DealCounts, type DealRef } from "./count";
-import { mergeDeals, type CompanyDeal, type CompanyRole } from "./detail";
+import { contactsFrom, mergeDeals, type CompanyDeal, type CompanyRole, type Contact } from "./detail";
 import type { NoteKind } from "@/features/deals/notes";
 
 export type PartnerRole = "customer" | "si" | "supplier";
@@ -69,6 +69,8 @@ export type CompanyDetail = {
   memo: string | null;
   deals: CompanyDeal[];
   notes: CompanyNote[];
+  /** 고객 쪽 접점 (활동 기록의 '누구와') */
+  contacts: Contact[];
 };
 
 const COMPANY_DEAL = "id, name, stage, status, amount, gp, owner_id, last_activity_at, deleted_at, owner:profiles!deals_owner_id_fkey ( name )";
@@ -109,7 +111,15 @@ export async function getCompanyDetail(id: string): Promise<CompanyDetail | null
   ]);
 
   let notes: CompanyNote[] = [];
+  let contacts: Contact[] = [];
   if (deals.length) {
+    const { data: cp } = await supabase
+      .from("deal_notes")
+      .select("counterpart, occurred_on, kind")
+      .in("deal_id", deals.map((d) => d.id).slice(0, 200))
+      .not("counterpart", "is", null)
+      .limit(1000);
+    contacts = contactsFrom(((cp ?? []) as { counterpart: string | null; occurred_on: string; kind: string }[]).map((n) => ({ counterpart: n.counterpart, occurredOn: n.occurred_on, kind: n.kind })));
     const names = new Map(deals.map((d) => [d.id, d.name]));
     const { data } = await supabase
       .from("deal_notes")
@@ -140,5 +150,6 @@ export async function getCompanyDetail(id: string): Promise<CompanyDetail | null
     memo: c.memo,
     deals,
     notes,
+    contacts,
   };
 }

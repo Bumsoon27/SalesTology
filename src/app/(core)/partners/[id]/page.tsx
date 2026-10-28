@@ -120,6 +120,26 @@ async function Company({ params }: { params: Promise<{ id: string }> }) {
           )}
         </section>
 
+        <div className="space-y-6">
+        <section className="rounded-2xl border border-line bg-surface/60 p-4">
+          <h2 className="mb-1 text-sm font-semibold">고객 쪽 접점 {c.contacts.length}명</h2>
+          <p className="mb-3 text-[11px] text-muted">활동 기록의 &lsquo;누구와&rsquo;에서 모았습니다 · 한 사람에 몰리면 다른 담당자도 만나 보세요</p>
+          {c.contacts.length === 0 ? (
+            <p className="py-3 text-center text-xs text-muted">아직 없습니다. 통화·미팅을 남길 때 상대를 적어 주세요.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {c.contacts.slice(0, 12).map((p) => (
+                <li key={p.name} className="flex items-center justify-between gap-2 py-1.5 text-xs">
+                  <span className="min-w-0 truncate">{p.name}</span>
+                  <span className="shrink-0 text-[11px] text-muted tabular-nums">
+                    {p.kinds.map((k) => NOTE_LABEL[k as keyof typeof NOTE_LABEL] ?? k).join("·")} {p.count}회 · 마지막 {p.lastOn}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <section className="rounded-2xl border border-line bg-surface/60 p-4">
           <h2 className="mb-3 text-sm font-semibold">최근 활동 기록</h2>
           {c.notes.length === 0 ? (
@@ -141,6 +161,7 @@ async function Company({ params }: { params: Promise<{ id: string }> }) {
             </ul>
           )}
         </section>
+        </div>
       </div>
     </div>
   );

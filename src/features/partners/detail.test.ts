@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeDeals, summarizeCompany, type CompanyDeal } from "./detail";
+import { contactsFrom, mergeDeals, summarizeCompany, type CompanyDeal } from "./detail";
 
 const d = (o: Partial<CompanyDeal>): CompanyDeal => ({
   id: "a",
@@ -39,5 +39,20 @@ describe("summarizeCompany", () => {
       d({ id: "f", status: "closed", amount: 1 }),
     ]);
     expect(s).toEqual({ total: 5, open: 2, openAmount: 500, won: 1, wonAmount: 500, wonGp: 50, lost: 1, owners: ["김영업", "이영업"] });
+  });
+});
+
+describe("contactsFrom", () => {
+  it("사람별 횟수·마지막 접촉·종류, 표기 차이 합침, 최근 순", () => {
+    const out = contactsFrom([
+      { counterpart: "김과장", occurredOn: "2026-10-01", kind: "call" },
+      { counterpart: " 김 과장 ", occurredOn: "2026-10-20", kind: "meeting" },
+      { counterpart: "이부장", occurredOn: "2026-10-25", kind: "email" },
+      { counterpart: null, occurredOn: "2026-10-26", kind: "note" },
+    ]);
+    expect(out).toEqual([
+      { name: "이부장", count: 1, lastOn: "2026-10-25", kinds: ["email"] },
+      { name: "김과장", count: 2, lastOn: "2026-10-20", kinds: ["call", "meeting"] },
+    ]);
   });
 });
