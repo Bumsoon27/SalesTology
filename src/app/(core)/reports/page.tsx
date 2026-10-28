@@ -238,7 +238,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
         {/* 영업대표별 (부문 전체 보기) */}
         {scope.kind === "team" && (
           <section className="rounded-2xl border border-line bg-surface/60 p-4">
@@ -246,7 +246,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
             {owners.length === 0 ? (
               <p className="py-6 text-center text-xs text-muted">올해 수주가 없습니다.</p>
             ) : (
-              <table className="w-full text-xs tabular-nums">
+              <div className="overflow-x-auto"><table className="w-full min-w-[22rem] text-xs tabular-nums">
                 <thead className="text-[11px] text-muted">
                   <tr>
                     <th className="pb-2 text-left font-normal">영업대표</th>
@@ -270,7 +270,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </section>
         )}
@@ -313,7 +313,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
         {rivals.length === 0 ? (
           <p className="py-6 text-center text-xs text-muted">아직 기록된 경쟁사가 없습니다. 사업 상세 패널의 &lsquo;경쟁사&rsquo;에서 기록하세요.</p>
         ) : (
-          <table className="w-full text-xs tabular-nums">
+          <div className="overflow-x-auto"><table className="w-full min-w-[26rem] text-xs tabular-nums">
             <thead className="text-[11px] text-muted">
               <tr>
                 <th className="pb-2 text-left font-normal">경쟁사</th>
@@ -341,7 +341,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </section>
     </div>
