@@ -12,7 +12,7 @@ export function ScopeSwitch({
   meId,
   teamName,
 }: {
-  path: "/dashboard" | "/pipeline" | "/reports";
+  path: "/dashboard" | "/pipeline" | "/tasks" | "/reports";
   scope: ViewScope;
   members: { id: string; name: string }[];
   meId: string;
