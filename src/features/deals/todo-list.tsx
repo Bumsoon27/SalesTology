@@ -13,7 +13,8 @@ export function TodoList({ groups, today, showOwner }: { groups: Record<TodoBuck
   const [done, setDone] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const [showLater, setShowLater] = useState(false);
+  // 다른 묶음이 없으면 '이후'도 처음부터 펼친다
+  const [showLater, setShowLater] = useState(() => BUCKETS.every((b) => b === "later" || groups[b].length === 0));
 
   const toggle = (t: Todo) =>
     start(async () => {
