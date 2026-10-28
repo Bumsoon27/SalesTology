@@ -39,8 +39,12 @@ describe("dealsToCsv", () => {
     expect(csv.startsWith("﻿")).toBe(true);
     const lines = csv.slice(1).trim().split("\r\n");
     expect(lines[0]).toBe(HEADERS.join(","));
-    expect(lines[1]).toBe("차세대 서버,한빛은행,김영업,제안,진행,경쟁입찰,150000000,15000000,10,2026-07-01,,LGCNS / 코비엔,,2026-10-27,");
+    expect(lines[1]).toBe("차세대 서버,한빛은행,김영업,제안,진행,경쟁입찰,150000000,15000000,10,2026-07-01,,LGCNS / 코비엔,,2026-10-27,,");
     expect(lines[2]).toContain(",100000000,-3000000,-3,");
-    expect(lines[2].endsWith(",SOS")).toBe(true);
+    expect(lines[2].endsWith(",SOS,")).toBe(true);
+    // 실주 사유는 실주 사업에만
+    const lost = dealsToCsv([row({ status: "lost", lostReason: "price" }), row({ status: "active", lostReason: "price" })]).slice(1).trim().split("\r\n");
+    expect(lost[1].endsWith(",가격")).toBe(true);
+    expect(lost[2].endsWith(",")).toBe(true);
   });
 });
