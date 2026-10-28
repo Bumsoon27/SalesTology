@@ -30,3 +30,26 @@ export function elapsedPct(p: Period, today: string, periodEnd: string): number 
 export function validMonth(month: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])-01$/.test(month);
 }
+
+const WON_STAGES = new Set(["won", "fulfillment", "billing"]);
+
+export type Coverage = { remaining: number; open: number; weighted: number; ratio: number | null; weightedRatio: number | null };
+
+/**
+ * 파이프라인 커버리지 — 남은 목표 대비 아직 수주 전(진행 중) 사업 규모. 보통 3배 이상이면 여유 있다고 본다.
+ * 가중 = 규모 × 단계 확률(부문 파이프라인 설정). 남은 목표가 없으면 비율은 null
+ */
+export function coverage(
+  deals: { stage: string; status: string; amount: number | null }[],
+  probabilities: Record<string, number>,
+  target: number | null,
+  achieved: number,
+): Coverage | null {
+  if (target == null || target <= 0) return null;
+  const open = deals.filter((d) => d.status === "active" && !WON_STAGES.has(d.stage) && d.amount != null);
+  const sum = open.reduce((s, d) => s + Number(d.amount), 0);
+  const weighted = Math.round(open.reduce((s, d) => s + (Number(d.amount) * (probabilities[d.stage] ?? 0)) / 100, 0));
+  const remaining = Math.max(0, target - achieved);
+  const r = (n: number) => (remaining > 0 ? Math.round((n / remaining) * 10) / 10 : null);
+  return { remaining, open: sum, weighted, ratio: r(sum), weightedRatio: r(weighted) };
+}

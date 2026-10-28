@@ -2,14 +2,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/shared/auth/current-user";
 import { AppHeader } from "@/shared/ui/app-header";
-import { getTeamMembers } from "@/features/deals/queries";
+import { getPipelineSettings, getTeamMembers } from "@/features/deals/queries";
 import { resolveScope } from "@/features/deals/scope";
 import { ScopeSwitch } from "@/features/deals/scope-switch";
 import { ExportButton } from "@/features/export/export-button";
 import { todayInSeoul } from "@/features/deals/status";
 import { getCompetitorEntries, getReportData, getTargets } from "@/features/reports/queries";
 import { competitorStats, type Outcome } from "@/features/deals/competitors/competitors";
-import { attainment, elapsedPct, targetFor } from "@/features/reports/targets";
+import { attainment, coverage, elapsedPct, targetFor } from "@/features/reports/targets";
 import { TargetEditor } from "@/features/reports/target-editor";
 import { advances, weekStats, weeks } from "@/features/reports/weekly";
 import { STAGE_LABEL } from "@/features/deals/types";
@@ -55,7 +55,11 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const ownerFilter = scope.kind === "mine" ? user.id : scope.kind === "member" ? scope.id : null;
   const year = Number(todayInSeoul().slice(0, 4));
   // 목표: 부문 보기는 부문 목표, 개인·영업대표 보기는 그 사람의 개인 목표
-  const [targets, competitorEntries] = await Promise.all([getTargets(user.teamId, ownerFilter, year), getCompetitorEntries(user.teamId)]);
+  const [targets, competitorEntries, settings] = await Promise.all([
+    getTargets(user.teamId, ownerFilter, year),
+    getCompetitorEntries(user.teamId),
+    getPipelineSettings(user.teamId),
+  ]);
   const deals = ownerFilter ? data.deals.filter((d) => d.owner_id === ownerFilter) : data.deals;
   const { wins, losses } = computeOutcomes(deals, data.events);
 
@@ -82,6 +86,9 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const owners = byOwner(wins, p.year);
   const ownersQuarter = new Map(byOwner(wins, p.quarter).map((r) => [r.ownerId, r]));
   const ownersMonth = new Map(byOwner(wins, p.month).map((r) => [r.ownerId, r]));
+  // 파이프라인 커버리지 — 올해 남은 목표 대비 수주 전 진행 중 사업
+  const yearCard = cards[2];
+  const cov = coverage(deals, settings.probabilities, yearCard.target, yearCard.t.amount);
   // 경쟁사별 전적 — 보이는 범위의 사업만
   const outcomeOf = new Map<string, Outcome>([...wins.map((w) => [w.dealId, "won"] as const), ...losses.map((l) => [l.dealId, "lost"] as const)]);
   const inScopeIds = new Set(deals.map((d) => d.id));
@@ -198,6 +205,22 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
           </p>
         </div>
       </section>
+
+      {cov && (
+        <p className="-mt-3 rounded-xl border border-line bg-white/[0.02] px-4 py-2.5 text-xs text-muted tabular-nums">
+          {cov.remaining === 0 ? (
+            <span className="text-st-green">{p.year.label} 목표를 달성했습니다</span>
+          ) : (
+            <>
+              {p.year.label} 남은 목표 <span className="text-fg">{eok(cov.remaining)}</span> · 진행 중 파이프라인 {eok(cov.open)}{" "}
+              <span className={cov.ratio != null && cov.ratio >= 3 ? "text-st-green" : cov.ratio != null && cov.ratio >= 1 ? "text-st-yellow" : "text-st-red"} title="남은 목표 대비 수주 전 진행 중 사업 규모 — 보통 3배 이상이면 여유">
+                (커버리지 {cov.ratio}배)
+              </span>{" "}
+              · 가중 예상 {eok(cov.weighted)} ({cov.weightedRatio}배)
+            </>
+          )}
+        </p>
+      )}
 
       {/* 목표 입력 — 부문 목표(부문 보기) 또는 내 목표(개인 보기). 다른 사람 목표는 본인·관리자만 바꿀 수 있어 숨긴다 */}
       {scope.kind !== "member" && (
