@@ -31,6 +31,11 @@ export function PipelineBoard({ columns: initial }: { columns: BoardColumn[] }) 
   const [overStage, setOverStage] = useState<DealStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  // 카드 찾기 — 사업명·고객사·영업대표 (띄어쓰기·대소문자 무시). 걸러도 끌어 옮기기는 그대로
+  const [q, setQ] = useState("");
+  const norm = (v: string | null) => (v ?? "").replaceAll(" ", "").toLowerCase();
+  const needle = norm(q);
+  const matches = (c: BoardCard) => !needle || [c.name, c.customer, c.owner].some((v) => norm(v).includes(needle));
 
   const find = (id: string) => columns.flatMap((c) => c.cards).find((c) => c.id === id) ?? null;
 
@@ -59,6 +64,17 @@ export function PipelineBoard({ columns: initial }: { columns: BoardColumn[] }) 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex items-center gap-2 px-4 sm:px-6">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="사업명·고객사·영업대표로 찾기"
+          aria-label="파이프라인 카드 찾기"
+          className="field w-full max-w-xs py-1.5 text-xs"
+        />
+        {needle && <span className="text-[11px] text-muted tabular-nums">{columns.reduce((n, c) => n + c.cards.filter(matches).length, 0)}건</span>}
+      </div>
       {error && <p className="mx-4 rounded-lg border border-st-red/40 bg-st-red/10 px-3 py-2 text-xs text-st-red sm:mx-6">{error}</p>}
       <div className={`flex min-h-0 flex-1 snap-x gap-3 overflow-x-auto px-4 pb-4 sm:px-6 ${pending ? "cursor-progress" : ""}`}>
         {columns.map((col) => {
@@ -87,7 +103,7 @@ export function PipelineBoard({ columns: initial }: { columns: BoardColumn[] }) 
               <header className="border-b border-line px-3 py-2.5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-semibold">
-                    {col.label} <span className="text-xs font-normal text-muted">{col.cards.length}</span>
+                    {col.label} <span className="text-xs font-normal text-muted">{needle ? `${col.cards.filter(matches).length}/${col.cards.length}` : col.cards.length}</span>
                   </h2>
                   <span className="text-[10px] text-muted">{col.probability}%</span>
                 </div>
@@ -96,7 +112,7 @@ export function PipelineBoard({ columns: initial }: { columns: BoardColumn[] }) 
                 </p>
               </header>
               <ul className="flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto p-2">
-                {col.cards.map((c) => (
+                {col.cards.filter(matches).map((c) => (
                   <li
                     key={c.id}
                     draggable
