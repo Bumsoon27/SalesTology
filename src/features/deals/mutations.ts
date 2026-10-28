@@ -97,6 +97,7 @@ export async function excludeTask(taskId: string, reason: string): Promise<Mutat
 export async function addTask(dealId: string, input: { type: TaskType; dueDate?: string; title?: string }): Promise<MutationResult> {
   if (!TASK_TYPES.includes(input.type)) return { ok: false, error: "알 수 없는 업무 유형입니다." };
   if (input.type === "custom" && !input.title?.trim()) return { ok: false, error: "기타 업무는 제목이 필요합니다." };
+  if ((input.title?.trim().length ?? 0) > 100) return { ok: false, error: "업무 제목은 100자 이하로 입력하세요." };
   if (input.dueDate && !isDate(input.dueDate)) return { ok: false, error: "날짜 형식이 올바르지 않습니다." };
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
