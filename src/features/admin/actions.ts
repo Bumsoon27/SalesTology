@@ -42,3 +42,12 @@ export async function savePipelineSettings(
   const { error } = await supabase.from("team_pipeline_settings").upsert({ team_id: teamId, ...parsed.value }, { onConflict: "team_id" });
   return finish(error);
 }
+
+/** Supabase 토큰 만료일 기록 (관리자만 — RLS). 빈 값이면 지운다 */
+export async function saveTokenExpiry(date: string): Promise<AdminResult> {
+  const v = (date ?? "").trim();
+  if (v && (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(`${v}T00:00:00Z`)))) return { ok: false, error: "날짜 형식이 올바르지 않습니다." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("app_settings").upsert({ key: "supabase_token_expires_on", value: v || null }, { onConflict: "key" });
+  return finish(error);
+}
