@@ -116,6 +116,14 @@ async function main() {
   const { data: bComp } = await b.client.from("deal_competitors").select("id").eq("deal_id", deal.id);
   check((bComp ?? []).length === 0, "다른 부문은 경쟁사 기록을 못 본다");
 
+  // ── 실주 사유 ────────────────────────────────────
+  const { data: lostOk, error: lostErr } = await a.client.from("deals").update({ status: "lost", lost_reason: "price", lost_note: "15% 낮게" }).eq("id", deal.id).select("id");
+  check(!lostErr && lostOk?.length === 1, "같은 부문은 실주 사유를 남긴다");
+  const { error: badReason } = await a.client.from("deals").update({ lost_reason: "hacked" }).eq("id", deal.id);
+  check(!!badReason, "목록에 없는 실주 사유는 거절");
+  const { data: bLost } = await b.client.from("deals").update({ lost_reason: "other" }).eq("id", deal.id).select("id");
+  check((bLost ?? []).length === 0, "다른 부문 사업의 실주 사유는 못 바꾼다");
+
   // ── 목표 ─────────────────────────────────────────
   const { error: tErr } = await a.client.from("sales_targets").insert({ team_id: a.teamId, owner_id: null, month: "2026-10-01", amount: 1000 });
   check(!tErr, "부문 구성원은 부문 목표를 정한다");

@@ -13,6 +13,7 @@ import { attainment, coverage, elapsedPct, targetFor } from "@/features/reports/
 import { TargetEditor } from "@/features/reports/target-editor";
 import { advances, weekStats, weeks } from "@/features/reports/weekly";
 import { funnel } from "@/features/reports/funnel";
+import { LOSS_LABEL, lossBreakdown } from "@/features/deals/loss";
 import { STAGE_LABEL } from "@/features/deals/types";
 import { byOwner, computeOutcomes, monthly, periods, salesCycle, totals, winRate } from "@/features/reports/report";
 
@@ -95,6 +96,10 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   // 단계별 전환 — 최근 1년 안에 등록한 사업
   const funnelRows = funnel(deals, data.events, new Date(Date.parse(`${today}T00:00:00Z`) - 364 * 86_400_000).toISOString().slice(0, 10));
   const funnelTop = Math.max(1, funnelRows[0]?.reached ?? 0);
+  // 실주 사유 — 최근 1년 안에 실주한 사업
+  const yearAgo = new Date(Date.parse(`${today}T00:00:00Z`) - 364 * 86_400_000).toISOString().slice(0, 10);
+  const lossRows = lossBreakdown(deals, new Set(losses.filter((l) => l.on >= yearAgo).map((l) => l.dealId)));
+  const lossTotal = lossRows.reduce((n, r) => n + r.count, 0);
   // 경쟁사별 전적 — 보이는 범위의 사업만
   const outcomeOf = new Map<string, Outcome>([...wins.map((w) => [w.dealId, "won"] as const), ...losses.map((l) => [l.dealId, "lost"] as const)]);
   const inScopeIds = new Set(deals.map((d) => d.id));
@@ -360,6 +365,31 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
           </ul>
         ) : (
           <p className="py-6 text-center text-xs text-muted">최근 1년 안에 등록한 사업이 없습니다.</p>
+        )}
+      </section>
+
+      {/* 실주 사유 */}
+      <section className="rounded-2xl border border-line bg-surface/60 p-4">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-1">
+          <h2 className="text-sm font-semibold">실주 사유 · 최근 1년</h2>
+          <span className="text-[11px] text-muted">상세 패널에서 상태를 &lsquo;실주&rsquo;로 바꿀 때 고른 사유</span>
+        </div>
+        {lossTotal === 0 ? (
+          <p className="py-6 text-center text-xs text-muted">최근 1년 실주가 없습니다.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {lossRows.map((r) => (
+              <li key={r.reason} className="grid grid-cols-[7rem_1fr_6rem] items-center gap-2 text-xs tabular-nums">
+                <span className={r.reason === "unknown" ? "text-muted" : ""}>{r.reason === "unknown" ? "사유 미입력" : LOSS_LABEL[r.reason]}</span>
+                <span className="h-3 overflow-hidden rounded bg-white/[0.04]">
+                  <span className={`block h-full rounded ${r.reason === "unknown" ? "bg-white/15" : "bg-st-red/60"}`} style={{ width: `${(r.count / lossTotal) * 100}%` }} />
+                </span>
+                <span className="text-right">
+                  {r.count}건 <span className="text-muted">· {eok(r.amount)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

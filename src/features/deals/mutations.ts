@@ -8,6 +8,7 @@ import { toDealInfoPatch, type DealInfoInput } from "./edit";
 import { toNoteRow, type NoteInput } from "./notes";
 import { nextPeriod, renewalName, renewalRef } from "./renewal";
 import { todayInSeoul } from "./status";
+import { isLossReason, LOST_NOTE_MAX } from "./loss";
 
 export type MutationResult = { ok: true } | { ok: false; error: string; conflict?: boolean; fieldErrors?: Record<string, string> };
 
@@ -26,11 +27,11 @@ async function done(error: { message: string } | null, rows?: unknown[] | null):
 /** 사업 단계·상태 변경. expectedUpdatedAt 이 다르면 덮어쓰지 않는다 */
 export async function updateDeal(
   dealId: string,
-  patch: { stage?: DealStage; status?: DealStatus },
+  patch: { stage?: DealStage; status?: DealStatus; lostReason?: string; lostNote?: string },
   expectedUpdatedAt: string,
 ): Promise<MutationResult> {
-  // 서버 액션은 누구나 임의 인자로 부를 수 있다 → 받은 객체를 그대로 쓰지 않고 허용한 두 칸만 옮긴다
-  const safe: { stage?: DealStage; status?: DealStatus } = {};
+  // 서버 액션은 누구나 임의 인자로 부를 수 있다 → 받은 객체를 그대로 쓰지 않고 허용한 칸만 옮긴다
+  const safe: { stage?: DealStage; status?: DealStatus; lost_reason?: string | null; lost_note?: string | null } = {};
   if (patch?.stage !== undefined) {
     if (!STAGES.includes(patch.stage)) return { ok: false, error: "알 수 없는 단계입니다." };
     safe.stage = patch.stage;
@@ -38,6 +39,17 @@ export async function updateDeal(
   if (patch?.status !== undefined) {
     if (!STATUSES.includes(patch.status)) return { ok: false, error: "알 수 없는 상태입니다." };
     safe.status = patch.status;
+    // 실주 사유: 실주로 바꿀 때만 받고, 다른 상태로 바꾸면 지운다
+    if (patch.status === "lost") {
+      if (patch.lostReason !== undefined && !isLossReason(patch.lostReason)) return { ok: false, error: "알 수 없는 실주 사유입니다." };
+      const note = typeof patch.lostNote === "string" ? patch.lostNote.trim() : "";
+      if (note.length > LOST_NOTE_MAX) return { ok: false, error: `실주 메모는 ${LOST_NOTE_MAX}자 이하로 입력하세요.` };
+      safe.lost_reason = patch.lostReason ?? null;
+      safe.lost_note = note || null;
+    } else {
+      safe.lost_reason = null;
+      safe.lost_note = null;
+    }
   }
   if (!safe.stage && !safe.status) return { ok: false, error: "바꿀 내용이 없습니다." };
   const supabase = await createClient();

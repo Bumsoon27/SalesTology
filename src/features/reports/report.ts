@@ -19,6 +19,7 @@ export type ReportDeal = {
   gp?: number | null;
   /** 경쟁입찰·수의계약 (퍼널의 입찰 단계) */
   contract_type?: "competitive" | "negotiated";
+  lost_reason?: string | null;
   created_at: string;
   owner_id: string;
   owner: string;
