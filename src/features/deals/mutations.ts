@@ -252,3 +252,46 @@ export async function createRenewalDeal(dealId: string): Promise<MutationResult 
   refresh();
   return { ok: true, dealId: data as string };
 }
+
+/**
+ * 사업 복제 — 비슷한 사업을 새로 시작할 때. 같은 고객·계약 방식·규모·GP·품목·관계사, 단계는 발굴, 기간·업무·기록은 비운다.
+ * 원 사업은 내 권한(RLS)으로 읽고, 새 사업은 create_deal(나를 담당자로)로 만든다.
+ */
+export async function copyDeal(dealId: string): Promise<MutationResult & { dealId?: string }> {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuid.test(dealId ?? "")) return { ok: false, error: "잘못된 요청입니다." };
+  const supabase = await createClient();
+  const { data: d, error: readError } = await supabase
+    .from("deals")
+    .select("name, customer_id, contract_type, amount, gp, items, customer:companies!deals_customer_id_fkey ( name ), deal_parties ( role, company:companies ( name ) )")
+    .eq("id", dealId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (readError || !d) return { ok: false, error: "사업을 찾을 수 없습니다." };
+  const row = d as unknown as {
+    name: string;
+    customer_id: string;
+    contract_type: "competitive" | "negotiated";
+    amount: number | null;
+    gp: number | null;
+    items: string | null;
+    customer: { name: string } | null;
+    deal_parties: { role: "si" | "supplier"; company: { name: string } | null }[];
+  };
+  const names = (role: "si" | "supplier") => row.deal_parties.filter((p) => p.role === role && p.company).map((p) => p.company!.name);
+  const { data, error } = await supabase.rpc("create_deal", {
+    p_name: `${row.name} (복사)`.slice(0, 200),
+    p_customer: row.customer?.name ?? "",
+    p_customer_id: row.customer_id,
+    p_contract_type: row.contract_type,
+    p_stage: "discovery",
+    p_amount: row.amount,
+    p_gp: row.gp,
+    p_items: row.items,
+    p_si: names("si"),
+    p_suppliers: names("supplier"),
+  });
+  if (error || !data) return { ok: false, error: error?.message ?? "사업을 복제하지 못했습니다." };
+  refresh();
+  return { ok: true, dealId: data as string };
+}

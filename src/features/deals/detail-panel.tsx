@@ -19,6 +19,7 @@ import { DirectionSection } from "./direction-section";
 import { CoachSection } from "./coach/coach-section";
 import { FilesSection } from "./files/files-section";
 import { CompetitorsSection } from "./competitors/competitors-section";
+import { CopyDealButton } from "./copy-deal-button";
 import { TIER_LABEL, tierOf, type Strength } from "./relationship";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
@@ -523,8 +524,12 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         )}
       </Section>
 
+      <div className="border-t border-line px-5 py-4">
+        <CopyDealButton dealId={d.id} name={d.name} />
+      </div>
+
       {d.canDelete && (
-        <div className="border-t border-line px-5 py-4">
+        <div className="-mt-2 px-5 pb-4">
           <button
             type="button"
             onClick={() => {
