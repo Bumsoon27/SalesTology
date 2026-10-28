@@ -3,8 +3,18 @@
 // 상세 패널 '활동 기록' — 통화·미팅·메일·메모를 남기면 사업의 마지막 활동이 갱신된다 (정체·AI 디렉션에 반영)
 import { useState, useTransition } from "react";
 import type { DealDetail } from "./detail";
-import { addDealNote, deleteDealNote, type MutationResult } from "./mutations";
+import { addDealNote, addTask, deleteDealNote, type MutationResult } from "./mutations";
 import { COUNTERPART_MAX, NOTE_KINDS, NOTE_LABEL, NOTE_MAX, type NoteKind } from "./notes";
+import { TASK_LABEL, type TaskType } from "./types";
+
+const FOLLOW_TYPES = ["quote_reply_out", "order", "delivery", "inspection", "invoice_out", "custom"] as const satisfies readonly TaskType[];
+type FollowType = (typeof FOLLOW_TYPES)[number];
+
+/** YYYY-MM-DD + n일 */
+function addDays(day: string, n: number): string {
+  const t = Date.parse(`${day}T00:00:00Z`) + n * 86_400_000;
+  return new Date(t).toISOString().slice(0, 10);
+}
 
 const mini = "rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted hover:border-accent/40 hover:text-fg";
 const KIND_ICON: Record<NoteKind, string> = { call: "☎", meeting: "◎", email: "✉", note: "✎" };
@@ -16,6 +26,8 @@ export function NotesSection({ d, onChanged }: { d: DealDetail; onChanged: () =>
   const [on, setOn] = useState(d.today);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // 후속 업무: 기록과 함께 '견적 회신 D+3' 같은 추적 업무를 만든다 (기본 꺼짐)
+  const [follow, setFollow] = useState<{ on: boolean; type: FollowType; due: string }>({ on: false, type: "quote_reply_out", due: addDays(d.today, 3) });
   const [pending, startTransition] = useTransition();
 
   const run = (fn: () => Promise<MutationResult>, after?: () => void) =>
@@ -24,6 +36,22 @@ export function NotesSection({ d, onChanged }: { d: DealDetail; onChanged: () =>
       if (!r.ok) return setError(r.error);
       setError(null);
       after?.();
+      onChanged();
+    });
+
+  const submit = () =>
+    startTransition(async () => {
+      const r = await addDealNote(d.id, { kind, body, occurredOn: on, counterpart });
+      if (!r.ok) return setError(r.error);
+      let err: string | null = null;
+      if (follow.on) {
+        const title = follow.type === "custom" ? `후속: ${body.trim().split("\n")[0].slice(0, 60)}` : undefined;
+        const t = await addTask(d.id, { type: follow.type, dueDate: follow.due, title });
+        if (!t.ok) err = `기록은 남겼지만 후속 업무를 만들지 못했습니다: ${t.error}`;
+      }
+      setError(err);
+      setBody("");
+      setFollow((f) => ({ ...f, on: false, due: addDays(d.today, 3) }));
       onChanged();
     });
 
@@ -41,7 +69,7 @@ export function NotesSection({ d, onChanged }: { d: DealDetail; onChanged: () =>
         onSubmit={(e) => {
           e.preventDefault();
           // 상대는 다음 기록에도 같은 사람일 때가 많아 그대로 둔다
-          run(() => addDealNote(d.id, { kind, body, occurredOn: on, counterpart }), () => setBody(""));
+          submit();
         }}
       >
         <div className="flex flex-wrap items-center gap-1.5">
@@ -87,6 +115,47 @@ export function NotesSection({ d, onChanged }: { d: DealDetail; onChanged: () =>
           placeholder="예: 담당 과장 통화 — 예산 3억 확정, 11월 첫째 주 견적 요청"
           className="field resize-y py-1.5 text-xs"
         />
+        {/* 후속 업무 — 추적 업무로 등록되어 기한이 다가오면 노란색·티커 알림으로 보인다 */}
+        <div className={`rounded-lg border px-2.5 py-2 text-[11px] transition-colors ${follow.on ? "border-accent/40 bg-accent/[0.05]" : "border-line"}`}>
+          <label className="flex items-center gap-2 text-muted">
+            <input type="checkbox" checked={follow.on} onChange={(e) => setFollow((f) => ({ ...f, on: e.target.checked }))} className="accent-[var(--accent)]" />
+            후속 업무도 만들기
+          </label>
+          {follow.on && (
+            <div className="mt-2 flex animate-[fadeIn_.18s_ease-out] flex-wrap items-center gap-1.5">
+              <select
+                value={follow.type}
+                onChange={(e) => setFollow((f) => ({ ...f, type: e.target.value as FollowType }))}
+                aria-label="후속 업무 종류"
+                className="rounded-md border border-line bg-transparent px-1.5 py-0.5 text-[11px]"
+              >
+                {FOLLOW_TYPES.map((t) => (
+                  <option key={t} value={t} className="bg-surface">
+                    {t === "custom" ? "기타 (내용 첫 줄)" : TASK_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+              {[1, 3, 7].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setFollow((f) => ({ ...f, due: addDays(d.today, n) }))}
+                  className={`rounded-full border px-2 py-0.5 ${follow.due === addDays(d.today, n) ? "border-accent/60 bg-accent/15 text-fg" : "border-line text-muted hover:text-fg"}`}
+                >
+                  D+{n}
+                </button>
+              ))}
+              <input
+                type="date"
+                value={follow.due}
+                min={d.today}
+                onChange={(e) => setFollow((f) => ({ ...f, due: e.target.value }))}
+                aria-label="후속 업무 기한"
+                className="field ml-auto w-auto py-0.5 text-[11px]"
+              />
+            </div>
+          )}
+        </div>
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-muted">
             {body.length}/{NOTE_MAX}
