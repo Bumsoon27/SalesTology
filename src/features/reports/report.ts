@@ -139,11 +139,15 @@ export function winRate(wins: Win[], losses: Loss[], from: string, to: string): 
   return { rate: won + lost > 0 ? Math.round((won / (won + lost)) * 100) : null, won, lost };
 }
 
-/** 평균·중앙 수주 기간(일) — 등록일 → 수주일, 기간(from~to) 안에 수주한 사업. 없으면 null */
-export function salesCycle(wins: Win[], deals: Pick<ReportDeal, "id" | "created_at">[], from: string, to: string): { avg: number; median: number; count: number } | null {
+/**
+ * 평균·중앙 수주 기간(일) — 등록일 → 수주일, 기간(from~to) 안에 수주한 사업. 없으면 null.
+ * 처음부터 수주 이후 단계로 등록한 사업(이미 따낸 사업을 나중에 입력)은 기간이 0일로 잡혀 빼야 한다 → events 로 거른다
+ */
+export function salesCycle(wins: Win[], deals: Pick<ReportDeal, "id" | "created_at">[], from: string, to: string, events: DealEvent[] = []): { avg: number; median: number; count: number } | null {
   const created = new Map(deals.map((d) => [d.id, seoulDay(d.created_at)]));
+  const enteredWon = new Set(events.filter((e) => e.action === "create" && WON.has(e.after?.stage as DealStage)).map((e) => e.deal_id));
   const days = wins
-    .filter((w) => w.on >= from && w.on <= to && created.has(w.dealId))
+    .filter((w) => w.on >= from && w.on <= to && created.has(w.dealId) && !enteredWon.has(w.dealId))
     .map((w) => Math.max(0, Math.round((Date.parse(`${w.on}T00:00:00Z`) - Date.parse(`${created.get(w.dealId)}T00:00:00Z`)) / 86_400_000)))
     .sort((a, b) => a - b);
   if (!days.length) return null;
