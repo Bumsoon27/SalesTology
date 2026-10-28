@@ -4,7 +4,7 @@
 import { createClient } from "@/shared/supabase/server";
 import { requireUser } from "@/shared/auth/current-user";
 import type { NoteKind } from "./notes";
-import { getPipelineSettings } from "./queries";
+import { getPipelineSettings, getTeamMembers } from "./queries";
 import { computeDealStatus, todayInSeoul, type StatusResult } from "./status";
 import { isFromSos, type DealRow, type DealStage, type IssueRow, type PartyRow, type TaskRow } from "./types";
 
@@ -40,6 +40,9 @@ export type DealDetail = {
   notes: NoteItem[];
   /** 사업 삭제 가능 (담당자·관리자) — 화면 표시용, 실제 권한은 DB 트리거가 막는다 */
   canDelete: boolean;
+  /** 담당자를 넘길 수 있는 대상 (현재 담당자·관리자에게만, 아니면 빈 배열) — 실제 검사는 DB 함수 reassign_deal */
+  reassignTo: { id: string; name: string }[];
+  ownerId: string;
   /** 이 사업 부문의 정체 기준일 (AI 디렉션) */
   staleAfterDays: number;
   /** 이 사업 부문에서 AI 코칭을 쓰는지 (관리자 설정) */
@@ -126,7 +129,8 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       team_id: string;
       deal_tasks: (TaskRow & { deleted_at: string | null })[];
     };
-    const settings = await getPipelineSettings(row.team_id);
+    const canManage = me.role === "admin" || row.owner_id === me.id;
+    const [settings, members] = await Promise.all([getPipelineSettings(row.team_id), canManage ? getTeamMembers(row.team_id) : Promise.resolve([])]);
     type RawNote = {
       id: string;
       kind: NoteKind;
@@ -169,7 +173,9 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
         author: n.author?.name ?? null,
         mine: n.author_id === me.id,
       })),
-      canDelete: me.role === "admin" || row.owner_id === me.id,
+      canDelete: canManage,
+      reassignTo: members,
+      ownerId: row.owner_id,
       staleAfterDays: settings.staleAfterDays,
       aiCoachEnabled: settings.aiCoachEnabled,
       today,

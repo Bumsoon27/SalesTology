@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { loadNodeDetail, type CompanyDetail, type DealDetail, type NodeDetail } from "./detail";
 import {
-  addIssue, addTask, completeTask, deleteDeal, excludeTask, reopenTask, rescheduleTask, resolveIssue, updateDeal, type MutationResult,
+  addIssue, addTask, completeTask, deleteDeal, excludeTask, reassignDeal, reopenTask, rescheduleTask, resolveIssue, updateDeal, type MutationResult,
 } from "./mutations";
 import { NotesSection } from "./notes-section";
 import type { DealStatus, TaskType } from "./types";
@@ -153,6 +153,9 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
   // 수정 중인 사업 id — 다른 노드로 바꾸면 자동으로 보기 모드
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = editingId === d.id;
+  const [reassigningId, setReassigningId] = useState<string | null>(null);
+  const reassigning = reassigningId === d.id;
+  const setReassigning = (on: boolean) => setReassigningId(on ? d.id : null);
 
   // 조치 실행 → 패널 다시 불러오기 + 대시보드 색 갱신
   const act = (fn: () => Promise<MutationResult>, after?: () => void) =>
@@ -177,8 +180,46 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
           <span>
             {d.customer.name} · 영업대표 <span className="text-fg">{d.owner ?? "-"}</span>
           </span>
+          {d.reassignTo.length > 1 && !reassigning && (
+            <button type="button" className={mini} onClick={() => setReassigning(true)}>
+              넘기기
+            </button>
+          )}
           {d.fromSos && <SosBadge />}
         </p>
+        {reassigning && (
+          <div className="flex animate-[fadeIn_.18s_ease-out] flex-wrap items-center gap-1.5 text-xs">
+            <select
+              autoFocus
+              defaultValue=""
+              aria-label="새 영업대표"
+              onChange={(e) => {
+                const to = d.reassignTo.find((m) => m.id === e.target.value);
+                if (!to) return;
+                if (!window.confirm(`'${d.name}' 사업의 담당을 ${to.name}님에게 넘길까요?\n끝나지 않은 업무도 함께 넘어갑니다.`)) {
+                  e.target.value = "";
+                  return;
+                }
+                act(() => reassignDeal(d.id, to.id, d.updatedAt), () => setReassigning(false));
+              }}
+              className="rounded-md border border-line bg-surface px-2 py-1 text-xs"
+            >
+              <option value="" disabled>
+                넘겨받을 사람 선택
+              </option>
+              {d.reassignTo
+                .filter((m) => m.id !== d.ownerId)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+            </select>
+            <button type="button" className={mini} onClick={() => setReassigning(false)}>
+              취소
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs ${STATUS_TONE[d.computed.status]}`}>
             {d.computed.reason ?? "정상"}
