@@ -1,6 +1,7 @@
 "use client";
 
 // 등록된 파트너사를 칩으로 골라 넣는다. 목록에 없는 이름도 추가할 수 있고, 저장 시 파트너로 등록된다.
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 export function PartnerPicker({ name, options, placeholder }: { name: string; options: string[]; placeholder: string }) {
@@ -49,7 +50,7 @@ export function PartnerPicker({ name, options, placeholder }: { name: string; op
         </div>
       ) : (
         <p className="text-xs text-muted">
-          등록된 파트너가 없습니다. <a href="/partners" className="text-fg underline-offset-4 hover:underline">파트너사 등록</a>
+          등록된 파트너가 없습니다. <Link href="/partners" className="text-fg underline-offset-4 hover:underline">파트너사 등록</Link>
         </p>
       )}
       {extra.length > 0 && (

@@ -3,6 +3,7 @@
 // 파트너사 목록 + 보기 범위 탭 (부문 전체 / 내 사업 관련 / SOS 인바운드).
 // 목록은 한 번에 받아 화면에서 바로 거른다 → 탭을 누르면 즉시 바뀐다.
 // 주소(?scope=mine|sos)는 처음 열 때만 읽는다 (링크로 특정 탭을 열 때). 탭을 누르면 화면 상태만 바뀐다.
+import Link from "next/link";
 import { useState } from "react";
 import { inScope, PARTNER_SCOPES, type PartnerScope } from "./count";
 import type { Partner } from "./queries";
@@ -81,7 +82,9 @@ function PartnerCard({ p }: { p: Partner }) {
   return (
     <li className="rounded-2xl border border-line bg-surface/60 p-4">
       <div className="flex items-start justify-between gap-2">
-        <p className="font-medium">{p.name}</p>
+        <Link href={`/partners/${p.id}`} className="font-medium hover:text-accent hover:underline">
+          {p.name} <span aria-hidden className="text-xs text-muted">›</span>
+        </Link>
         <span className="shrink-0 text-right text-xs text-muted">
           사업 {p.dealCount}건
           {p.dealCount > 0 && (

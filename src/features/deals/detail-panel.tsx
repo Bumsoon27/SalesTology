@@ -1,6 +1,7 @@
 "use client";
 
 // 왼쪽 상세 패널: 노드를 누르면 사업의 전반적인 흐름을 보여준다 (설계서 §6.5)
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { loadNodeDetail, type CompanyDetail, type DealDetail, type NodeDetail } from "./detail";
@@ -178,7 +179,10 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         <h2 className="text-lg font-semibold leading-snug">{d.name}</h2>
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
           <span>
-            {d.customer.name} · 영업대표 <span className="text-fg">{d.owner ?? "-"}</span>
+            <Link href={`/partners/${d.customer.id}`} className="underline-offset-4 hover:text-fg hover:underline" title="고객사 상세 보기">
+              {d.customer.name}
+            </Link>{" "}
+            · 영업대표 <span className="text-fg">{d.owner ?? "-"}</span>
           </span>
           {d.reassignTo.length > 1 && !reassigning && (
             <button type="button" className={mini} onClick={() => setReassigning(true)}>
@@ -570,6 +574,9 @@ function CompanyView({ c, strength, lastOn, today }: { c: CompanyDetail; strengt
     <>
       <div className="space-y-2 px-5 pb-4">
         <h2 className="text-lg font-semibold">{c.name}</h2>
+        <Link href={`/partners/${c.id}`} className="inline-block text-xs text-accent underline-offset-4 hover:underline">
+          고객사 상세 보기 ›
+        </Link>
         {c.contact && <p className="text-xs text-muted">{c.contact}</p>}
         {c.memo && <p className="text-xs text-muted">{c.memo}</p>}
         {tier && strength != null && (
