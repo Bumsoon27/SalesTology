@@ -7,7 +7,8 @@ import { resolveScope } from "@/features/deals/scope";
 import { ScopeSwitch } from "@/features/deals/scope-switch";
 import { ExportButton } from "@/features/export/export-button";
 import { todayInSeoul } from "@/features/deals/status";
-import { getReportData, getTargets } from "@/features/reports/queries";
+import { getCompetitorEntries, getReportData, getTargets } from "@/features/reports/queries";
+import { competitorStats, type Outcome } from "@/features/deals/competitors/competitors";
 import { attainment, elapsedPct, targetFor } from "@/features/reports/targets";
 import { TargetEditor } from "@/features/reports/target-editor";
 import { advances, weekStats, weeks } from "@/features/reports/weekly";
@@ -54,7 +55,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const ownerFilter = scope.kind === "mine" ? user.id : scope.kind === "member" ? scope.id : null;
   const year = Number(todayInSeoul().slice(0, 4));
   // 목표: 부문 보기는 부문 목표, 개인·영업대표 보기는 그 사람의 개인 목표
-  const targets = await getTargets(user.teamId, ownerFilter, year);
+  const [targets, competitorEntries] = await Promise.all([getTargets(user.teamId, ownerFilter, year), getCompetitorEntries(user.teamId)]);
   const deals = ownerFilter ? data.deals.filter((d) => d.owner_id === ownerFilter) : data.deals;
   const { wins, losses } = computeOutcomes(deals, data.events);
 
@@ -81,6 +82,13 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const owners = byOwner(wins, p.year);
   const ownersQuarter = new Map(byOwner(wins, p.quarter).map((r) => [r.ownerId, r]));
   const ownersMonth = new Map(byOwner(wins, p.month).map((r) => [r.ownerId, r]));
+  // 경쟁사별 전적 — 보이는 범위의 사업만
+  const outcomeOf = new Map<string, Outcome>([...wins.map((w) => [w.dealId, "won"] as const), ...losses.map((l) => [l.dealId, "lost"] as const)]);
+  const inScopeIds = new Set(deals.map((d) => d.id));
+  const rivals = competitorStats(
+    competitorEntries.filter((e) => inScopeIds.has(e.dealId)),
+    outcomeOf,
+  ).slice(0, 10);
   // 주간 브리핑 — 이번 주(월~오늘) vs 지난주 같은 기간
   const wk = weeks(today);
   const thisWeek = weekStats(deals, data.events, wins, losses, wk.thisWeek);
@@ -295,6 +303,47 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
           )}
         </section>
       </div>
+
+      {/* 경쟁사별 전적 — 상세 패널 '경쟁사'에 기록한 것 */}
+      <section className="rounded-2xl border border-line bg-surface/60 p-4">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-1">
+          <h2 className="text-sm font-semibold">경쟁사별 전적</h2>
+          <span className="text-[11px] text-muted">맞붙은 사업 중 우리 수주 · 그 경쟁사 낙찰 · 다른 곳 · 진행 중</span>
+        </div>
+        {rivals.length === 0 ? (
+          <p className="py-6 text-center text-xs text-muted">아직 기록된 경쟁사가 없습니다. 사업 상세 패널의 &lsquo;경쟁사&rsquo;에서 기록하세요.</p>
+        ) : (
+          <table className="w-full text-xs tabular-nums">
+            <thead className="text-[11px] text-muted">
+              <tr>
+                <th className="pb-2 text-left font-normal">경쟁사</th>
+                <th className="pb-2 text-right font-normal">사업</th>
+                <th className="pb-2 text-right font-normal">우리 수주</th>
+                <th className="pb-2 text-right font-normal">그쪽 낙찰</th>
+                <th className="pb-2 text-right font-normal">다른 곳</th>
+                <th className="pb-2 text-right font-normal">진행 중</th>
+                <th className="pb-2 text-right font-normal">우리 승률</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rivals.map((r) => {
+                const decided = r.weWon + r.theyWon + r.otherWon;
+                return (
+                  <tr key={r.name} className="border-t border-line">
+                    <td className="py-2">{r.name}</td>
+                    <td className="py-2 text-right">{r.deals}</td>
+                    <td className="py-2 text-right text-st-green">{r.weWon}</td>
+                    <td className="py-2 text-right text-st-red">{r.theyWon}</td>
+                    <td className="py-2 text-right text-muted">{r.otherWon}</td>
+                    <td className="py-2 text-right text-muted">{r.open}</td>
+                    <td className="py-2 text-right font-semibold">{decided ? `${Math.round((r.weWon / decided) * 100)}%` : "-"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
     </div>
   );
 }

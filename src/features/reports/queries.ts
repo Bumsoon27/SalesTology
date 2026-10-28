@@ -4,6 +4,7 @@ import "server-only";
 import { createClient } from "@/shared/supabase/server";
 import type { DealEvent, ReportDeal } from "./report";
 import type { MonthTarget } from "./targets";
+import type { CompetitorEntry } from "@/features/deals/competitors/competitors";
 
 export async function getReportData(teamId: string): Promise<{ deals: ReportDeal[]; events: DealEvent[] }> {
   const supabase = await createClient();
@@ -40,4 +41,16 @@ export async function getTargets(teamId: string, ownerId: string | null, year: n
   q = ownerId ? q.eq("owner_id", ownerId) : q.is("owner_id", null);
   const { data } = await q.order("month");
   return ((data ?? []) as { month: string; amount: number }[]).map((t) => ({ month: t.month, amount: Number(t.amount) }));
+}
+
+/** 경쟁사 기록 — 같은 부문 사업(삭제 제외)의 경쟁사. 사용자 권한(RLS) */
+export async function getCompetitorEntries(teamId: string): Promise<CompetitorEntry[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("deal_competitors")
+    .select("deal_id, name, is_winner, deal:deals!inner ( team_id, deleted_at )")
+    .eq("deal.team_id", teamId)
+    .is("deal.deleted_at", null)
+    .limit(5000);
+  return ((data ?? []) as unknown as { deal_id: string; name: string; is_winner: boolean }[]).map((r) => ({ dealId: r.deal_id, name: r.name, isWinner: r.is_winner }));
 }
