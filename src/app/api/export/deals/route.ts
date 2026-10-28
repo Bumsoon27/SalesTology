@@ -40,6 +40,7 @@ export async function GET(req: Request) {
     suppliers: d.deal_parties.filter((p) => p.role === "supplier").map((p) => p.company.name),
     lastActivityOn: seoulDay(d.last_activity_at),
     fromSos: isFromSos(d.source_ref),
+    lostReason: d.lost_reason ?? null,
   }));
 
   const who = scope.kind === "mine" ? user.name : scope.kind === "member" ? scope.name : (user.teamName ?? "부문");

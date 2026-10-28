@@ -3,6 +3,7 @@
 // 보안: 셀이 = + - @ 탭·CR 로 시작하면 엑셀이 수식으로 실행할 수 있다(CSV 인젝션) → 앞에 ' 를 붙여 글자로만 보이게.
 // 단, 숫자 칸(금액)은 숫자 그대로 둔다 (음수 GP 도 숫자).
 import { STAGE_LABEL, type DealStage, type DealStatus } from "@/features/deals/types";
+import { isLossReason, LOSS_LABEL } from "@/features/deals/loss";
 
 const STATUS_KO: Record<DealStatus, string> = { active: "진행", on_hold: "보류", lost: "실주", closed: "종결" };
 
@@ -21,6 +22,7 @@ export type ExportDeal = {
   suppliers: string[];
   lastActivityOn: string;
   fromSos: boolean;
+  lostReason?: string | null;
 };
 
 /** 문자열 칸: 수식 시작 문자 무력화 + 따옴표·쉼표·줄바꿈 이스케이프 */
@@ -32,7 +34,7 @@ export function textCell(v: string | null | undefined): string {
 
 const numCell = (n: number | null) => (n == null || !Number.isFinite(n) ? "" : String(Math.round(n)));
 
-export const HEADERS = ["사업명", "고객사", "영업대표", "단계", "상태", "계약 방식", "사업 규모(원)", "GP(원)", "GP율(%)", "계약 시작", "계약 종료", "매출처(SI)", "매입처", "마지막 활동", "출처"];
+export const HEADERS = ["사업명", "고객사", "영업대표", "단계", "상태", "계약 방식", "사업 규모(원)", "GP(원)", "GP율(%)", "계약 시작", "계약 종료", "매출처(SI)", "매입처", "마지막 활동", "출처", "실주 사유"];
 
 export function dealsToCsv(rows: ExportDeal[]): string {
   const lines = [HEADERS.map(textCell).join(",")];
@@ -55,6 +57,7 @@ export function dealsToCsv(rows: ExportDeal[]): string {
         textCell(r.suppliers.join(" / ")),
         textCell(r.lastActivityOn),
         textCell(r.fromSos ? "SOS" : ""),
+        textCell(r.status === "lost" && isLossReason(r.lostReason) ? LOSS_LABEL[r.lostReason] : ""),
       ].join(","),
     );
   }

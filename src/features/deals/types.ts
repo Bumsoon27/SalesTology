@@ -38,6 +38,8 @@ export type DealRow = {
   period_start?: string | null;
   period_end?: string | null;
   source_ref?: string | null;
+  /** 실주 사유 (loss.ts 의 값) */
+  lost_reason?: string | null;
   customer: { id: string; name: string };
   deal_parties: PartyRow[];
   deal_tasks: TaskRow[];
