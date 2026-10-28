@@ -138,3 +138,19 @@ export function winRate(wins: Win[], losses: Loss[], from: string, to: string): 
   const lost = losses.filter((l) => l.on >= from && l.on <= to).length;
   return { rate: won + lost > 0 ? Math.round((won / (won + lost)) * 100) : null, won, lost };
 }
+
+/** 평균·중앙 수주 기간(일) — 등록일 → 수주일, 기간(from~to) 안에 수주한 사업. 없으면 null */
+export function salesCycle(wins: Win[], deals: Pick<ReportDeal, "id" | "created_at">[], from: string, to: string): { avg: number; median: number; count: number } | null {
+  const created = new Map(deals.map((d) => [d.id, seoulDay(d.created_at)]));
+  const days = wins
+    .filter((w) => w.on >= from && w.on <= to && created.has(w.dealId))
+    .map((w) => Math.max(0, Math.round((Date.parse(`${w.on}T00:00:00Z`) - Date.parse(`${created.get(w.dealId)}T00:00:00Z`)) / 86_400_000)))
+    .sort((a, b) => a - b);
+  if (!days.length) return null;
+  const mid = Math.floor(days.length / 2);
+  return {
+    avg: Math.round(days.reduce((s, n) => s + n, 0) / days.length),
+    median: days.length % 2 ? days[mid] : Math.round((days[mid - 1] + days[mid]) / 2),
+    count: days.length,
+  };
+}

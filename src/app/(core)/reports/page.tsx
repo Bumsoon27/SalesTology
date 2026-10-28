@@ -14,7 +14,7 @@ import { TargetEditor } from "@/features/reports/target-editor";
 import { advances, weekStats, weeks } from "@/features/reports/weekly";
 import { funnel } from "@/features/reports/funnel";
 import { STAGE_LABEL } from "@/features/deals/types";
-import { byOwner, computeOutcomes, monthly, periods, totals, winRate } from "@/features/reports/report";
+import { byOwner, computeOutcomes, monthly, periods, salesCycle, totals, winRate } from "@/features/reports/report";
 
 type Params = { scope?: string; owner?: string };
 
@@ -82,6 +82,8 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   });
   const since90 = new Date(Date.parse(`${today}T00:00:00Z`) - 89 * 86_400_000).toISOString().slice(0, 10);
   const rate = winRate(wins, losses, since90, today);
+  // 수주 기간 — 최근 1년 안에 수주한 사업의 등록 → 수주 일수
+  const cycle = salesCycle(wins, deals, new Date(Date.parse(`${today}T00:00:00Z`) - 364 * 86_400_000).toISOString().slice(0, 10), today);
   const months = monthly(wins, today);
   const maxMonth = Math.max(1, ...months.map((m) => m.amount));
   const owners = byOwner(wins, p.year);
@@ -207,6 +209,11 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
             수주 {rate.won} · 실주 {rate.lost}
             {rate.rate == null && " · 결론 난 사업 없음"}
           </p>
+          {cycle && (
+            <p className="mt-2.5 border-t border-line pt-2 text-[11px] text-muted tabular-nums" title={`최근 1년 수주 ${cycle.count}건의 등록 → 수주 일수`}>
+              수주까지 평균 <span className="text-fg">{cycle.avg}일</span> · 중앙 {cycle.median}일
+            </p>
+          )}
         </div>
       </section>
 

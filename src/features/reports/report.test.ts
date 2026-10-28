@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byOwner, computeOutcomes, monthly, periods, totals, winRate, type DealEvent, type ReportDeal } from "./report";
+import { byOwner, computeOutcomes, monthly, periods, salesCycle, totals, winRate, type DealEvent, type ReportDeal } from "./report";
 
 const deal = (o: Partial<ReportDeal>): ReportDeal => ({
   id: "d",
@@ -74,5 +74,19 @@ describe("기간·집계", () => {
     ]);
     expect(winRate(wins, [{ dealId: "9", ownerId: "u1", on: "2026-09-01" }], "2026-07-30", today)).toEqual({ rate: 67, won: 2, lost: 1 });
     expect(winRate([], [], "2026-01-01", today).rate).toBeNull();
+  });
+});
+
+describe("salesCycle", () => {
+  it("등록 → 수주 일수의 평균·중앙값, 기간 밖 제외", () => {
+    const w = (dealId: string, on: string) => ({ dealId, name: "", customer: "", ownerId: "u", owner: "", on, amount: 1, gp: null });
+    const deals = [
+      { id: "a", created_at: "2026-09-01T00:00:00Z" },
+      { id: "b", created_at: "2026-09-21T00:00:00Z" },
+      { id: "c", created_at: "2026-10-01T00:00:00Z" },
+      { id: "x", created_at: "2026-01-01T00:00:00Z" },
+    ];
+    expect(salesCycle([w("a", "2026-10-01"), w("b", "2026-10-01"), w("c", "2026-10-31"), w("x", "2026-02-01")], deals, "2026-08-01", "2026-10-31")).toEqual({ avg: 23, median: 30, count: 3 });
+    expect(salesCycle([], deals, "2026-01-01", "2026-12-31")).toBeNull();
   });
 });
