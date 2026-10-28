@@ -12,6 +12,7 @@ import { competitorStats, type Outcome } from "@/features/deals/competitors/comp
 import { attainment, coverage, elapsedPct, targetFor } from "@/features/reports/targets";
 import { TargetEditor } from "@/features/reports/target-editor";
 import { advances, weekStats, weeks } from "@/features/reports/weekly";
+import { funnel } from "@/features/reports/funnel";
 import { STAGE_LABEL } from "@/features/deals/types";
 import { byOwner, computeOutcomes, monthly, periods, totals, winRate } from "@/features/reports/report";
 
@@ -89,6 +90,9 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   // 파이프라인 커버리지 — 올해 남은 목표 대비 수주 전 진행 중 사업
   const yearCard = cards[2];
   const cov = coverage(deals, settings.probabilities, yearCard.target, yearCard.t.amount);
+  // 단계별 전환 — 최근 1년 안에 등록한 사업
+  const funnelRows = funnel(deals, data.events, new Date(Date.parse(`${today}T00:00:00Z`) - 364 * 86_400_000).toISOString().slice(0, 10));
+  const funnelTop = Math.max(1, funnelRows[0]?.reached ?? 0);
   // 경쟁사별 전적 — 보이는 범위의 사업만
   const outcomeOf = new Map<string, Outcome>([...wins.map((w) => [w.dealId, "won"] as const), ...losses.map((l) => [l.dealId, "lost"] as const)]);
   const inScopeIds = new Set(deals.map((d) => d.id));
@@ -326,6 +330,31 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
           )}
         </section>
       </div>
+
+      {/* 단계별 전환 (퍼널) */}
+      <section className="rounded-2xl border border-line bg-surface/60 p-4">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-1">
+          <h2 className="text-sm font-semibold">단계별 전환 · 최근 1년 등록 사업</h2>
+          <span className="text-[11px] text-muted">한 번이라도 그 단계까지 간 사업 수 · 오른쪽 = 앞 단계 대비 (수의계약은 입찰을 건너뛰어도 통과로 셉니다)</span>
+        </div>
+        {funnelRows[0]?.reached ? (
+          <ul className="space-y-1.5">
+            {funnelRows.map((r) => (
+              <li key={r.stage} className="grid grid-cols-[3.5rem_1fr_5.5rem] items-center gap-2 text-xs tabular-nums">
+                <span className="text-muted">{STAGE_LABEL[r.stage]}</span>
+                <span className="h-4 overflow-hidden rounded bg-white/[0.04]">
+                  <span className={`block h-full rounded ${r.stage === "won" ? "bg-st-green/70" : "bg-accent/50"}`} style={{ width: `${Math.max(2, (r.reached / funnelTop) * 100)}%` }} />
+                </span>
+                <span className="text-right">
+                  {r.reached}건 <span className="text-muted">{r.stepPct == null ? "" : `· ${r.stepPct}%`}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="py-6 text-center text-xs text-muted">최근 1년 안에 등록한 사업이 없습니다.</p>
+        )}
+      </section>
 
       {/* 경쟁사별 전적 — 상세 패널 '경쟁사'에 기록한 것 */}
       <section className="rounded-2xl border border-line bg-surface/60 p-4">
