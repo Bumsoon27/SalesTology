@@ -8,7 +8,7 @@ import { needsRenewal } from "./renewal";
 import { computeTaskState, daysUntil, seoulDay } from "./status";
 import { TASK_LABEL, type DealRow, type DealStage, type TaskRow } from "./types";
 
-export type DirectionKind = "issue" | "overdue" | "due_soon" | "missing_schedule" | "stale" | "single_thread" | "renewal" | "data" | "margin" | "stage";
+export type DirectionKind = "issue" | "overdue" | "due_soon" | "missing_schedule" | "stale" | "single_thread" | "competitor" | "renewal" | "data" | "margin" | "stage";
 
 export type Direction = {
   kind: DirectionKind;
@@ -30,6 +30,7 @@ const DUE_SOON_DAYS = 3;
 
 const WON_OR_LATER = new Set<DealStage>(["won", "fulfillment", "billing"]);
 const PRE_WIN = new Set<DealStage>(["discovery", "quoting", "proposal", "negotiation", "bidding"]);
+const COMPETITOR_STAGES = new Set<DealStage>(["proposal", "negotiation", "bidding"]);
 
 /** 단계별 기본 다음 할 일 (영업 플레이북) */
 const STAGE_PLAY: Record<DealStage, { title: string; why: string }> = {
@@ -49,6 +50,9 @@ type Deal = Pick<DealRow, "stage" | "status" | "amount" | "last_activity_at" | "
   period_end?: string | null;
   /** 이 사업의 갱신 사업(renewal:<id>)이 이미 있는지 */
   renewal_exists?: boolean;
+  contract_type?: "competitive" | "negotiated";
+  /** 기록된 경쟁사 (없으면 모름 → 신호 안 냄) */
+  deal_competitors?: { id: string }[];
 };
 
 /** 최근 활동 기록의 고객 쪽 상대 (이름 비교는 공백·대소문자 무시) */
@@ -121,6 +125,11 @@ export function suggestDirections(deal: Deal, today: string, limit = 3, staleAft
             : "상대를 남겨야 접점이 한 사람에 몰렸는지 알 수 있습니다",
       });
     }
+  }
+
+  // 5-1) 경쟁입찰인데 제안 이후까지 경쟁사 기록이 없다 — 경쟁사별 전적·가격 전략에 필요
+  if (deal.contract_type === "competitive" && COMPETITOR_STAGES.has(deal.stage) && deal.deal_competitors && deal.deal_competitors.length === 0) {
+    out.push({ kind: "competitor", priority: 42, title: "맞붙는 경쟁사 기록하기", why: "경쟁입찰 사업입니다 — 경쟁사·예상 제안가를 남기면 가격 전략과 경쟁사별 전적에 쓰입니다" });
   }
 
   // 6) 데이터 빈칸 / 마진

@@ -95,3 +95,15 @@ describe("갱신 제안", () => {
     expect(suggestDirections({ ...won, renewal_exists: true }, today, 5).some((x) => x.kind === "renewal")).toBe(false);
   });
 });
+
+describe("경쟁사 기록 신호", () => {
+  const kinds = (o: Parameters<typeof deal>[0]) => suggestDirections(deal(o), today, 10).map((x) => x.kind);
+  it("경쟁입찰·제안 이후·기록 없음일 때만", () => {
+    expect(kinds({ contract_type: "competitive", deal_competitors: [] })).toContain("competitor");
+    expect(kinds({ contract_type: "competitive", deal_competitors: [{ id: "c" }] })).not.toContain("competitor");
+    expect(kinds({ contract_type: "negotiated", deal_competitors: [] })).not.toContain("competitor");
+    expect(kinds({ contract_type: "competitive", stage: "discovery", deal_competitors: [] })).not.toContain("competitor");
+    // 경쟁사 정보를 안 읽은 경우(undefined)는 모름 → 신호 없음
+    expect(kinds({ contract_type: "competitive" })).not.toContain("competitor");
+  });
+});

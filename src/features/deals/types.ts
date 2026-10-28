@@ -38,6 +38,8 @@ export type DealRow = {
   period_start?: string | null;
   period_end?: string | null;
   source_ref?: string | null;
+  /** 기록된 경쟁사 id (AI 디렉션 '경쟁사 기록') */
+  deal_competitors?: { id: string }[];
   /** 실주 사유 (loss.ts 의 값) */
   lost_reason?: string | null;
   customer: { id: string; name: string };
