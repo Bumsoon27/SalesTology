@@ -335,7 +335,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
       <section className="rounded-2xl border border-line bg-surface/60 p-4">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-1">
           <h2 className="text-sm font-semibold">단계별 전환 · 최근 1년 등록 사업</h2>
-          <span className="text-[11px] text-muted">한 번이라도 그 단계까지 간 사업 수 · 오른쪽 = 앞 단계 대비 (수의계약은 입찰을 건너뛰어도 통과로 셉니다)</span>
+          <span className="text-[11px] text-muted">한 번이라도 그 단계까지 간 사업 수 · 오른쪽 = 앞 단계 대비 · 입찰은 경쟁입찰 사업만, 수주는 협상 대비</span>
         </div>
         {funnelRows[0]?.reached ? (
           <ul className="space-y-1.5">
