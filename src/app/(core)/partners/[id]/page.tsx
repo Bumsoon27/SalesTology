@@ -9,6 +9,7 @@ import { relationshipStrength, TIER_LABEL, type Interaction } from "@/features/d
 import { NOTE_LABEL } from "@/features/deals/notes";
 import { STAGE_LABEL } from "@/features/deals/types";
 import { todayInSeoul } from "@/features/deals/status";
+import { formatEok as eok } from "@/features/deals/money";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROLE_LABEL: Record<CompanyRole, string> = { customer: "고객사", si: "매출처(SI)", supplier: "매입처" };
@@ -26,13 +27,6 @@ export default function CompanyPage({ params }: PageProps<"/partners/[id]">) {
       </main>
     </>
   );
-}
-
-function eok(n: number) {
-  if (n === 0) return "0";
-  if (Math.abs(n) >= 100_000_000) return `${(n / 100_000_000).toFixed(1).replace(/\.0$/, "")}억`;
-  if (Math.abs(n) >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`;
-  return n.toLocaleString();
 }
 
 async function Company({ params }: { params: Promise<{ id: string }> }) {

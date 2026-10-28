@@ -4,14 +4,9 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { addCompetitor, deleteCompetitor, listCompetitors, type Competitor } from "./actions";
 import { COMPETITOR_NAME_MAX, COMPETITOR_NOTE_MAX } from "./competitors";
+import { formatEok as eok } from "@/features/deals/money";
 
 const mini = "rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted hover:border-accent/40 hover:text-fg disabled:opacity-40";
-
-function eok(n: number) {
-  if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1).replace(/\.0$/, "")}억`;
-  if (n >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`;
-  return n.toLocaleString();
-}
 
 export function CompetitorsSection({ dealId, competitive }: { dealId: string; competitive: boolean }) {
   const [items, setItems] = useState<Competitor[] | null>(null);

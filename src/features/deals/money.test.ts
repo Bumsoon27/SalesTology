@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { checkGp, parseWon } from "./money";
+import { checkGp, formatEok, parseWon } from "./money";
+
+describe("formatEok", () => {
+  it("억·만·원 표시", () => {
+    expect([formatEok(0), formatEok(320_000_000), formatEok(300_000_000), formatEok(51_800_000), formatEok(9_999), formatEok(-30_000_000)]).toEqual(["0", "3.2억", "3억", "5,180만", "9,999", "-3,000만"]);
+  });
+});
 
 describe("checkGp", () => {
   it("GP 가 규모보다 크면 오류, 같거나 작거나 비었으면 통과", () => {
