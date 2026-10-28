@@ -6,7 +6,7 @@ import type { DealRow } from "./types";
 import { DEFAULT_PIPELINE_SETTINGS, fromSettingsRow, type PipelineSettings } from "./pipeline-settings";
 
 const DEAL_SELECT = `
-  id, name, stage, status, amount, gp, last_activity_at, period_end, updated_at, contract_type,
+  id, name, stage, status, amount, gp, last_activity_at, period_start, period_end, updated_at, contract_type, source_ref,
   customer:companies!deals_customer_id_fkey ( id, name ),
   deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
   deal_tasks ( id, type, title, company_id, due_date, done_at, excluded_reason, deleted_at ),

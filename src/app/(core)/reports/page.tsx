@@ -5,6 +5,7 @@ import { AppHeader } from "@/shared/ui/app-header";
 import { getTeamMembers } from "@/features/deals/queries";
 import { resolveScope } from "@/features/deals/scope";
 import { ScopeSwitch } from "@/features/deals/scope-switch";
+import { ExportButton } from "@/features/export/export-button";
 import { todayInSeoul } from "@/features/deals/status";
 import { getReportData } from "@/features/reports/queries";
 import { byOwner, computeOutcomes, monthly, periods, totals, winRate } from "@/features/reports/report";
@@ -72,6 +73,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
           </div>
           <ScopeSwitch path="/reports" scope={scope} members={members} meId={user.id} teamName={user.teamName ?? "부문"} />
         </div>
+        <ExportButton scope={scope} />
       </div>
 
       {/* 이번 달 · 분기 · 올해 · 승률 */}
