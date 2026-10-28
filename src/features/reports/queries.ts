@@ -3,6 +3,7 @@ import "server-only";
 // 실적 리포트 데이터 — 사용자 권한(RLS)으로 읽는다 (같은 부문만). 지난 400일 이력
 import { createClient } from "@/shared/supabase/server";
 import type { DealEvent, ReportDeal } from "./report";
+import type { MonthTarget } from "./targets";
 
 export async function getReportData(teamId: string): Promise<{ deals: ReportDeal[]; events: DealEvent[] }> {
   const supabase = await createClient();
@@ -30,4 +31,13 @@ export async function getReportData(teamId: string): Promise<{ deals: ReportDeal
     deals: ((deals.data ?? []) as unknown as Raw[]).map((d) => ({ ...d, owner: d.owner?.name ?? "-" })),
     events: (events.data ?? []) as DealEvent[],
   };
+}
+
+/** 월 목표 — 부문 목표(ownerId null) 또는 한 사람의 개인 목표, 그 해 */
+export async function getTargets(teamId: string, ownerId: string | null, year: number): Promise<MonthTarget[]> {
+  const supabase = await createClient();
+  let q = supabase.from("sales_targets").select("month, amount").eq("team_id", teamId).gte("month", `${year}-01-01`).lte("month", `${year}-12-01`);
+  q = ownerId ? q.eq("owner_id", ownerId) : q.is("owner_id", null);
+  const { data } = await q.order("month");
+  return ((data ?? []) as { month: string; amount: number }[]).map((t) => ({ month: t.month, amount: Number(t.amount) }));
 }
