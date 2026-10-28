@@ -1,6 +1,7 @@
 "use client";
 
 // 상세 패널 '관계사' — 고객사·SI·매입처 보기와 수정
+import Link from "next/link";
 import { useId, useState, useTransition } from "react";
 import type { DealDetail } from "./detail";
 import { addDealParty, listCompanyOptions, removeDealParty, setDealCustomer, type MutationResult } from "./mutations";
@@ -68,10 +69,10 @@ export function DealPartiesSection({ d, onChanged }: { d: DealDetail; onChanged:
         <dl className="space-y-2 text-sm">
           {(
             [
-              ["고객사", [d.customer.name]],
-              ["매출처(SI)", si.map((p) => p.company.name)],
-              ["매입처", sup.map((p) => p.company.name)],
-            ] as [string, string[]][]
+              ["고객사", [d.customer]],
+              ["매출처(SI)", si.map((p) => p.company)],
+              ["매입처", sup.map((p) => p.company)],
+            ] as [string, { id: string; name: string }[]][]
           ).map(([k, names]) => (
             <div key={k} className="grid grid-cols-[4.5rem_1fr] items-start gap-2">
               <dt className="pt-0.5 text-[11px] text-muted">{k}</dt>
@@ -79,10 +80,11 @@ export function DealPartiesSection({ d, onChanged }: { d: DealDetail; onChanged:
                 {names.length === 0 ? (
                   <span className="text-xs text-muted">없음 (직접 진행)</span>
                 ) : (
-                  names.map((n) => (
-                    <span key={n} className="rounded-full border border-line px-2.5 py-0.5 text-xs">
-                      {n}
-                    </span>
+                  names.map((c) => (
+                    // 회사 이름 → 고객사 상세 (걸린 사업·실적·활동)
+                    <Link key={c.id} href={`/partners/${c.id}`} className="rounded-full border border-line px-2.5 py-0.5 text-xs hover:border-accent/50 hover:text-accent" title="회사 상세 보기">
+                      {c.name}
+                    </Link>
                   ))
                 )}
               </dd>
