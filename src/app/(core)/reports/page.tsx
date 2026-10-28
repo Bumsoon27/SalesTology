@@ -7,7 +7,9 @@ import { resolveScope } from "@/features/deals/scope";
 import { ScopeSwitch } from "@/features/deals/scope-switch";
 import { ExportButton } from "@/features/export/export-button";
 import { todayInSeoul } from "@/features/deals/status";
-import { getReportData } from "@/features/reports/queries";
+import { getReportData, getTargets } from "@/features/reports/queries";
+import { attainment, elapsedPct, targetFor } from "@/features/reports/targets";
+import { TargetEditor } from "@/features/reports/target-editor";
 import { byOwner, computeOutcomes, monthly, periods, totals, winRate } from "@/features/reports/report";
 
 type Params = { scope?: string; owner?: string };
@@ -48,12 +50,28 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const [members, data] = await Promise.all([getTeamMembers(user.teamId), getReportData(user.teamId)]);
   const scope = resolveScope(params, user, members);
   const ownerFilter = scope.kind === "mine" ? user.id : scope.kind === "member" ? scope.id : null;
+  const year = Number(todayInSeoul().slice(0, 4));
+  // 목표: 부문 보기는 부문 목표, 개인·영업대표 보기는 그 사람의 개인 목표
+  const targets = await getTargets(user.teamId, ownerFilter, year);
   const deals = ownerFilter ? data.deals.filter((d) => d.owner_id === ownerFilter) : data.deals;
   const { wins, losses } = computeOutcomes(deals, data.events);
 
   const today = todayInSeoul();
   const p = periods(today);
-  const cards = [p.month, p.quarter, p.year].map((x) => ({ period: x, t: totals(wins, x) }));
+  // 기간 끝 날짜 (경과율 — 달성률이 이보다 낮으면 뒤처진 것)
+  const endOf = (from: string, months: number) => {
+    const d = new Date(`${from}T00:00:00Z`);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 0)).toISOString().slice(0, 10);
+  };
+  const cards = [
+    { period: p.month, end: endOf(p.month.from, 1) },
+    { period: p.quarter, end: endOf(p.quarter.from, 3) },
+    { period: p.year, end: endOf(p.year.from, 12) },
+  ].map(({ period, end }) => {
+    const t = totals(wins, period);
+    const target = targetFor(targets, period);
+    return { period, t, target, pct: attainment(t.amount, target), pace: elapsedPct(period, today, end) };
+  });
   const since90 = new Date(Date.parse(`${today}T00:00:00Z`) - 89 * 86_400_000).toISOString().slice(0, 10);
   const rate = winRate(wins, losses, since90, today);
   const months = monthly(wins, today);
@@ -78,14 +96,29 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
 
       {/* 이번 달 · 분기 · 올해 · 승률 */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map(({ period, t }) => (
+        {cards.map(({ period, t, target, pct, pace }) => (
           <div key={period.label} className="rounded-2xl border border-line bg-surface/60 p-4">
-            <p className="text-[11px] text-muted">{period.label} 수주</p>
+            <p className="flex items-baseline justify-between text-[11px] text-muted">
+              <span>{period.label} 수주</span>
+              {pct != null && <span className={pct >= pace ? "text-st-green" : "text-st-yellow"}>{pct}%</span>}
+            </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{eok(t.amount)}</p>
             <p className="mt-1 text-xs text-muted tabular-nums">
               {t.count}건 · GP {eok(t.gp)}
               {t.gpRate != null && ` (${t.gpRate}%)`}
             </p>
+            {target != null && (
+              <div className="mt-2.5" title={`목표 ${eok(target)} · 기간 경과 ${pace}%`}>
+                {/* 달성 막대 + 지금쯤 있어야 할 위치(경과율) 표시 */}
+                <div className="relative h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className={`h-full rounded-full ${pct != null && pct >= pace ? "bg-st-green" : "bg-st-yellow"}`} style={{ width: `${Math.min(100, pct ?? 0)}%` }} />
+                  <span aria-hidden className="absolute top-0 h-full w-px bg-fg/60" style={{ left: `${pace}%` }} />
+                </div>
+                <p className="mt-1 text-[10px] text-muted tabular-nums">
+                  목표 {eok(target)} · {pct != null && pct >= pace ? "순항" : "뒤처짐"} (경과 {pace}%)
+                </p>
+              </div>
+            )}
           </div>
         ))}
         <div className="rounded-2xl border border-line bg-surface/60 p-4">
@@ -97,6 +130,17 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
           </p>
         </div>
       </section>
+
+      {/* 목표 입력 — 부문 목표(부문 보기) 또는 내 목표(개인 보기). 다른 사람 목표는 본인·관리자만 바꿀 수 있어 숨긴다 */}
+      {scope.kind !== "member" && (
+        <TargetEditor
+          key={`${ownerFilter ?? "team"}-${year}`}
+          ownerId={ownerFilter}
+          year={year}
+          initial={Object.fromEntries(targets.map((t) => [t.month, t.amount]))}
+          label={scope.kind === "team" ? `${user.teamName ?? "부문"}` : "내"}
+        />
+      )}
 
       {/* 최근 12개월 수주 */}
       <section className="rounded-2xl border border-line bg-surface/60 p-4">
