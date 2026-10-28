@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { orderMonthOf, toLeadToDealInput } from "./convert";
+import { convertedLeadPatch, orderMonthOf, toLeadToDealInput } from "./convert";
 
 describe("toLeadToDealInput", () => {
   const L = { id: "L1", title: "백업장비 교체", orgName: "(주)한빛", companyId: null, budget: 320000000, orderMonth: "2027-01", stage: "prespec" as const, assigneeId: "u1" };
@@ -29,5 +29,25 @@ describe("orderMonthOf", () => {
     expect(orderMonthOf("2027-01")).toBe("2027-01");
     expect(orderMonthOf(null)).toBeNull();
     expect(orderMonthOf("이상한 값")).toBeNull();
+  });
+});
+
+describe("convertedLeadPatch", () => {
+  const now = new Date("2026-10-23T06:00:00Z");
+
+  it("담당이 비어 있으면 전환한 사람을 리드 담당으로 남긴다", () => {
+    expect(convertedLeadPatch({ assigneeId: null, touchedAt: null }, "d1", "u9", now)).toEqual({
+      status: "converted",
+      converted_deal_id: "d1",
+      assignee_id: "u9",
+      touched_at: "2026-10-23T06:00:00.000Z",
+    });
+  });
+
+  it("이미 담당이 있으면 바꾸지 않고, 처음 손댄 시각도 덮지 않는다", () => {
+    expect(convertedLeadPatch({ assigneeId: "u1", touchedAt: "2026-10-22T00:00:00Z" }, "d1", "u9", now)).toEqual({
+      status: "converted",
+      converted_deal_id: "d1",
+    });
   });
 });
