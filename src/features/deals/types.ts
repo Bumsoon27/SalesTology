@@ -32,11 +32,18 @@ export type DealRow = {
   amount: number | null;
   gp?: number | null;
   last_activity_at: string;
+  /** 동시 수정 감지 (파이프라인 보드에서 단계 변경) */
+  updated_at?: string;
+  contract_type?: "competitive" | "negotiated";
+  period_start?: string | null;
   period_end?: string | null;
+  source_ref?: string | null;
   customer: { id: string; name: string };
   deal_parties: PartyRow[];
   deal_tasks: TaskRow[];
   issues: IssueRow[];
+  /** 활동 기록 요약 (관계 강도·단일 접점) */
+  deal_notes?: { kind: "call" | "meeting" | "email" | "note"; occurred_on: string; counterpart: string | null }[];
 };
 
 /** B(SOS) 리드에서 전환된 사업인지 — createDealFromLead 의 sourceRef 규칙 "sos_lead:<id>" */

@@ -61,6 +61,74 @@ body {
   }
 }
 
+/* ─── 화면 전환 (A·B 공용) ───────────────────────────────────────────
+   1) 페이지 본문은 살짝 떠오르며 나타난다. Next 16 은 지나온 페이지를 숨겼다(display:none) 다시 보여주는데,
+      CSS 애니메이션은 다시 보일 때 처음부터 재생되므로 돌아갈 때도 같은 전환이 보인다.
+      fill-mode backwards — 끝난 뒤에는 transform 이 남지 않아 안의 fixed·absolute 요소 위치에 영향이 없다.
+   2) 대화상자는 열릴 때·닫힐 때 모두 페이드·스케일 (@starting-style + allow-discrete, 지원하지 않는 브라우저는 그냥 열림)
+   3) 움직임 줄이기(OS 설정)를 켠 사용자는 모두 끈다 */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  main {
+    animation: pageIn 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+
+  dialog {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    transition:
+      opacity 0.2s ease-out,
+      transform 0.2s ease-out,
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
+  }
+  dialog[open] {
+    opacity: 1;
+    transform: none;
+  }
+  @starting-style {
+    dialog[open] {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+  }
+  dialog::backdrop {
+    opacity: 0;
+    transition:
+      opacity 0.2s ease-out,
+      overlay 0.2s allow-discrete,
+      display 0.2s allow-discrete;
+  }
+  dialog[open]::backdrop {
+    opacity: 1;
+  }
+  @starting-style {
+    dialog[open]::backdrop {
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Tailwind v4 는 버튼의 손가락 커서를 없앴다 → 눌러도 되는 곳인지 안 보였다 (A·B 공용) */
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),

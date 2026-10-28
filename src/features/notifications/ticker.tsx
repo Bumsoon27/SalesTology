@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { pickNext, type AppNotification } from "./build";
 
-const DOT: Record<AppNotification["kind"], string> = {
+export const DOT: Record<AppNotification["kind"], string> = {
   issue: "bg-st-red shadow-[0_0_8px_var(--st-red)]",
   task_overdue: "bg-st-red shadow-[0_0_8px_var(--st-red)]",
   missing_schedule: "bg-st-yellow shadow-[0_0_8px_var(--st-yellow)]",

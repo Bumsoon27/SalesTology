@@ -16,6 +16,10 @@ export type UniverseNode = {
   reason?: string;
   /** 실제 회사 id. 같은 회사가 여러 자리에 나타나면 호버 시 함께 빛난다 (설계서 §6.2) */
   refId?: string;
+  /** 회사 노드: 관계 강도 0~100 (최근성·빈도, relationship.ts) */
+  strength?: number;
+  /** 회사 노드: 마지막 상호작용 날짜 */
+  strengthLastOn?: string | null;
 };
 
 export type UniverseData = {

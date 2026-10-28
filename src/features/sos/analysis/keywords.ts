@@ -7,12 +7,8 @@ export function matchKeywords(
   text: string,
   keywords: Keyword[],
 ): { matched: Keyword[]; excluded: boolean } {
-  const hay = squash(text);
-  const hits = keywords.filter((k) => {
-    if (!k.active) return false;
-    const t = squash(k.term);
-    return t !== "" && hay.includes(t);
-  });
+  const hay = compactText(text);
+  const hits = keywords.filter((k) => k.active && findTerm(hay, k.term, true).length > 0);
   return {
     matched: hits.filter((k) => k.tier !== "exclude"),
     excluded: hits.some((k) => k.tier === "exclude"),
@@ -39,12 +35,10 @@ export function parseKeywordInput(raw: string): string[] {
   return out;
 }
 
-// 카드 제목 하이라이트: 비교는 공백·대소문자 무시, 결과 인덱스는 원문 기준(end 미포함)
-export function highlightRanges(
-  text: string,
-  terms: string[],
-): { start: number; end: number }[] {
-  // 공백 제외 문자만 모으고 원문 인덱스를 기억한다 (글자 단위 소문자로 길이 유지)
+type Compact = { text: string; compact: string; map: number[] };
+
+// 공백 제외 문자만 모으고 원문 인덱스를 기억한다 (글자 단위 소문자로 길이 유지)
+function compactText(text: string): Compact {
   let compact = "";
   const map: number[] = [];
   for (let i = 0; i < text.length; i++) {
@@ -53,15 +47,41 @@ export function highlightRanges(
     for (let j = 0; j < c.length; j++) map.push(i);
     compact += c;
   }
+  return { text, compact, map };
+}
 
-  const raw: { start: number; end: number }[] = [];
-  for (const term of terms) {
-    const t = squash(term);
-    if (t === "") continue;
-    for (let at = compact.indexOf(t); at !== -1; at = compact.indexOf(t, at + 1)) {
-      raw.push({ start: map[at], end: map[at + t.length - 1] + 1 });
-    }
+const ALNUM = /^[A-Za-z0-9]$/;
+const isAlnum = (ch: string | undefined) => ch !== undefined && ALNUM.test(ch);
+
+/**
+ * 용어가 나오는 원문 범위 (end 미포함). 비교는 공백·대소문자 무시.
+ * 용어의 첫·끝 글자가 영문·숫자면 원문에서 그 바깥 글자도 영문·숫자가 아니어야 한다 ("SMS"가 "ISMS-P"에 걸리지 않게).
+ * 한글 쪽 끝은 부분 일치 그대로. 공백은 경계로 본다 (원문 기준이라 "IBM SMS"의 SMS 는 맞는다).
+ */
+function findTerm(hay: Compact, term: string, firstOnly = false): { start: number; end: number }[] {
+  const t = squash(term);
+  if (t === "") return [];
+  const checkStart = isAlnum(t[0]);
+  const checkEnd = isAlnum(t[t.length - 1]);
+  const out: { start: number; end: number }[] = [];
+  for (let at = hay.compact.indexOf(t); at !== -1; at = hay.compact.indexOf(t, at + 1)) {
+    const start = hay.map[at];
+    const end = hay.map[at + t.length - 1] + 1;
+    if (checkStart && isAlnum(hay.text[start - 1])) continue;
+    if (checkEnd && isAlnum(hay.text[end])) continue;
+    out.push({ start, end });
+    if (firstOnly) break;
   }
+  return out;
+}
+
+// 카드 제목 하이라이트: 일치 규칙은 matchKeywords 와 같고, 결과 인덱스는 원문 기준(end 미포함)
+export function highlightRanges(
+  text: string,
+  terms: string[],
+): { start: number; end: number }[] {
+  const hay = compactText(text);
+  const raw = terms.flatMap((term) => findTerm(hay, term));
 
   raw.sort((a, b) => a.start - b.start || a.end - b.end);
   const merged: { start: number; end: number }[] = [];

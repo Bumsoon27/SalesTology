@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { formatKst } from "@/features/sos/lib/run-view";
 import { loadOrNotice, resolvePageTeam, teamParam } from "@/features/sos/server/page-team";
-import { getRunningRunMode, getSettingsData } from "@/features/sos/server/settings-queries";
+import { getRunningRun } from "@/features/sos/server/queries";
+import { getSettingsData } from "@/features/sos/server/settings-queries";
 import { ChangeLog } from "@/features/sos/ui/change-log";
 import { KeywordChips } from "@/features/sos/ui/keyword-chips";
 import { TeamPicker } from "@/features/sos/ui/list-controls";
@@ -28,7 +29,7 @@ export default function SosSettingsPage({ searchParams }: PageProps<"/sos/settin
 async function load(requested: string | null) {
   const pt = await resolvePageTeam(requested);
   if (pt.kind === "notice") return { pt, data: null, running: null };
-  const [data, running] = await Promise.all([getSettingsData(pt.teamId), getRunningRunMode(pt.teamId)]);
+  const [data, running] = await Promise.all([getSettingsData(pt.teamId), getRunningRun(pt.teamId)]);
   return { pt, data, running };
 }
 
@@ -79,7 +80,7 @@ async function Settings({ searchParams }: { searchParams: PageProps<"/sos/settin
                 </p>
               </div>
               {/* 진행 중인 실행(수집이든 재분석이든)이 있으면 이어서 보여 준다 */}
-              <RunButton mode="reanalyze" team={team} runningRunId={running?.id ?? null} runningMode={running?.mode} />
+              <RunButton mode="reanalyze" team={team} running={running} />
             </div>
             <KeywordChips keywords={data.keywords} products={data.products} team={team} />
           </section>

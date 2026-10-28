@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCompanyStatus, computeDealStatus, computePartyStatus, computeTaskState, todayInSeoul } from "./status";
+import { computeCompanyStatus, computeDealStatus, computePartyStatus, computeTaskState, seoulDay, todayInSeoul } from "./status";
 import type { TaskRow } from "./types";
 
 const TODAY = "2026-10-20";
@@ -83,5 +83,13 @@ describe("computeCompanyStatus", () => {
 describe("todayInSeoul", () => {
   it("UTC 15시 이후는 서울 기준 다음 날", () => {
     expect(todayInSeoul(new Date("2026-10-20T15:30:00Z"))).toBe("2026-10-21");
+  });
+});
+
+describe("seoulDay", () => {
+  it("UTC 시각을 서울 날짜로 (00~09시 KST 는 UTC 로 전날)", () => {
+    expect(seoulDay("2026-10-25T16:30:00Z")).toBe("2026-10-26"); // 서울 01:30
+    expect(seoulDay("2026-10-26T14:59:00+00:00")).toBe("2026-10-26"); // 서울 23:59
+    expect(seoulDay("2026-10-26")).toBe("2026-10-26");
   });
 });

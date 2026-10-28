@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { summarizePipeline } from "./pipeline";
+import { summarizeByOwner, summarizePipeline } from "./pipeline";
+
+describe("summarizeByOwner", () => {
+  it("영업대표별 건수·규모·가중 예상, 가중 큰 순, 나 표시, 진행 중만", () => {
+    const base = { name: "x", last_activity_at: "2026-10-22T00:00:00Z", customer: { id: "c", name: "A" }, gp: null };
+    const r = summarizeByOwner(
+      [
+        { ...base, id: "1", stage: "proposal", status: "active", amount: 100, owner_id: "me", owner: "나" }, // 40
+        { ...base, id: "2", stage: "won", status: "active", amount: 100, owner_id: "dj", owner: "DJ" }, // 100
+        { ...base, id: "3", stage: "discovery", status: "active", amount: null, owner_id: "me", owner: "나" },
+        { ...base, id: "4", stage: "won", status: "lost", amount: 999, owner_id: "dj", owner: "DJ" },
+      ],
+      "me",
+    );
+    expect(r.map((x) => [x.owner, x.count, x.total, x.weighted, x.isMe])).toEqual([
+      ["DJ", 1, 100, 100, false],
+      ["나", 2, 100, 40, true],
+    ]);
+  });
+});
 
 const deal = (o: Partial<Parameters<typeof summarizePipeline>[0][number]>) => ({
   id: "d",
@@ -31,7 +50,8 @@ describe("summarizePipeline", () => {
       activeCount: 4,
       total: 350_000_000,
       weighted: 40_000_000 + 50_000_000 + 20_000_000,
-      committed: 50_000_000,
+      firm: 50_000_000,
+      firmCount: 1,
       gp: 15_000_000,
       gpRate: 10,
       missingAmount: 1,
@@ -42,6 +62,21 @@ describe("summarizePipeline", () => {
       ["proposal", 1, 100_000_000],
       ["won", 1, 50_000_000],
     ]);
+  });
+
+  it("확정 = 협상 단계 이상 진행 중 사업 (협상·입찰·수주·이행·빌링), 제안 이하·실주는 제외", () => {
+    const s = summarizePipeline(
+      [
+        deal({ id: "1", stage: "proposal", amount: 100 }),
+        deal({ id: "2", stage: "negotiation", amount: 200 }),
+        deal({ id: "3", stage: "bidding", amount: 300 }),
+        deal({ id: "4", stage: "billing", amount: 400 }),
+        deal({ id: "5", stage: "won", amount: 999, status: "lost" }),
+        deal({ id: "6", stage: "fulfillment" }), // 규모 없음 → 건수만
+      ],
+      today,
+    );
+    expect(s).toMatchObject({ firm: 900, firmCount: 4, total: 1000 });
   });
 
   it("수주 전 단계에서 14일 넘게 손대지 않은 사업만 정체, 오래된 순", () => {

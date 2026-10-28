@@ -18,6 +18,18 @@ describe("templateSummary", () => {
     expect(templateSummary({ orgName: "KT", title: "서버 도입", orderMonth: null, budget: null, nextDeadlineType: null, daysLeft: null, keywords: [], orgSignals: 0 }))
       .toContain("KT가 ");
   });
+  it("영문으로 끝나는 이름은 끝 글자의 한국어 읽기로 조사를 고른다", () => {
+    const base = { orderMonth: null, budget: null, nextDeadlineType: null, daysLeft: null, keywords: [], orgSignals: 0 };
+    expect(templateSummary({ ...base, orgName: "한전KDN", title: "서버 도입" })).toContain("한전KDN이 ");
+    expect(templateSummary({ ...base, orgName: "한국IBM", title: "서버 도입" })).toContain("한국IBM이 ");
+    expect(templateSummary({ ...base, orgName: "SKC&C", title: "서버 도입" })).toContain("SKC&C가 ");
+    expect(templateSummary({ ...base, orgName: "LG", title: "서버 도입" })).toContain("LG가 ");
+    expect(templateSummary({ ...base, orgName: "기관", title: "통합 HPC" })).toContain("통합 HPC를 ");
+    expect(templateSummary({ ...base, orgName: "기관", title: "백업 SAN" })).toContain("백업 SAN을 ");
+    expect(templateSummary({ ...base, orgName: "기관", title: "CTI 서버(ivr)" })).toContain("CTI 서버(ivr)를 ");
+    expect(templateSummary({ ...base, orgName: "기관", title: "통합 erp" })).toContain("통합 erp를 ");
+    expect(templateSummary({ ...base, orgName: "기관", title: "web ftp gw lan" })).toContain("web ftp gw lan을 ");
+  });
 });
 
 describe("formatWon", () => {

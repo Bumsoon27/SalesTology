@@ -14,7 +14,7 @@ const ROWS = 999;
 
 export type OpStats = { fetched?: number; matched?: number; pages?: number; skipped?: boolean; error?: string };
 
-/** 나라장터 한 쪽 수집 → 원본 저장. 오류 응답이면 기록만 하고 이 업무의 남은 쪽은 건너뛴다 */
+/** 나라장터 한 쪽 수집 → 원본 저장. 일시적 오류는 g2b-fetch 가 다시 묻고, 그래도 실패하면 기록만 하고 이 업무의 남은 쪽은 건너뛴다 */
 export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Promise<StepResult> {
   const { admin, teamId, now } = ctx;
   const label = opLabel(op);

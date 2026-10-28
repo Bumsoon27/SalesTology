@@ -1,18 +1,26 @@
 "use client";
 
 // 왼쪽 상세 패널: 노드를 누르면 사업의 전반적인 흐름을 보여준다 (설계서 §6.5)
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { loadNodeDetail, type CompanyDetail, type DealDetail, type NodeDetail } from "./detail";
 import {
-  addIssue, addTask, completeTask, excludeTask, reopenTask, rescheduleTask, resolveIssue, updateDeal, type MutationResult,
+  addIssue, addTask, completeTask, deleteDeal, excludeTask, reassignDeal, reopenTask, rescheduleTask, resolveIssue, updateDeal, type MutationResult,
 } from "./mutations";
+import { NotesSection } from "./notes-section";
 import type { DealStatus, TaskType } from "./types";
 import { computeTaskState, daysUntil } from "./status";
 import { STAGE_LABEL, TASK_LABEL, type DealStage } from "./types";
 import type { UniverseNode } from "@/features/topology/types";
 import { DealInfoEditor } from "./deal-info-editor";
 import { DealPartiesSection } from "./deal-parties-section";
+import { DirectionSection } from "./direction-section";
+import { CoachSection } from "./coach/coach-section";
+import { FilesSection } from "./files/files-section";
+import { CompetitorsSection } from "./competitors/competitors-section";
+import { CopyDealButton } from "./copy-deal-button";
+import { TIER_LABEL, tierOf, type Strength } from "./relationship";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
 const STATUS_TONE: Record<string, string> = {
@@ -54,10 +62,16 @@ export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onCl
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const silent = useRef(false);
+  const lastKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (!node || node.kind === "me") return;
     let alive = true;
+    // 같은 노드인데 그래프만 새로 그려진 경우(router.refresh·실시간 갱신)는 조용히 다시 불러온다
+    // → 수정 중인 입력칸·메모 초안이 로딩 화면에 지워지지 않는다
+    const key = `${node.id}|${node.refId ?? ""}`;
+    if (lastKey.current === key) silent.current = true;
+    lastKey.current = key;
     const run = async () => {
       // 조치 후 다시 불러올 때는 기존 내용을 유지한다
       if (!silent.current) setLoadingId(node.id);
@@ -109,7 +123,7 @@ export function DetailPanel({ node, onClose }: { node: UniverseNode | null; onCl
         ) : detail.kind === "deal" ? (
           <DealView d={detail} onChanged={reload} />
         ) : detail.kind === "company" ? (
-          <CompanyView c={detail} />
+          <CompanyView c={detail} strength={node?.strength} lastOn={node?.strengthLastOn ?? null} today={todayInSeoulClient()} />
         ) : (
           <p className="px-5 py-4 text-sm text-muted">정보를 찾을 수 없습니다.</p>
         )}
@@ -143,6 +157,9 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
   // 수정 중인 사업 id — 다른 노드로 바꾸면 자동으로 보기 모드
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = editingId === d.id;
+  const [reassigningId, setReassigningId] = useState<string | null>(null);
+  const reassigning = reassigningId === d.id;
+  const setReassigning = (on: boolean) => setReassigningId(on ? d.id : null);
 
   // 조치 실행 → 패널 다시 불러오기 + 대시보드 색 갱신
   const act = (fn: () => Promise<MutationResult>, after?: () => void) =>
@@ -165,10 +182,51 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         <h2 className="text-lg font-semibold leading-snug">{d.name}</h2>
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
           <span>
-            {d.customer.name} · 영업대표 <span className="text-fg">{d.owner ?? "-"}</span>
+            <Link href={`/partners/${d.customer.id}`} className="underline-offset-4 hover:text-fg hover:underline" title="고객사 상세 보기">
+              {d.customer.name}
+            </Link>{" "}
+            · 영업대표 <span className="text-fg">{d.owner ?? "-"}</span>
           </span>
+          {d.reassignTo.length > 1 && !reassigning && (
+            <button type="button" className={mini} onClick={() => setReassigning(true)}>
+              넘기기
+            </button>
+          )}
           {d.fromSos && <SosBadge />}
         </p>
+        {reassigning && (
+          <div className="flex animate-[fadeIn_.18s_ease-out] flex-wrap items-center gap-1.5 text-xs">
+            <select
+              autoFocus
+              defaultValue=""
+              aria-label="새 영업대표"
+              onChange={(e) => {
+                const to = d.reassignTo.find((m) => m.id === e.target.value);
+                if (!to) return;
+                if (!window.confirm(`'${d.name}' 사업의 담당을 ${to.name}님에게 넘길까요?\n끝나지 않은 업무도 함께 넘어갑니다.`)) {
+                  e.target.value = "";
+                  return;
+                }
+                act(() => reassignDeal(d.id, to.id, d.updatedAt), () => setReassigning(false));
+              }}
+              className="rounded-md border border-line bg-surface px-2 py-1 text-xs"
+            >
+              <option value="" disabled>
+                넘겨받을 사람 선택
+              </option>
+              {d.reassignTo
+                .filter((m) => m.id !== d.ownerId)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+            </select>
+            <button type="button" className={mini} onClick={() => setReassigning(false)}>
+              취소
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs ${STATUS_TONE[d.computed.status]}`}>
             {d.computed.reason ?? "정상"}
@@ -188,6 +246,8 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         </div>
         {error && <p className="rounded-lg border border-st-red/40 bg-st-red/10 px-3 py-2 text-xs text-st-red">{error}</p>}
       </div>
+
+      <DirectionSection d={d} />
 
       <Section title="사업 흐름" right={<span className="text-[10px] text-muted">단계를 눌러 변경</span>}>
         <ol className="flex items-start">
@@ -255,6 +315,14 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
 
       {/* 고객사·매출처(SI)·매입처 — 핵심 정보 바로 아래에서 수정 */}
       <DealPartiesSection
+        d={d}
+        onChanged={() => {
+          onChanged();
+          router.refresh();
+        }}
+      />
+
+      <NotesSection
         d={d}
         onChanged={() => {
           onChanged();
@@ -430,7 +498,14 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
         </p>
       </Section>
 
+      <CompetitorsSection key={`c-${d.id}`} dealId={d.id} competitive={d.contractType === "competitive"} />
+
+      <FilesSection key={d.id} dealId={d.id} />
+
       <NewsSection names={[d.customer.name, ...si.map((p) => p.company.name)]} />
+
+      {/* 영업기회 하단 — AI 코칭 (진단·영업 방향·이번 주 할 일) */}
+      <CoachSection d={d} />
 
       <Section title="변경 이력">
         {d.activity.length === 0 ? (
@@ -448,6 +523,28 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
           </ul>
         )}
       </Section>
+
+      <div className="border-t border-line px-5 py-4">
+        <CopyDealButton dealId={d.id} name={d.name} />
+      </div>
+
+      {d.canDelete && (
+        <div className="-mt-2 px-5 pb-4">
+          <button
+            type="button"
+            onClick={() => {
+              if (!window.confirm(`'${d.name}' 사업을 삭제할까요?\n대시보드에서 사라지고, 관리자가 관리자 화면에서 복구할 수 있습니다.`)) return;
+              act(
+                () => deleteDeal(d.id, d.updatedAt),
+                () => router.push("/dashboard"),
+              );
+            }}
+            className="w-full rounded-lg border border-st-red/30 px-3 py-2 text-xs text-st-red/90 hover:bg-st-red/10"
+          >
+            사업 삭제
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -468,14 +565,47 @@ function describe(action: string, entity: string, after: Record<string, unknown>
   return `${ENTITY[entity] ?? entity} ${verb}`;
 }
 
-function CompanyView({ c }: { c: CompanyDetail }) {
+/** 브라우저 기준 오늘 (Asia/Seoul) — 관계 강도 '며칠 전' 표시용 */
+function todayInSeoulClient() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
+}
+
+const TIER_TONE: Record<Strength["tier"], string> = {
+  strong: "text-st-green",
+  medium: "text-accent",
+  weak: "text-st-yellow",
+  cold: "text-muted",
+};
+
+function CompanyView({ c, strength, lastOn, today }: { c: CompanyDetail; strength?: number; lastOn: string | null; today: string }) {
   const roleLabel = { customer: "고객사", si: "SI", supplier: "매입처" } as const;
+  const tier = strength == null ? null : tierOf(strength);
+  const since = lastOn ? daysUntil(today, lastOn) : null;
   return (
     <>
       <div className="space-y-2 px-5 pb-4">
         <h2 className="text-lg font-semibold">{c.name}</h2>
+        <Link href={`/partners/${c.id}`} className="inline-block text-xs text-accent underline-offset-4 hover:underline">
+          고객사 상세 보기 ›
+        </Link>
         {c.contact && <p className="text-xs text-muted">{c.contact}</p>}
         {c.memo && <p className="text-xs text-muted">{c.memo}</p>}
+        {tier && strength != null && (
+          <div className="rounded-xl border border-line bg-white/[0.03] p-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[11px] text-muted">관계 강도 (내 사업 기준)</span>
+              <span className={`text-sm font-semibold ${TIER_TONE[tier]}`}>
+                {strength} · {TIER_LABEL[tier]}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="h-full rounded-full bg-accent/70" style={{ width: `${strength}%` }} />
+            </div>
+            <p className="mt-1.5 text-[10px] text-muted">
+              {since == null ? "최근 1년간 상호작용이 없습니다" : since === 0 ? "마지막 상호작용 오늘" : `마지막 상호작용 ${since}일 전`} · 미팅·통화·메일·업무 완료를 최근일수록 크게 칩니다
+            </p>
+          </div>
+        )}
       </div>
       <Section title={`함께한 사업 ${c.deals.length}`}>
         <ul className="space-y-2">

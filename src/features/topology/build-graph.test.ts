@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMyUniverse } from "./build-graph";
+import { buildMyUniverse, buildTeamUniverse } from "./build-graph";
 import type { DealRow } from "@/features/deals/types";
 
 const deal = (id: string, customer: string, partners: string[], amount = 1000): DealRow => ({
@@ -32,5 +32,30 @@ describe("buildMyUniverse", () => {
   it("실주·종결 사업은 그리지 않는다", () => {
     const lost = { ...deal("1", "A은행", []), status: "lost" as const };
     expect(buildMyUniverse({ id: "u", name: "나" }, [lost], "2026-10-20").nodes).toHaveLength(1);
+  });
+});
+
+describe("buildTeamUniverse", () => {
+  const owned = (d: DealRow, owner: string) => ({ ...d, owner_id: owner, owner: owner === "u1" ? "김영업" : "서동준" });
+
+  it("부문 → 영업대표 → 고객사 → 사업, 같은 고객사도 영업대표마다 따로 (refId 는 같다)", () => {
+    const { nodes } = buildTeamUniverse(
+      { name: "Enterprise사업부문" },
+      [owned(deal("1", "A은행", []), "u1"), owned(deal("2", "A은행", []), "u2"), owned(deal("3", "B공사", []), "u1")],
+      "2026-10-20",
+    );
+    expect(nodes.find((n) => n.id === "me")!.label).toBe("Enterprise사업부문");
+    const members = nodes.filter((n) => n.kind === "member");
+    expect(members.map((m) => m.label).sort()).toEqual(["김영업 · 2건", "서동준 · 1건"]);
+    const banks = nodes.filter((n) => n.kind === "customer" && n.refId === "A은행");
+    expect(banks).toHaveLength(2);
+    expect(new Set(banks.map((b) => b.parentId))).toEqual(new Set(["m:u1", "m:u2"]));
+    expect(nodes.find((n) => n.id === "d:2")!.parentId).toBe("c:u2:A은행");
+  });
+
+  it("영업대표 색은 맡은 사업 중 가장 급한 상태", () => {
+    const hot = { ...deal("1", "A은행", []), issues: [{ id: "i", title: "x", status: "open" as const }] };
+    const { nodes } = buildTeamUniverse({ name: "부문" }, [owned(hot, "u1"), owned(deal("2", "B", []), "u1")], "2026-10-20");
+    expect(nodes.find((n) => n.id === "m:u1")!.status).toBe("red");
   });
 });

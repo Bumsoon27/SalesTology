@@ -2,6 +2,10 @@
 
 // 우주에서 노드를 누르면 왼쪽 패널에 보여줄 상세 (설계서 §6.5). RLS가 부문 범위를 막는다.
 import { createClient } from "@/shared/supabase/server";
+import { requireUser } from "@/shared/auth/current-user";
+import type { NoteKind } from "./notes";
+import { getPipelineSettings, getTeamMembers } from "./queries";
+import { renewalRef } from "./renewal";
 import { computeDealStatus, todayInSeoul, type StatusResult } from "./status";
 import { isFromSos, type DealRow, type DealStage, type IssueRow, type PartyRow, type TaskRow } from "./types";
 
@@ -15,6 +19,8 @@ export type DealDetail = {
   status: DealRow["status"];
   /** 동시 수정 감지용 */
   updatedAt: string;
+  /** 마지막 활동 시각 (정체 판단) */
+  lastActivityAt: string;
   contractType: "competitive" | "negotiated";
   amount: number | null;
   gp: number | null;
@@ -31,8 +37,32 @@ export type DealDetail = {
   issues: IssueRow[];
   computed: StatusResult;
   activity: ActivityItem[];
+  /** 활동 기록 (최근 순) */
+  notes: NoteItem[];
+  /** 사업 삭제 가능 (담당자·관리자) — 화면 표시용, 실제 권한은 DB 트리거가 막는다 */
+  canDelete: boolean;
+  /** 담당자를 넘길 수 있는 대상 (현재 담당자·관리자에게만, 아니면 빈 배열) — 실제 검사는 DB 함수 reassign_deal */
+  reassignTo: { id: string; name: string }[];
+  ownerId: string;
+  /** 이미 만든 갱신 사업 id (없으면 null) */
+  renewalDealId: string | null;
+  /** 이 사업 부문의 정체 기준일 (AI 디렉션) */
+  staleAfterDays: number;
+  /** 이 사업 부문에서 AI 코칭을 쓰는지 (관리자 설정) */
+  aiCoachEnabled: boolean;
   /** 서버 기준 오늘 (Asia/Seoul) */
   today: string;
+};
+
+export type NoteItem = {
+  id: string;
+  kind: NoteKind;
+  body: string;
+  occurredOn: string;
+  /** 고객 쪽 상대 (예: 김과장) */
+  counterpart: string | null;
+  author: string | null;
+  mine: boolean;
 };
 
 export type CompanyDetail = {
@@ -60,10 +90,10 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
 
   if (nodeId.startsWith("d:")) {
     const id = nodeId.slice(2);
-    const [{ data: d, error }, { data: log }] = await Promise.all([
+    const [{ data: d, error }, { data: log }, { data: noteRows }, me] = await Promise.all([
       supabase
         .from("deals")
-        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref,
+        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref, last_activity_at, owner_id, team_id,
           owner:profiles!deals_owner_id_fkey ( name ),
           customer:companies!deals_customer_id_fkey ( id, name ),
           deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
@@ -77,6 +107,14 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
         .eq("deal_id", id)
         .order("created_at", { ascending: false })
         .limit(12),
+      supabase
+        .from("deal_notes")
+        .select("id, kind, body, occurred_on, counterpart, author_id, author:profiles ( name )")
+        .eq("deal_id", id)
+        .order("occurred_on", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(200), // 90일 접점·활동 수를 셀 수 있게 넉넉히 (화면에는 최근 5개 + 더 보기)
+      requireUser(),
     ]);
     if (error || !d) return { kind: "none" };
 
@@ -90,7 +128,25 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       period_end: string | null;
       items: string | null;
       owner: { name: string } | null;
+      owner_id: string;
+      team_id: string;
       deal_tasks: (TaskRow & { deleted_at: string | null })[];
+    };
+    const canManage = me.role === "admin" || row.owner_id === me.id;
+    const [settings, members, renewal] = await Promise.all([
+      getPipelineSettings(row.team_id),
+      canManage ? getTeamMembers(row.team_id) : Promise.resolve([]),
+      // 이 사업의 갱신 사업 (출처 참조 renewal:<id>)
+      supabase.from("deals").select("id").eq("source_ref", renewalRef(row.id)).is("deleted_at", null).maybeSingle(),
+    ]);
+    type RawNote = {
+      id: string;
+      kind: NoteKind;
+      body: string;
+      occurred_on: string;
+      counterpart: string | null;
+      author_id: string;
+      author: { name: string } | null;
     };
     const today = todayInSeoul();
     const tasks = row.deal_tasks.filter((t) => !t.deleted_at).sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"));
@@ -101,6 +157,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       stage: row.stage,
       status: row.status,
       updatedAt: row.updated_at,
+      lastActivityAt: row.last_activity_at,
       contractType: row.contract_type,
       amount: row.amount,
       gp: row.gp,
@@ -115,6 +172,21 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       tasks,
       issues: row.issues,
       computed: computeDealStatus({ ...row, deal_tasks: tasks }, today),
+      notes: ((noteRows ?? []) as unknown as RawNote[]).map((n) => ({
+        id: n.id,
+        kind: n.kind,
+        body: n.body,
+        occurredOn: n.occurred_on,
+        counterpart: n.counterpart,
+        author: n.author?.name ?? null,
+        mine: n.author_id === me.id,
+      })),
+      canDelete: canManage,
+      reassignTo: members,
+      ownerId: row.owner_id,
+      renewalDealId: (renewal.data as { id: string } | null)?.id ?? null,
+      staleAfterDays: settings.staleAfterDays,
+      aiCoachEnabled: settings.aiCoachEnabled,
       today,
       activity: ((log ?? []) as unknown as { id: number; action: string; entity_type: string; after: Record<string, unknown> | null; created_at: string; actor: { name: string } | null }[]).map((a) => ({
         id: a.id,

@@ -1,5 +1,6 @@
 import { daysUntil } from "../lib/date";
 import { STAGE_RANK, type DeadlineType, type NormalizedItem, type SourceId, type Stage } from "../types";
+import { normalizeOrgName } from "./org";
 
 export type LeadDraft = {
   chainKey: string;
@@ -137,4 +138,30 @@ export function toLeadDraft(group: NormalizedItem[], chainKey: string, today: st
     nextDeadlineType: next?.type ?? null,
     items: group,
   };
+}
+
+// 사업명 비교용: 공백·괄호 글자 제거 + 소문자 (괄호 안 글자는 남긴다 — 더 넓게 묶지 않게)
+const TITLE_STRIP = /[\s()[\]{}<>（）［］｛｝〈〉《》「」『』【】〔〕]/g;
+export function normalizeTitle(title: string): string {
+  return title.replace(TITLE_STRIP, "").toLowerCase();
+}
+
+export type PlanCandidate = { planNo: string; title: string; orgName: string; orgCode: string | null };
+
+/**
+ * 연결 API 가 발주계획 번호를 못 준 사전규격을 발주계획과 묶는 보수적 규칙:
+ * 같은 기관(코드가 둘 다 있으면 코드, 아니면 표준화 기관명) + 같은 사업명(normalizeTitle)인 발주계획이 정확히 하나일 때만 그 번호.
+ * orgNames: 사전규격의 기관 이름들 (실수요기관·발주기관)
+ */
+export function planNoByTitle(
+  prespec: { title: string; orgNames: string[]; orgCode: string | null },
+  plans: PlanCandidate[],
+): string | null {
+  const title = normalizeTitle(prespec.title);
+  if (title === "") return null;
+  const names = new Set(prespec.orgNames.map(normalizeOrgName).filter((n) => n !== ""));
+  const sameOrg = (p: PlanCandidate) =>
+    prespec.orgCode && p.orgCode ? prespec.orgCode === p.orgCode : names.has(normalizeOrgName(p.orgName));
+  const hits = new Set(plans.filter((p) => sameOrg(p) && normalizeTitle(p.title) === title).map((p) => p.planNo));
+  return hits.size === 1 ? [...hits][0] : null;
 }
