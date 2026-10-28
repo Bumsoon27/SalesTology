@@ -10,6 +10,7 @@ import { buildNotifications, type AppNotification } from "./build";
 import { Ticker } from "./ticker";
 import { Bell } from "./bell";
 import { tokenCheck } from "@/features/admin/system-status";
+import { weeklyBriefNotification } from "./weekly";
 
 /** 헤더 알림 — 내 사업 알림 + 다른 영역(B 등) 공급자 알림. 티커와 종이 한 요청에서 같이 쓴다 (React cache) */
 const loadHeaderNotifications = cache(async (): Promise<AppNotification[]> => {
@@ -20,9 +21,11 @@ const loadHeaderNotifications = cache(async (): Promise<AppNotification[]> => {
     loadExternalNotifications({ userId: user.id, teamId: user.teamId, today, view: "mine" }),
     user.role === "admin" ? systemAlerts(today) : Promise.resolve([]),
   ]);
+  const brief = user.teamId ? weeklyBriefNotification(deals, today) : null;
   return [
     ...system,
     ...buildNotifications(deals, today),
+    ...(brief ? [brief] : []),
     ...external.map((n) => ({ key: n.key, kind: "external" as const, text: n.text, urgency: n.urgency, href: n.href, source: n.source })),
   ].sort((a, b) => b.urgency - a.urgency);
 });
