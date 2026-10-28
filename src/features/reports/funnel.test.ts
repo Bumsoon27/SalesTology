@@ -13,18 +13,19 @@ describe("funnel", () => {
         deal({ id: "b", stage: "quoting", status: "lost" }), // 이력상 협상까지 갔다가 되돌림
         deal({ id: "c", stage: "discovery" }),
         deal({ id: "d", stage: "proposal" }),
+        deal({ id: "e", stage: "won", contract_type: "negotiated" }), // 수의계약 → 입찰 안 셈
         deal({ id: "old", stage: "won", created_at: "2025-01-01T00:00:00Z" }),
       ],
       [ev({ deal_id: "b", before: { stage: "negotiation" }, after: { stage: "quoting" } })],
       "2026-01-01",
     );
     expect(rows.map((r) => [r.stage, r.reached, r.pct, r.stepPct])).toEqual([
-      ["discovery", 4, 100, null],
-      ["quoting", 3, 75, 75],
-      ["proposal", 3, 75, 100],
-      ["negotiation", 2, 50, 67],
-      ["bidding", 1, 25, 50],
-      ["won", 1, 25, 100],
+      ["discovery", 5, 100, null],
+      ["quoting", 4, 80, 80],
+      ["proposal", 4, 80, 100],
+      ["negotiation", 3, 60, 75],
+      ["bidding", 1, 20, 50],
+      ["won", 2, 40, 67],
     ]);
   });
 });

@@ -12,7 +12,7 @@ export async function getReportData(teamId: string): Promise<{ deals: ReportDeal
   const [deals, events] = await Promise.all([
     supabase
       .from("deals")
-      .select("id, name, stage, status, amount, gp, created_at, owner_id, owner:profiles!deals_owner_id_fkey ( name ), customer:companies!deals_customer_id_fkey ( name )")
+      .select("id, name, stage, status, amount, gp, contract_type, created_at, owner_id, owner:profiles!deals_owner_id_fkey ( name ), customer:companies!deals_customer_id_fkey ( name )")
       .eq("team_id", teamId)
       .is("deleted_at", null)
       .limit(5000),
