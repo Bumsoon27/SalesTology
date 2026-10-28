@@ -3,7 +3,7 @@ name: DB 검증
 # 마이그레이션·seed 가 바뀐 PR 에서만 돈다 (로컬 Supabase 를 띄우느라 3~5분 걸린다)
 on:
   pull_request:
-    paths: ["supabase/**"]
+    paths: ["supabase/**", "scripts/e2e-db.mjs"]
 
 concurrency:
   group: db-check-${{ github.ref }}
@@ -26,7 +26,13 @@ jobs:
           cache: npm
       - run: npm ci
       # 빈 DB에 모든 마이그레이션 + seed.sql 을 처음부터 적용해 본다. SQL 오류가 있으면 여기서 실패.
-      - run: npx supabase start -x realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      # 권한(RLS)·저장소 통합 검사에 필요한 auth·postgrest·storage·kong 은 띄운다
+      - run: npx supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - run: npx supabase db lint --local --level error --fail-on error
+      # 실제 사용자 토큰으로 RLS·버킷 규칙(첨부 파일·경쟁사·목표)을 확인 — 일회용 사용자, 로컬 전용
+      - name: 권한·저장소 통합 검사
+        run: |
+          eval "$(npx supabase status -o env)"
+          SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_KEY="$SERVICE_ROLE_KEY" node scripts/e2e-db.mjs
       - run: npx supabase stop --no-backup
         if: always()
