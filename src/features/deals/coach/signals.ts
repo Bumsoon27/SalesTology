@@ -50,6 +50,7 @@ const SIGNAL_KO: Record<DirectionKind, string> = {
   missing_schedule: "수주 후 필수 일정(배송·계산서) 미등록",
   stale: "활동 정체",
   single_thread: "고객 접점이 한 사람에 몰림",
+  renewal: "계약 종료 임박 — 갱신 영업 필요",
   data: "규모·GP 정보 빈칸",
   margin: "GP율 낮음",
   stage: "단계별 기본 할 일",

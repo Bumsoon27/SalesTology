@@ -4,10 +4,11 @@
 // 규칙 기반이라 사업 데이터가 외부(LLM)로 나가지 않고, 왜 그 제안이 나왔는지(why)를 항상 함께 보여준다.
 // 나중에 sLLM 을 붙이더라도 이 결과(구조화된 신호)를 입력으로 쓰고, 이 함수는 그대로 기본값으로 남긴다.
 import { STALE_AFTER_DAYS } from "./pipeline";
+import { needsRenewal } from "./renewal";
 import { computeTaskState, daysUntil, seoulDay } from "./status";
 import { TASK_LABEL, type DealRow, type DealStage, type TaskRow } from "./types";
 
-export type DirectionKind = "issue" | "overdue" | "due_soon" | "missing_schedule" | "stale" | "single_thread" | "data" | "margin" | "stage";
+export type DirectionKind = "issue" | "overdue" | "due_soon" | "missing_schedule" | "stale" | "single_thread" | "renewal" | "data" | "margin" | "stage";
 
 export type Direction = {
   kind: DirectionKind;
@@ -45,6 +46,9 @@ const STAGE_PLAY: Record<DealStage, { title: string; why: string }> = {
 type Deal = Pick<DealRow, "stage" | "status" | "amount" | "last_activity_at" | "deal_tasks" | "issues"> & {
   gp?: number | null;
   deal_notes?: { occurred_on: string; counterpart: string | null }[];
+  period_end?: string | null;
+  /** 이 사업의 갱신 사업(renewal:<id>)이 이미 있는지 */
+  renewal_exists?: boolean;
 };
 
 /** 최근 활동 기록의 고객 쪽 상대 (이름 비교는 공백·대소문자 무시) */
@@ -128,6 +132,17 @@ export function suggestDirections(deal: Deal, today: string, limit = 3, staleAft
     if (rate < LOW_MARGIN_RATE) {
       out.push({ kind: "margin", priority: 55, title: "매입 단가·조건 재검토", why: `GP율 ${Math.round(rate * 10) / 10}% — ${LOW_MARGIN_RATE}% 미만입니다` });
     }
+  }
+
+  // 갱신 — 계약 종료가 다가오는데 갱신 사업이 없다 (유지보수·재계약 매출)
+  const renewLeft = needsRenewal(deal, today, !!deal.renewal_exists);
+  if (renewLeft != null) {
+    out.push({
+      kind: "renewal",
+      priority: renewLeft < 30 ? 66 : 50,
+      title: `갱신 사업 만들기 — 계약 종료 ${renewLeft < 0 ? `${-renewLeft}일 지남` : renewLeft === 0 ? "오늘" : `D-${renewLeft}`}`,
+      why: "같은 고객·조건으로 다음 계약 기간 사업을 미리 만들어 두면 재계약을 놓치지 않습니다",
+    });
   }
 
   // 7) 급한 일이 없으면 단계별 기본 다음 할 일
