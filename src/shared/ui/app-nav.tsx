@@ -30,6 +30,7 @@ function subscribe(l: () => void) {
 const SUB = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/pipeline", label: "파이프라인" },
+  { href: "/tasks", label: "할 일" },
   { href: "/reports", label: "리포트" },
 ] as const;
 type SubHref = (typeof SUB)[number]["href"];
