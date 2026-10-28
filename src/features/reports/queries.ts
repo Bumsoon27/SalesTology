@@ -54,3 +54,21 @@ export async function getCompetitorEntries(teamId: string): Promise<CompetitorEn
     .limit(5000);
   return ((data ?? []) as unknown as { deal_id: string; name: string; is_winner: boolean }[]).map((r) => ({ dealId: r.deal_id, name: r.name, isWinner: r.is_winner }));
 }
+
+/** 부문 사람들의 개인 목표(그 해) — 영업대표별 달성률. 사용자 권한(RLS: 같은 부문) */
+export async function getPersonalTargets(teamId: string, year: number): Promise<Map<string, MonthTarget[]>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sales_targets")
+    .select("owner_id, month, amount")
+    .eq("team_id", teamId)
+    .not("owner_id", "is", null)
+    .gte("month", `${year}-01-01`)
+    .lte("month", `${year}-12-01`)
+    .limit(2000);
+  const out = new Map<string, MonthTarget[]>();
+  for (const r of (data ?? []) as { owner_id: string; month: string; amount: number }[]) {
+    out.set(r.owner_id, [...(out.get(r.owner_id) ?? []), { month: r.month, amount: Number(r.amount) }]);
+  }
+  return out;
+}

@@ -7,7 +7,7 @@ import { resolveScope } from "@/features/deals/scope";
 import { ScopeSwitch } from "@/features/deals/scope-switch";
 import { ExportButton } from "@/features/export/export-button";
 import { todayInSeoul } from "@/features/deals/status";
-import { getCompetitorEntries, getReportData, getTargets } from "@/features/reports/queries";
+import { getCompetitorEntries, getPersonalTargets, getReportData, getTargets } from "@/features/reports/queries";
 import { competitorStats, type Outcome } from "@/features/deals/competitors/competitors";
 import { attainment, coverage, elapsedPct, targetFor } from "@/features/reports/targets";
 import { TargetEditor } from "@/features/reports/target-editor";
@@ -57,10 +57,11 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const ownerFilter = scope.kind === "mine" ? user.id : scope.kind === "member" ? scope.id : null;
   const year = Number(todayInSeoul().slice(0, 4));
   // 목표: 부문 보기는 부문 목표, 개인·영업대표 보기는 그 사람의 개인 목표
-  const [targets, competitorEntries, settings] = await Promise.all([
+  const [targets, competitorEntries, settings, personalTargets] = await Promise.all([
     getTargets(user.teamId, ownerFilter, year),
     getCompetitorEntries(user.teamId),
     getPipelineSettings(user.teamId),
+    scope.kind === "team" ? getPersonalTargets(user.teamId, year) : Promise.resolve(new Map()),
   ]);
   const deals = ownerFilter ? data.deals.filter((d) => d.owner_id === ownerFilter) : data.deals;
   const { wins, losses } = computeOutcomes(deals, data.events);
@@ -293,6 +294,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
                     <th className="pb-2 text-right font-normal">{p.quarter.label}</th>
                     <th className="pb-2 text-right font-normal">{p.year.label}</th>
                     <th className="pb-2 text-right font-normal">GP</th>
+                    {personalTargets.size > 0 && <th className="pb-2 text-right font-normal">목표 달성</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -306,6 +308,16 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
                       <td className="py-2 text-right">{eok(ownersQuarter.get(o.ownerId)?.amount ?? 0)}</td>
                       <td className="py-2 text-right font-semibold">{eok(o.amount)}</td>
                       <td className="py-2 text-right text-muted">{eok(o.gp)}</td>
+                      {personalTargets.size > 0 &&
+                        (() => {
+                          const t = targetFor(personalTargets.get(o.ownerId) ?? [], p.year);
+                          const pct = attainment(o.amount, t);
+                          return (
+                            <td className="py-2 text-right" title={t == null ? "개인 목표 없음" : `목표 ${eok(t)}`}>
+                              {pct == null ? <span className="text-muted">-</span> : <span className={pct >= yearCard.pace ? "text-st-green" : "text-st-yellow"}>{pct}%</span>}
+                            </td>
+                          );
+                        })()}
                     </tr>
                   ))}
                 </tbody>
