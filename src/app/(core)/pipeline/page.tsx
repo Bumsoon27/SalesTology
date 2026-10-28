@@ -7,6 +7,7 @@ import { PipelineBoard } from "@/features/deals/pipeline-board";
 import { getMyDeals, getPipelineSettings, getTeamDealsFull, getTeamMembers } from "@/features/deals/queries";
 import { resolveScope } from "@/features/deals/scope";
 import { ScopeSwitch } from "@/features/deals/scope-switch";
+import { ExportButton } from "@/features/export/export-button";
 import { todayInSeoul } from "@/features/deals/status";
 
 type Params = { scope?: string; owner?: string };
@@ -66,9 +67,12 @@ async function Board({ searchParams }: { searchParams: Promise<Params> }) {
           <ScopeSwitch path="/pipeline" scope={scope} members={members} meId={user.id} teamName={user.teamId ? (user.teamName ?? "부문") : null} />
         </div>
         {/* 대시보드 카드와 같은 기준: 확정 = 협상 단계 이상, 전체 강조 */}
-        <p className="text-xs text-muted tabular-nums">
-          진행 {active.length}건 · 확정 {eok(summary.firm)} ({summary.firmCount}건) / <span className="text-sm font-semibold text-fg">전체 {eok(summary.total)}</span>
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs text-muted tabular-nums">
+            진행 {active.length}건 · 확정 {eok(summary.firm)} ({summary.firmCount}건) / <span className="text-sm font-semibold text-fg">전체 {eok(summary.total)}</span>
+          </p>
+          <ExportButton scope={scope} />
+        </div>
       </div>
       {/* 사업 내용·범위가 바뀌면 보드를 새로 그린다 (서버 값 기준) */}
       <PipelineBoard key={`${scope.kind}:${scope.kind === "member" ? scope.id : ""}|${deals.map((d) => `${d.id}:${d.stage}:${d.updated_at}`).join("|")}`} columns={columns} />

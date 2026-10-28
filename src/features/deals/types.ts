@@ -35,7 +35,9 @@ export type DealRow = {
   /** 동시 수정 감지 (파이프라인 보드에서 단계 변경) */
   updated_at?: string;
   contract_type?: "competitive" | "negotiated";
+  period_start?: string | null;
   period_end?: string | null;
+  source_ref?: string | null;
   customer: { id: string; name: string };
   deal_parties: PartyRow[];
   deal_tasks: TaskRow[];
