@@ -3,10 +3,13 @@
 // 할 일 목록 — 기한별 묶음, '완료'를 누르면 오늘 날짜로 완료 처리 (권한은 RLS)
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { completeTask, reopenTask } from "./mutations";
+import { completeTask, reopenTask, rescheduleTask } from "./mutations";
 import { BUCKET_LABEL, BUCKETS, type Todo, type TodoBucket } from "./todo";
 
 const TONE: Record<TodoBucket, string> = { overdue: "text-st-red", today: "text-st-yellow", week: "text-fg", later: "text-muted", nodate: "text-muted" };
+/** YYYY-MM-DD + n일 */
+const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
 const mini = "rounded-md border border-line px-2 py-0.5 text-[11px] text-muted hover:border-accent/40 hover:text-fg disabled:opacity-40";
 
 export function TodoList({ groups, today, showOwner }: { groups: Record<TodoBucket, Todo[]>; today: string; showOwner: boolean }) {
@@ -28,6 +31,15 @@ export function TodoList({ groups, today, showOwner }: { groups: Record<TodoBuck
         else n.add(t.taskId);
         return n;
       });
+    });
+
+  // 미루기 — 기한(없으면 오늘)에서 n일 뒤로. 서버 새로고침으로 묶음이 다시 정해진다
+  const postpone = (t: Todo, days: number) =>
+    start(async () => {
+      const base = t.due && t.due > today ? t.due : today;
+      const r = await rescheduleTask(t.taskId, addDays(base, days));
+      if (!r.ok) return setError(r.error);
+      setError(null);
     });
 
   const total = BUCKETS.reduce((s, b) => s + groups[b].length, 0);
@@ -70,6 +82,16 @@ export function TodoList({ groups, today, showOwner }: { groups: Record<TodoBuck
                           {t.days == null ? "-" : t.days < 0 ? `+${-t.days}일` : t.days === 0 ? "오늘" : `D-${t.days}`}
                           {t.due && <span className="ml-1 text-muted">{t.due.slice(5).replace("-", "/")}</span>}
                         </span>
+                        {!isDone && (
+                          <>
+                            <button type="button" className={`${mini} hidden sm:inline`} disabled={pending} onClick={() => postpone(t, 3)} title="기한을 3일 뒤로">
+                              +3일
+                            </button>
+                            <button type="button" className={`${mini} hidden sm:inline`} disabled={pending} onClick={() => postpone(t, 7)} title="기한을 7일 뒤로">
+                              +7일
+                            </button>
+                          </>
+                        )}
                         <button type="button" className={mini} disabled={pending} onClick={() => toggle(t)}>
                           {isDone ? "되돌리기" : "완료"}
                         </button>
