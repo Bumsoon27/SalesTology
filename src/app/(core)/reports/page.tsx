@@ -88,7 +88,12 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const cycle = salesCycle(wins, deals, new Date(Date.parse(`${today}T00:00:00Z`) - 364 * 86_400_000).toISOString().slice(0, 10), today, data.events);
   const months = monthly(wins, today);
   const maxMonth = Math.max(1, ...months.map((m) => m.amount));
-  const owners = byOwner(wins, p.year);
+  // 올해 수주가 없어도 개인 목표가 있는 사람은 0 으로 보여준다 (달성률 0%)
+  const ownersWon = byOwner(wins, p.year);
+  const owners = [
+    ...ownersWon,
+    ...members.filter((m) => personalTargets.has(m.id) && !ownersWon.some((o) => o.ownerId === m.id)).map((m) => ({ ownerId: m.id, owner: m.name, count: 0, amount: 0, gp: 0 })),
+  ];
   const ownersQuarter = new Map(byOwner(wins, p.quarter).map((r) => [r.ownerId, r]));
   const ownersMonth = new Map(byOwner(wins, p.month).map((r) => [r.ownerId, r]));
   // 파이프라인 커버리지 — 올해 남은 목표 대비 수주 전 진행 중 사업
