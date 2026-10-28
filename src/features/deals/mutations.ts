@@ -6,6 +6,7 @@ import { createClient } from "@/shared/supabase/server";
 import type { DealStage, DealStatus, TaskType } from "./types";
 import { toDealInfoPatch, type DealInfoInput } from "./edit";
 import { toNoteRow, type NoteInput } from "./notes";
+import { nextPeriod, renewalName, renewalRef } from "./renewal";
 import { todayInSeoul } from "./status";
 
 export type MutationResult = { ok: true } | { ok: false; error: string; conflict?: boolean; fieldErrors?: Record<string, string> };
@@ -201,4 +202,53 @@ export async function reassignDeal(dealId: string, newOwnerId: string, expectedU
   if (data === false) return { ok: false, error: "다른 사람이 먼저 수정했습니다. 새 값을 확인한 뒤 다시 적용해 주세요.", conflict: true };
   refresh();
   return { ok: true };
+}
+
+/**
+ * 갱신 사업 만들기 — 같은 고객·계약 방식·규모·GP·관계사, 다음 계약 기간(1년), 단계는 발굴.
+ * 출처 참조 'renewal:<원 사업 id>' 로 만들어 두 번 눌러도 하나만 생긴다 (create_deal 멱등). 원 사업은 내 권한(RLS)으로 읽는다.
+ */
+export async function createRenewalDeal(dealId: string): Promise<MutationResult & { dealId?: string }> {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuid.test(dealId ?? "")) return { ok: false, error: "잘못된 요청입니다." };
+  const supabase = await createClient();
+  const { data: d, error: readError } = await supabase
+    .from("deals")
+    .select("id, name, customer_id, contract_type, amount, gp, items, period_end, customer:companies!deals_customer_id_fkey ( name ), deal_parties ( role, company:companies ( name ) )")
+    .eq("id", dealId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (readError || !d) return { ok: false, error: "사업을 찾을 수 없습니다." };
+  const row = d as unknown as {
+    name: string;
+    customer_id: string;
+    contract_type: "competitive" | "negotiated";
+    amount: number | null;
+    gp: number | null;
+    items: string | null;
+    period_end: string | null;
+    customer: { name: string } | null;
+    deal_parties: { role: "si" | "supplier"; company: { name: string } | null }[];
+  };
+  if (!row.period_end) return { ok: false, error: "계약 종료일이 있어야 갱신 사업을 만들 수 있습니다." };
+  const next = nextPeriod(row.period_end);
+  const names = (role: "si" | "supplier") => row.deal_parties.filter((p) => p.role === role && p.company).map((p) => p.company!.name);
+  const { data, error } = await supabase.rpc("create_deal", {
+    p_name: renewalName(row.name, next.start),
+    p_customer: row.customer?.name ?? "",
+    p_customer_id: row.customer_id,
+    p_contract_type: row.contract_type,
+    p_stage: "discovery",
+    p_amount: row.amount,
+    p_gp: row.gp,
+    p_items: row.items,
+    p_period_start: next.start,
+    p_period_end: next.end,
+    p_si: names("si"),
+    p_suppliers: names("supplier"),
+    p_source_ref: renewalRef(dealId),
+  });
+  if (error || !data) return { ok: false, error: error?.message ?? "갱신 사업을 만들지 못했습니다." };
+  refresh();
+  return { ok: true, dealId: data as string };
 }

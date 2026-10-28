@@ -5,6 +5,7 @@ import { createClient } from "@/shared/supabase/server";
 import { requireUser } from "@/shared/auth/current-user";
 import type { NoteKind } from "./notes";
 import { getPipelineSettings, getTeamMembers } from "./queries";
+import { renewalRef } from "./renewal";
 import { computeDealStatus, todayInSeoul, type StatusResult } from "./status";
 import { isFromSos, type DealRow, type DealStage, type IssueRow, type PartyRow, type TaskRow } from "./types";
 
@@ -43,6 +44,8 @@ export type DealDetail = {
   /** 담당자를 넘길 수 있는 대상 (현재 담당자·관리자에게만, 아니면 빈 배열) — 실제 검사는 DB 함수 reassign_deal */
   reassignTo: { id: string; name: string }[];
   ownerId: string;
+  /** 이미 만든 갱신 사업 id (없으면 null) */
+  renewalDealId: string | null;
   /** 이 사업 부문의 정체 기준일 (AI 디렉션) */
   staleAfterDays: number;
   /** 이 사업 부문에서 AI 코칭을 쓰는지 (관리자 설정) */
@@ -130,7 +133,12 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       deal_tasks: (TaskRow & { deleted_at: string | null })[];
     };
     const canManage = me.role === "admin" || row.owner_id === me.id;
-    const [settings, members] = await Promise.all([getPipelineSettings(row.team_id), canManage ? getTeamMembers(row.team_id) : Promise.resolve([])]);
+    const [settings, members, renewal] = await Promise.all([
+      getPipelineSettings(row.team_id),
+      canManage ? getTeamMembers(row.team_id) : Promise.resolve([]),
+      // 이 사업의 갱신 사업 (출처 참조 renewal:<id>)
+      supabase.from("deals").select("id").eq("source_ref", renewalRef(row.id)).is("deleted_at", null).maybeSingle(),
+    ]);
     type RawNote = {
       id: string;
       kind: NoteKind;
@@ -176,6 +184,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       canDelete: canManage,
       reassignTo: members,
       ownerId: row.owner_id,
+      renewalDealId: (renewal.data as { id: string } | null)?.id ?? null,
       staleAfterDays: settings.staleAfterDays,
       aiCoachEnabled: settings.aiCoachEnabled,
       today,

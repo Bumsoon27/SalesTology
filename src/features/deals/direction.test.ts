@@ -87,3 +87,11 @@ describe("topDirections", () => {
     expect(topDirections(many, today, 4)).toHaveLength(4);
   });
 });
+
+describe("갱신 제안", () => {
+  it("수주 이후 사업의 계약 종료 90일 안이면 제안, 갱신 사업이 있으면 안 함", () => {
+    const won = { ...deal({ stage: "billing" as const }), period_end: "2026-11-15" };
+    expect(suggestDirections(won, today, 5).find((x) => x.kind === "renewal")?.title).toContain("D-23");
+    expect(suggestDirections({ ...won, renewal_exists: true }, today, 5).some((x) => x.kind === "renewal")).toBe(false);
+  });
+});

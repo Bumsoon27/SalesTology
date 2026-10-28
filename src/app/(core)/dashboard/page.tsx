@@ -61,7 +61,14 @@ async function DashboardUniverse({ searchParams }: { searchParams: Promise<Param
       : buildMyUniverse(scope.kind === "member" ? { id: scope.id, name: scope.name } : { id: user.id, name: user.name }, deals, today);
 
   const pipeline = summarizePipeline(deals, today, settings);
-  const directions = topDirections(deals, today, 6, settings.staleAfterDays);
+  // 갱신 사업이 이미 있는 사업은 갱신 제안을 빼고 (출처 참조 renewal:<id>, 볼 수 있는 사업 기준)
+  const renewed = new Set([...myDeals, ...(teamDeals ?? [])].map((d) => d.source_ref).filter((r): r is string => !!r?.startsWith("renewal:")));
+  const directions = topDirections(
+    deals.map((d) => ({ ...d, renewal_exists: renewed.has(`renewal:${d.id}`) })),
+    today,
+    6,
+    settings.staleAfterDays,
+  );
   const team = teamDeals
     ? { summary: summarizePipeline(teamDeals, today, settings), owners: summarizeByOwner(teamDeals, user.id, settings) }
     : null;
