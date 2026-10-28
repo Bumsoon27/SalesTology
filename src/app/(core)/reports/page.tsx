@@ -374,7 +374,15 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
           <ul className="space-y-1.5">
             {customers.map((c) => (
               <li key={c.customer} className="grid grid-cols-[minmax(0,8rem)_1fr_7rem] items-center gap-2 text-xs tabular-nums">
-                <span className="truncate" title={c.customer}>{c.customer}</span>
+                {c.customerId ? (
+                  <Link href={`/partners/${c.customerId}`} className="truncate hover:text-accent hover:underline" title={`${c.customer} 상세`}>
+                    {c.customer}
+                  </Link>
+                ) : (
+                  <span className="truncate" title={c.customer}>
+                    {c.customer}
+                  </span>
+                )}
                 <span className="h-3 overflow-hidden rounded bg-white/[0.04]">
                   <span className="block h-full rounded bg-accent/55" style={{ width: `${Math.max(2, (c.amount / maxCustomer) * 100)}%` }} />
                 </span>
