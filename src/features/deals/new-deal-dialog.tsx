@@ -1,10 +1,12 @@
 "use client";
 
 // [+ 새 영업기회] — 5분 안에 입력할 수 있는 최소 필드 (설계서 §6.6)
+import Link from "next/link";
 import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { createDeal, type CreateDealState } from "./actions";
 import { STAGE_LABEL, type DealStage } from "./types";
 import { PartnerPicker } from "@/features/partners/partner-picker";
+import { findDuplicates, type ExistingDeal } from "./duplicates";
 
 export type PartnerOption = { name: string; roles: ("customer" | "si" | "supplier")[] };
 
@@ -14,10 +16,13 @@ const norm = (s: string) => s.replace(/\s|\(주\)|주식회사|㈜/g, "").toLowe
 export function NewDealDialog({
   companyNames,
   partners,
+  existingDeals = [],
   autoOpen = false,
 }: {
   companyNames: string[];
   partners: PartnerOption[];
+  /** 중복 경고용 — 볼 수 있는 사업(같은 부문) */
+  existingDeals?: ExistingDeal[];
   autoOpen?: boolean;
 }) {
   const customerOptions = partners.filter((p) => p.roles.includes("customer")).map((p) => p.name);
@@ -27,6 +32,9 @@ export function NewDealDialog({
   const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState<CreateDealState, FormData>(createDeal, { ok: false });
   const [customer, setCustomer] = useState("");
+  const [dealName, setDealName] = useState("");
+  // 같은 고객사에 이름이 비슷한 사업이 있으면 알려준다 (막지는 않는다)
+  const dups = useMemo(() => findDuplicates(dealName, customer, existingDeals), [dealName, customer, existingDeals]);
   const [contractType, setContractType] = useState("negotiated");
 
   // 비슷한 회사명이 이미 있으면 중복 경고
@@ -58,6 +66,7 @@ export function NewDealDialog({
         type="button"
         onClick={() => {
           setCustomer("");
+          setDealName("");
           dialogRef.current?.showModal();
         }}
         className="min-w-[7.5rem] rounded-lg bg-fg px-3 py-1.5 text-center text-xs font-semibold text-bg shadow-[0_0_24px_rgba(154,171,255,0.35)] transition-opacity hover:opacity-90"
@@ -89,8 +98,24 @@ export function NewDealDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className={label} htmlFor="nd-name">사업명 *</label>
-              <input id="nd-name" name="name" className="field" placeholder="예: 차세대 서버 구축" required />
+              <input id="nd-name" name="name" className="field" placeholder="예: 차세대 서버 구축" onChange={(e) => setDealName(e.target.value)} required />
               {err("name")}
+              {dups.length > 0 && (
+                <div role="status" className="mt-2 rounded-lg border border-st-yellow/40 bg-st-yellow/[0.06] px-3 py-2 text-xs">
+                  <p className="text-st-yellow">같은 고객사에 비슷한 사업이 이미 있습니다 — 중복이 아닌지 확인하세요</p>
+                  <ul className="mt-1 space-y-0.5 text-muted">
+                    {dups.map((d) => (
+                      <li key={d.id}>
+                        <Link href={`/dashboard?focus=d:${d.id}`} target="_blank" rel="noopener" className="text-fg underline-offset-4 hover:underline">
+                          {d.name}
+                        </Link>{" "}
+                        · {d.owner}
+                        {d.status === "lost" ? " · 실주" : d.status === "on_hold" ? " · 보류" : d.status === "closed" ? " · 종료" : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             <div>
               <label className={label} htmlFor="nd-customer">고객사 *</label>
