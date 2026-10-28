@@ -83,7 +83,7 @@ async function Report({ searchParams }: { searchParams: Promise<Params> }) {
   const since90 = new Date(Date.parse(`${today}T00:00:00Z`) - 89 * 86_400_000).toISOString().slice(0, 10);
   const rate = winRate(wins, losses, since90, today);
   // 수주 기간 — 최근 1년 안에 수주한 사업의 등록 → 수주 일수
-  const cycle = salesCycle(wins, deals, new Date(Date.parse(`${today}T00:00:00Z`) - 364 * 86_400_000).toISOString().slice(0, 10), today);
+  const cycle = salesCycle(wins, deals, new Date(Date.parse(`${today}T00:00:00Z`) - 364 * 86_400_000).toISOString().slice(0, 10), today, data.events);
   const months = monthly(wins, today);
   const maxMonth = Math.max(1, ...months.map((m) => m.amount));
   const owners = byOwner(wins, p.year);

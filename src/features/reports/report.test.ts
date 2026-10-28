@@ -88,5 +88,8 @@ describe("salesCycle", () => {
     ];
     expect(salesCycle([w("a", "2026-10-01"), w("b", "2026-10-01"), w("c", "2026-10-31"), w("x", "2026-02-01")], deals, "2026-08-01", "2026-10-31")).toEqual({ avg: 23, median: 30, count: 3 });
     expect(salesCycle([], deals, "2026-01-01", "2026-12-31")).toBeNull();
+    // 처음부터 수주로 등록한 사업은 뺀다
+    const created = [{ deal_id: "a", action: "create", before: null, after: { stage: "won" }, created_at: "2026-09-01T00:00:00Z" }];
+    expect(salesCycle([w("a", "2026-10-01"), w("b", "2026-10-01")], deals, "2026-08-01", "2026-10-31", created)).toEqual({ avg: 10, median: 10, count: 1 });
   });
 });
