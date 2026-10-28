@@ -101,7 +101,11 @@ async function DashboardUniverse({ searchParams }: { searchParams: Promise<Param
         <RealtimeRefresh />
         {user.teamId ? (
           <>
-            <NewDealDialog companyNames={companyNames} partners={partners.map((p) => ({ name: p.name, roles: p.roles }))} />
+            <NewDealDialog
+              companyNames={companyNames}
+              partners={partners.map((p) => ({ name: p.name, roles: p.roles }))}
+              existingDeals={(teamDeals ?? myDeals).map((d) => ({ id: d.id, name: d.name, customer: d.customer.name, owner: "owner" in d ? String(d.owner) : user.name, status: d.status }))}
+            />
             <PartnerDialog />
           </>
         ) : (
