@@ -20,6 +20,7 @@ import { CoachSection } from "./coach/coach-section";
 import { FilesSection } from "./files/files-section";
 import { CompetitorsSection } from "./competitors/competitors-section";
 import { CopyDealButton } from "./copy-deal-button";
+import { isLossReason, LOSS_LABEL, LOSS_REASONS, LOST_NOTE_MAX, type LossReason } from "./loss";
 import { TIER_LABEL, tierOf, type Strength } from "./relationship";
 
 const FLOW: DealStage[] = ["discovery", "quoting", "proposal", "negotiation", "bidding", "won", "fulfillment", "billing"];
@@ -154,6 +155,10 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
   const [reason, setReason] = useState("");
   const [newTask, setNewTask] = useState<{ type: TaskType; due: string; title: string }>({ type: "delivery", due: "", title: "" });
   const [newIssue, setNewIssue] = useState("");
+  // 실주로 바꿀 때 사유를 먼저 고른다 (사업 id 로 묶어 다른 노드로 가면 닫힌다)
+  const [losingId, setLosingId] = useState<string | null>(null);
+  const losing = losingId === d.id;
+  const [loss, setLoss] = useState<{ reason: LossReason; note: string }>({ reason: "price", note: "" });
   // 수정 중인 사업 id — 다른 노드로 바꾸면 자동으로 보기 모드
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = editingId === d.id;
@@ -233,7 +238,15 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
           </span>
           <select
             value={d.status}
-            onChange={(e) => act(() => updateDeal(d.id, { status: e.target.value as DealStatus }, d.updatedAt))}
+            onChange={(e) => {
+              const next = e.target.value as DealStatus;
+              if (next === "lost") {
+                setLoss({ reason: "price", note: "" });
+                return setLosingId(d.id);
+              }
+              setLosingId(null);
+              act(() => updateDeal(d.id, { status: next }, d.updatedAt));
+            }}
             className="ml-auto rounded-md border border-line bg-transparent px-2 py-0.5 text-xs text-muted"
             aria-label="사업 상태"
           >
@@ -244,6 +257,54 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
             ))}
           </select>
         </div>
+        {losing && (
+          <form
+            className="animate-[fadeIn_.18s_ease-out] space-y-2 rounded-xl border border-st-red/30 bg-st-red/[0.05] p-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              act(
+                () => updateDeal(d.id, { status: "lost", lostReason: loss.reason, lostNote: loss.note }, d.updatedAt),
+                () => setLosingId(null),
+              );
+            }}
+          >
+            <p className="text-[11px] text-st-red">실주 사유를 골라 주세요 — 리포트의 &lsquo;실주 사유&rsquo;에 모입니다</p>
+            <div className="flex flex-wrap gap-1.5">
+              {LOSS_REASONS.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setLoss({ ...loss, reason: r })}
+                  className={`rounded-full border px-2.5 py-0.5 text-[11px] ${loss.reason === r ? "border-st-red/60 bg-st-red/15 text-fg" : "border-line text-muted hover:text-fg"}`}
+                >
+                  {LOSS_LABEL[r]}
+                </button>
+              ))}
+            </div>
+            <input
+              className="field py-1 text-xs"
+              placeholder="메모 (선택 — 예: 경쟁사가 15% 낮게 제안)"
+              maxLength={LOST_NOTE_MAX}
+              value={loss.note}
+              onChange={(e) => setLoss({ ...loss, note: e.target.value })}
+              aria-label="실주 메모"
+            />
+            <div className="flex justify-end gap-1.5">
+              <button type="button" className={mini} onClick={() => setLosingId(null)}>
+                취소
+              </button>
+              <button type="submit" disabled={pending} className="rounded-md bg-st-red/80 px-2.5 py-0.5 text-[11px] font-semibold text-white disabled:opacity-40">
+                실주로 바꾸기
+              </button>
+            </div>
+          </form>
+        )}
+        {d.status === "lost" && !losing && (
+          <p className="text-[11px] text-muted">
+            실주 사유 <span className="text-fg">{isLossReason(d.lostReason) ? LOSS_LABEL[d.lostReason] : "미입력"}</span>
+            {d.lostNote && ` · ${d.lostNote}`}
+          </p>
+        )}
         {error && <p className="rounded-lg border border-st-red/40 bg-st-red/10 px-3 py-2 text-xs text-st-red">{error}</p>}
       </div>
 

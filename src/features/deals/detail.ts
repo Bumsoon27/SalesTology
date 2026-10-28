@@ -30,6 +30,9 @@ export type DealDetail = {
   items: string | null;
   /** SOS 리드에서 전환된 사업 */
   fromSos: boolean;
+  /** 실주 사유·메모 (실주일 때) */
+  lostReason: string | null;
+  lostNote: string | null;
   owner: string | null;
   customer: { id: string; name: string };
   parties: PartyRow[];
@@ -93,7 +96,7 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
     const [{ data: d, error }, { data: log }, { data: noteRows }, me] = await Promise.all([
       supabase
         .from("deals")
-        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref, last_activity_at, owner_id, team_id,
+        .select(`id, name, stage, status, contract_type, updated_at, amount, gp, expected_contract_month, period_start, period_end, items, source_ref, last_activity_at, owner_id, team_id, lost_reason, lost_note,
           owner:profiles!deals_owner_id_fkey ( name ),
           customer:companies!deals_customer_id_fkey ( id, name ),
           deal_parties ( id, role, via_party_id, company:companies ( id, name ) ),
@@ -124,6 +127,8 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       gp: number | null;
       expected_contract_month: string | null;
       source_ref: string | null;
+      lost_reason: string | null;
+      lost_note: string | null;
       period_start: string | null;
       period_end: string | null;
       items: string | null;
@@ -166,6 +171,8 @@ export async function loadNodeDetail(nodeId: string, refId?: string): Promise<No
       periodEnd: row.period_end,
       items: row.items,
       fromSos: isFromSos(row.source_ref),
+      lostReason: row.lost_reason,
+      lostNote: row.lost_note,
       owner: row.owner?.name ?? null,
       customer: row.customer,
       parties: row.deal_parties,
