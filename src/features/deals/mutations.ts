@@ -190,3 +190,15 @@ export async function deleteDeal(dealId: string, expectedUpdatedAt: string): Pro
   refresh();
   return { ok: true };
 }
+
+/** 담당자(영업대표) 넘기기 — 현재 담당자·관리자만, 같은 부문 활성 사용자에게만 (DB 함수가 검사) */
+export async function reassignDeal(dealId: string, newOwnerId: string, expectedUpdatedAt: string): Promise<MutationResult> {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuid.test(dealId ?? "") || !uuid.test(newOwnerId ?? "")) return { ok: false, error: "잘못된 요청입니다." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("reassign_deal", { p_deal_id: dealId, p_new_owner: newOwnerId, p_expected_updated_at: expectedUpdatedAt });
+  if (error) return { ok: false, error: error.message };
+  if (data === false) return { ok: false, error: "다른 사람이 먼저 수정했습니다. 새 값을 확인한 뒤 다시 적용해 주세요.", conflict: true };
+  refresh();
+  return { ok: true };
+}
