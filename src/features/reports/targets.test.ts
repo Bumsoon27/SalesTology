@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attainment, elapsedPct, targetFor, validMonth } from "./targets";
+import { attainment, coverage, elapsedPct, targetFor, validMonth } from "./targets";
 
 const targets = [
   { month: "2026-10-01", amount: 300 },
@@ -27,5 +27,21 @@ describe("attainment·elapsedPct·validMonth", () => {
     expect(validMonth("2026-10-01")).toBe(true);
     expect(validMonth("2026-13-01")).toBe(false);
     expect(validMonth("2026-10-02")).toBe(false);
+  });
+});
+
+describe("coverage", () => {
+  const probs = { discovery: 10, proposal: 50, negotiation: 70, won: 100 };
+  const deals = [
+    { stage: "discovery", status: "active", amount: 1000 },
+    { stage: "negotiation", status: "active", amount: 2000 },
+    { stage: "won", status: "active", amount: 5000 }, // 이미 수주 → 제외
+    { stage: "proposal", status: "on_hold", amount: 9000 }, // 보류 → 제외
+    { stage: "proposal", status: "active", amount: null },
+  ];
+  it("남은 목표 대비 진행 중 규모·가중 예상", () => {
+    expect(coverage(deals, probs, 2000, 1000)).toEqual({ remaining: 1000, open: 3000, weighted: 1500, ratio: 3, weightedRatio: 1.5 });
+    expect(coverage(deals, probs, 1000, 1500)).toMatchObject({ remaining: 0, ratio: null });
+    expect(coverage(deals, probs, null, 0)).toBeNull();
   });
 });
