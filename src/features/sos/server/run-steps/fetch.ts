@@ -5,7 +5,7 @@ import { displayOrgName, normalizeOrgName } from "../../analysis/org";
 import { normalize, stripPersonal, type G2bOp } from "../../collectors/g2b";
 import { fetchG2bPage } from "../../collectors/g2b-fetch";
 import { todayInSeoul } from "../../lib/date";
-import { afterFetch, opLabel, shouldSkipFetch } from "../../run/steps";
+import { afterFetch, fetchWindows, opLabel, shouldSkipFetch } from "../../run/steps";
 import type { NormalizedItem } from "../../types";
 import { chunk, IN_LIST, IN_LIST_NAMES, loadAllTeamsKeywords, loadKeywords, must, type Admin } from "../db";
 import { cursorRange, type StepContext, type StepResult } from "./types";
@@ -15,26 +15,30 @@ const ROWS = 999;
 export type OpStats = { fetched?: number; matched?: number; pages?: number; skipped?: boolean; error?: string };
 
 /** 나라장터 한 쪽 수집 → 원본 저장. 일시적 오류는 g2b-fetch 가 다시 묻고, 그래도 실패하면 기록만 하고 이 업무의 남은 쪽은 건너뛴다 */
-export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Promise<StepResult> {
+export async function fetchStep(ctx: StepContext, op: G2bOp, page: number, win = 0): Promise<StepResult> {
   const { admin, teamId, now } = ctx;
   const label = opLabel(op);
   const prev = (ctx.stats[label] ?? {}) as OpStats;
-  const range = cursorRange(ctx);
+  const full = cursorRange(ctx);
+  // 입찰공고는 7일 창씩 묻는다 (나라장터 기간 상한). 재사용 판단·수집 기록은 실행 전체 범위 기준
+  const windows = fetchWindows(op, full);
+  const w = Math.min(Math.max(0, win), windows.length - 1);
+  const range = windows[w];
 
   // 다른 부문(또는 이전 실행)이 이번 실행 시작 뒤에 같은 범위를 받았으면 원본을 재사용한다 (API 한도 절약)
-  if (page === 1) {
+  if (page === 1 && w === 0) {
     const logs = must<{ range_from: string; fetched_at: string }[]>(
       "수집 기록 조회",
       await admin
         .from("sos_fetch_log")
         .select("range_from, fetched_at")
         .eq("source", label)
-        .lte("range_from", todayInSeoul(range.from))
-        .gte("fetched_at", range.to.toISOString())
+        .lte("range_from", todayInSeoul(full.from))
+        .gte("fetched_at", full.to.toISOString())
         .order("fetched_at", { ascending: false })
         .limit(20),
     );
-    if (shouldSkipFetch(logs ?? [], range)) {
+    if (shouldSkipFetch(logs ?? [], full)) {
       return { cursor: ctx.cursor, stats: { ...ctx.stats, [label]: { skipped: true, fetched: 0, matched: 0 } } };
     }
   }
@@ -60,9 +64,11 @@ export async function fetchStep(ctx: StepContext, op: G2bOp, page: number): Prom
   const stats: OpStats = {
     fetched: (prev.fetched ?? 0) + items.length,
     matched: (prev.matched ?? 0) + matched,
-    pages: page,
+    // 창이 여럿이면 받은 쪽 수의 합
+    pages: (prev.pages ?? 0) + 1,
   };
-  return { cursor: afterFetch(ctx.cursor, op, page, res.totalCount, ROWS), stats: { ...ctx.stats, [label]: stats } };
+  const cursor = afterFetch(ctx.cursor, op, page, res.totalCount, ROWS, windows.length > 1 ? w : undefined, windows.length);
+  return { cursor, stats: { ...ctx.stats, [label]: stats } };
 }
 
 /** 한 쪽 안에 같은 공고가 여러 차수로 오면 큰 차수만 (한 upsert 에 같은 키가 두 번 있으면 DB 오류) */

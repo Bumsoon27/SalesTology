@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { G2B_OPS } from "../collectors/g2b";
+import { G2B_OPS, type G2bOp } from "../collectors/g2b";
+import { toG2bDateTime } from "../lib/date";
 import {
   advance,
   afterFetch,
   continueWith,
   fetchLogRange,
+  fetchWindows,
   finalStatus,
   isBusy,
   isStale,
@@ -205,5 +207,56 @@ describe("withoutStepError", () => {
   it("단계가 끝나면 지난 단계 오류 기록을 지운다", () => {
     expect(withoutStepError({ a: 1, stepError: { step: "x", message: "m" } })).toEqual({ a: 1 });
     expect(withoutStepError({ a: 1 })).toEqual({ a: 1 });
+  });
+});
+
+describe("fetchWindows — 입찰공고는 달력 7일씩 (나라장터 07 입력범위값 초과, 2026-11 실측)", () => {
+  const bid: G2bOp = { source: "g2b_bid", biz: "Servc" };
+  const fmt = (ws: { from: Date; to: Date }[]) => ws.map((w) => `${toG2bDateTime(w.from)}~${toG2bDateTime(w.to)}`);
+  const kst = (s: string) => new Date(`${s}+09:00`);
+
+  it("30일 범위 → 7일 창 다섯 개, 빈틈·겹침 없음", () => {
+    const ws = fetchWindows(bid, { from: kst("2026-10-11T00:00:00"), to: kst("2026-11-10T15:29:00") });
+    expect(fmt(ws)).toEqual([
+      "202610110000~202610172359",
+      "202610180000~202610242359",
+      "202610250000~202610312359",
+      "202611010000~202611072359",
+      "202611080000~202611101529",
+    ]);
+  });
+
+  it("낮에 시작해도 7번째 날 23:59 까지만 (날짜 8일에 걸치면 거절됨)", () => {
+    const ws = fetchWindows(bid, { from: kst("2026-11-04T12:00:00"), to: kst("2026-11-11T11:59:00") });
+    expect(fmt(ws)).toEqual(["202611041200~202611102359", "202611110000~202611111159"]);
+  });
+
+  it("7일 안이면 창 하나", () => {
+    const r = { from: kst("2026-11-10T09:00:00"), to: kst("2026-11-11T09:00:00") };
+    expect(fetchWindows(bid, r)).toEqual([r]);
+  });
+
+  it("발주계획·사전규격은 나누지 않는다", () => {
+    const r = { from: kst("2026-10-11T00:00:00"), to: kst("2026-11-10T15:29:00") };
+    expect(fetchWindows({ source: "g2b_prespec", biz: "Thng" }, r)).toEqual([r]);
+    expect(fetchWindows({ source: "g2b_plan", biz: "Servc" }, r)).toEqual([r]);
+  });
+});
+
+describe("afterFetch — 창 이어 받기", () => {
+  const bid: G2bOp = { source: "g2b_bid", biz: "Thng" };
+  const c0: RunCursor = { steps: [{ kind: "fetch", op: bid, page: 1 }, { kind: "finish" }], index: 0, totals: {} };
+
+  it("창 안에 다음 쪽이 있으면 같은 창의 다음 쪽", () => {
+    expect(afterFetch(c0, bid, 1, 2500, 999, 0, 5).steps[1]).toEqual({ kind: "fetch", op: bid, page: 2, win: 0 });
+  });
+  it("창의 마지막 쪽이면 다음 창 1쪽", () => {
+    expect(afterFetch(c0, bid, 3, 2500, 999, 0, 5).steps[1]).toEqual({ kind: "fetch", op: bid, page: 1, win: 1 });
+  });
+  it("마지막 창의 마지막 쪽이면 더 넣지 않음", () => {
+    expect(afterFetch(c0, bid, 1, 10, 999, 4, 5).steps).toHaveLength(2);
+  });
+  it("화면 이름에 구간 표시", () => {
+    expect(stepLabel({ kind: "fetch", op: bid, page: 2, win: 1 })).toBe("입찰공고(물품) 2구간 2쪽 수집");
   });
 });

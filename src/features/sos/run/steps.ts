@@ -7,7 +7,8 @@ export type RunMode = "collect" | "reanalyze";
 
 export type RunStep =
   | { kind: "purge" }
-  | { kind: "fetch"; op: G2bOp; page: number }
+  // win: 조회 창 번호 (입찰공고는 달력 7일씩 나눠 묻는다, fetchWindows). 없으면 0
+  | { kind: "fetch"; op: G2bOp; page: number; win?: number }
   // after: 이어서 볼 사전규격 external_id (keyset)
   | { kind: "link"; after?: string }
   // after: 이어서 훑을 원본 id (keyset). save: 다 훑었으니 리드 저장, offset: 맞은 원본 중 이어서 저장할 위치
@@ -83,10 +84,44 @@ export function currentStep(cursor: RunCursor): RunStep | null {
   return cursor.steps[cursor.index] ?? null;
 }
 
-/** 한 쪽을 받은 뒤: 전체 건수를 기록하고, 다음 쪽이 있으면 바로 뒤에 넣는다 */
-export function afterFetch(cursor: RunCursor, op: G2bOp, page: number, totalCount: number, rows: number): RunCursor {
+/**
+ * 한 쪽을 받은 뒤: 전체 건수를 기록하고, 같은 창에 다음 쪽이 있으면 그 쪽을, 창을 다 받았으면 다음 창 1쪽을 바로 뒤에 넣는다.
+ * win·winCount 를 주지 않으면 창 하나 (S1 동작 그대로)
+ */
+export function afterFetch(
+  cursor: RunCursor,
+  op: G2bOp,
+  page: number,
+  totalCount: number,
+  rows: number,
+  win?: number,
+  winCount = 1,
+): RunCursor {
   const next: RunCursor = { ...cursor, totals: { ...cursor.totals, [opLabel(op)]: totalCount } };
-  return page * rows < totalCount ? continueWith(next, { kind: "fetch", op, page: page + 1 }) : next;
+  const w = win ?? 0;
+  const keepWin = win === undefined ? {} : { win: w };
+  if (page * rows < totalCount) return continueWith(next, { kind: "fetch", op, page: page + 1, ...keepWin });
+  if (w + 1 < winCount) return continueWith(next, { kind: "fetch", op, page: 1, win: w + 1 });
+  return next;
+}
+
+/** 입찰공고 한 번 조회의 최대 기간 (달력 날짜 수). 나라장터가 8일 이상에 걸치면 "07 입력범위값 초과 에러" (2026-11-11 실측) */
+export const BID_WINDOW_DAYS = 7;
+
+/**
+ * 업무 하나의 조회 창들. 입찰공고는 서울 달력 7일씩(첫 창은 range.from 부터, 각 창은 7번째 날 23:59 까지),
+ * 다른 출처는 범위 그대로 하나. 창끼리 빈틈·겹침이 없다 (나라장터 조회는 분 단위, 끝 분 포함)
+ */
+export function fetchWindows(op: G2bOp, range: { from: Date; to: Date }): { from: Date; to: Date }[] {
+  if (op.source !== "g2b_bid") return [range];
+  const out: { from: Date; to: Date }[] = [];
+  let from = range.from;
+  while (from.getTime() <= range.to.getTime()) {
+    const nextStart = Date.parse(`${todayInSeoul(from)}T00:00:00+09:00`) + BID_WINDOW_DAYS * DAY_MS;
+    out.push({ from, to: new Date(Math.min(range.to.getTime(), nextStart - 60_000)) });
+    from = new Date(nextStart);
+  }
+  return out.length > 0 ? out : [range];
 }
 
 /** heartbeat 가 15분 넘게 그대로면 멈춘 실행 */
@@ -187,7 +222,7 @@ export function stepLabel(step: RunStep | null): string {
     case "purge":
       return "보관 정리";
     case "fetch":
-      return `${opDisplayName(step.op)} ${step.page}쪽 수집`;
+      return `${opDisplayName(step.op)} ${step.win ? `${step.win + 1}구간 ` : ""}${step.page}쪽 수집`;
     case "link":
       return "사업 흐름 연결";
     case "analyze":
