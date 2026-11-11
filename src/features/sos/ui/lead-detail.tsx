@@ -15,8 +15,13 @@ type Props = {
 };
 
 export function LeadDetailPanel({ lead, today, team, closeHref, convertSlot }: Props) {
+  // 넓은 화면: 목록 옆에 고정(sticky)되므로 패널이 화면보다 길면 아랫부분에 닿지 못한다 —
+  // 높이를 SOS 스크롤 영역(화면 − 상단 바 3rem − 위아래 여백 2rem) 안으로 묶고 패널 안에서 따로 스크롤한다
   return (
-    <aside aria-label="리드 상세" className="flex scroll-mt-4 flex-col gap-3 min-[1000px]:sticky min-[1000px]:top-4 min-[1000px]:self-start">
+    <aside
+      aria-label="리드 상세"
+      className="flex scroll-mt-4 flex-col gap-3 min-[1000px]:sticky min-[1000px]:top-4 min-[1000px]:max-h-[calc(100dvh-5rem)] min-[1000px]:self-start min-[1000px]:overflow-y-auto min-[1000px]:overscroll-contain"
+    >
       <div className="flex justify-end">
         <Link href={closeHref} scroll={false} className={`${touchArea} text-xs font-medium text-[var(--sos-text-sub)] transition-colors duration-200 hover:text-[var(--sos-accent)]`}>
           닫기 ✕
