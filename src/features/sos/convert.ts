@@ -33,6 +33,26 @@ export function toLeadToDealInput(lead: ConvertibleLead): LeadToDealInput {
   };
 }
 
+export type ConvertedLeadPatch = { status: "converted"; converted_deal_id: string; assignee_id?: string; touched_at?: string };
+
+/**
+ * 전환 뒤 리드에 저장할 값. 담당은 전환할 때 정해진다 — 비어 있으면 누른 사람(A 사업의 담당과 같은 사람)을 남기고,
+ * 미리 지정된 담당은 그대로 둔다. 사람이 손댄 시각은 처음 값만 남긴다 (보관 정리 제외 기준)
+ */
+export function convertedLeadPatch(
+  lead: { assigneeId: string | null; touchedAt: string | null },
+  dealId: string,
+  userId: string,
+  now: Date,
+): ConvertedLeadPatch {
+  return {
+    status: "converted",
+    converted_deal_id: dealId,
+    ...(lead.assigneeId ? {} : { assignee_id: userId }),
+    ...(lead.touchedAt ? {} : { touched_at: now.toISOString() }),
+  };
+}
+
 /** DB 의 expected_order_month(date, 1일) → "YYYY-MM". 형식이 다르면 null */
 export function orderMonthOf(v: string | null | undefined): string | null {
   const m = v?.match(/^(\d{4}-\d{2})(?:-\d{2})?$/);

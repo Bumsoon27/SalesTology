@@ -2,8 +2,9 @@
 
 import { refresh } from "next/cache";
 import { createDealFromLead } from "@/features/deals/api";
+import { requireUser } from "@/shared/auth/current-user";
 import { createClient } from "@/shared/supabase/server";
-import { dealHref, orderMonthOf, toLeadToDealInput } from "../convert";
+import { convertedLeadPatch, dealHref, orderMonthOf, toLeadToDealInput } from "../convert";
 import { parseLeadId } from "../lib/lead-view";
 import type { LeadStatus, Stage } from "../types";
 import { requireSosTeam } from "./context";
@@ -92,12 +93,9 @@ export async function convertLead(leadId: string, teamParam?: string | null): Pr
   );
   if (!res.ok) return { ok: false, error: res.error };
 
-  // 사람이 손댄 시각은 처음 값만 남긴다 (보관 정리 제외 기준)
-  const values = {
-    status: "converted" as const,
-    converted_deal_id: res.data.dealId,
-    ...(r.touched_at ? {} : { touched_at: new Date().toISOString() }),
-  };
+  // 담당이 비어 있으면 누른 사람으로 (A 사업도 같은 사람이 담당이 된다)
+  const user = await requireUser();
+  const values = convertedLeadPatch({ assigneeId: r.assignee_id, touchedAt: r.touched_at }, res.data.dealId, user.id, new Date());
   const upd = await supabase.from("sos_leads").update(values).eq("id", id).eq("team_id", teamId).select("id");
   if (upd.error || !upd.data || upd.data.length === 0) {
     if (upd.error) logDb("전환 결과 저장", upd.error);
