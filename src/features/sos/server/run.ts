@@ -217,7 +217,7 @@ function runStep(ctx: StepContext, step: RunStep): Promise<StepResult> {
     case "purge":
       return purgeStep(ctx);
     case "fetch":
-      return fetchStep(ctx, step.op, step.page);
+      return fetchStep(ctx, step.op, step.page, step.win);
     case "link":
       return linkStep(ctx, step.after);
     case "analyze":
