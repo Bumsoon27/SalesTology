@@ -52,7 +52,7 @@ export function PartnerBrowser({ partners, initialScope }: { partners: Partner[]
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   on
                     ? s === "sos"
-                      ? "bg-[#ff6a0d]/20 text-[#ffb27f] ring-1 ring-[#ff6a0d]/50"
+                      ? "bg-[#ff8f6b]/20 text-[#ffb49c] ring-1 ring-[#ff8f6b]/50"
                       : "bg-accent/20 text-fg ring-1 ring-accent/50"
                     : "text-muted hover:bg-white/[0.06] hover:text-fg"
                 }`}
@@ -113,7 +113,7 @@ function PartnerCard({ p }: { p: Partner }) {
           {p.dealCount > 0 && (
             <span className="block text-[10px]">
               내 사업 {p.myDealCount}
-              {p.sosDealCount > 0 && <span className="text-[#ff9a5c]"> · SOS 전환 {p.sosDealCount}</span>}
+              {p.sosDealCount > 0 && <span className="text-[#ff8f6b]"> · SOS 전환 {p.sosDealCount}</span>}
             </span>
           )}
         </span>
@@ -125,7 +125,7 @@ function PartnerCard({ p }: { p: Partner }) {
           </span>
         ))}
         {p.sosDealCount > 0 && (
-          <span className="rounded-full border border-[#ff6a0d]/50 bg-[#ff6a0d]/10 px-2 py-0.5 text-[11px] text-[#ff9a5c]">SOS</span>
+          <span className="rounded-full border border-[#ff8f6b]/50 bg-[#ff8f6b]/10 px-2 py-0.5 text-[11px] text-[#ff8f6b]">SOS</span>
         )}
       </div>
       {(p.contactName || p.contactInfo) && (

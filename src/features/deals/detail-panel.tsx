@@ -613,7 +613,7 @@ function DealView({ d, onChanged }: { d: DealDetail; onChanged: () => void }) {
 /** SOS 리드에서 전환된 사업 표시 */
 function SosBadge() {
   return (
-    <span title="SOS 시그널(리드)에서 사업으로 전환된 사업입니다" className="rounded-full border border-[#ff6a0d]/50 bg-[#ff6a0d]/10 px-1.5 py-px text-[10px] text-[#ff9a5c]">
+    <span title="SOS 시그널(리드)에서 사업으로 전환된 사업입니다" className="rounded-full border border-[#ff8f6b]/50 bg-[#ff8f6b]/10 px-1.5 py-px text-[10px] text-[#ff8f6b]">
       SOS에서 전환
     </span>
   );
